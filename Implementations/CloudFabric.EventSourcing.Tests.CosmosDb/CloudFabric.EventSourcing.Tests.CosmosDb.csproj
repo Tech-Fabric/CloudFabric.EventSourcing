@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\CloudFabric.EventSourcing.Domain\CloudFabric.EventSourcing.Domain.csproj"/>
+        <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.CosmosDb\CloudFabric.EventSourcing.EventStore.CosmosDb.csproj"/>
+        <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.Postgresql\CloudFabric.EventSourcing.EventStore.Postgresql.csproj"/>
+        <ProjectReference Include="..\..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj"/>
+        <ProjectReference Include="..\..\CloudFabric.EventSourcing.Tests\CloudFabric.EventSourcing.Tests.csproj"/>
+        <ProjectReference Include="..\..\Implementations\CloudFabric.Projections.CosmosDb\CloudFabric.Projections.CosmosDb.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.27.2"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="6.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0"/>
+        <PackageReference Include="MSTest.TestAdapter" Version="2.2.10"/>
+        <PackageReference Include="MSTest.TestFramework" Version="2.2.10"/>
+    </ItemGroup>
+
+</Project>

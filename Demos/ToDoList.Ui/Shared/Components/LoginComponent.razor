@@ -1,0 +1,47 @@
+@using ToDoList.Models
+@using ToDoList.Ui.Services
+
+@inject UserAccountService userAccountService
+@inject NavigationManager navigationManager
+
+<FormComponent OnSubmit="@OnSubmit" Model="model">
+    <FormBody>
+        <h2>Welcome back!</h2>
+
+        <div class="col-sm-12">
+            <label for="Email address" class="form-label">Email address</label>
+            <InputText class="form-control" type="email" id="email" @bind-Value="model.Email" />
+        </div>
+
+        <div class="col-sm-12">
+            <label for="Password" class="form-label">Password</label>
+            <InputText class="form-control" type="password" id="password" @bind-Value="model.Password" />
+        </div>
+    </FormBody>
+    <FormFooter>
+        <div class="col-xs-12 col-sm-8">
+            <p>Need an account? <a href="registration">Register</a></p>
+        </div>
+    </FormFooter>
+    <SubmitButtonText>
+        Log in!
+    </SubmitButtonText>
+    <SubmitButtonTextInProgress>
+        Logging in...
+    </SubmitButtonTextInProgress>
+</FormComponent>
+
+@code {
+    public readonly GenerateNewAccessTokenRequest model = new();
+
+    private async Task<ServiceResult> OnSubmit(GenerateNewAccessTokenRequest model)
+    {
+        var serviceResult = await userAccountService.Login(model);
+
+        if(serviceResult.Succeed) {
+            navigationManager.NavigateTo("/");
+        }
+
+        return serviceResult;
+    }
+}

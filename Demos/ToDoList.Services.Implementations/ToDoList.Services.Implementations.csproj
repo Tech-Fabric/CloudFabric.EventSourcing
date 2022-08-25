@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+      <ProjectReference Include="..\ToDoList.Services.Interfaces\ToDoList.Services.Interfaces.csproj" />
+      <ProjectReference Include="..\..\CloudFabric.EventSourcing.Domain\CloudFabric.EventSourcing.Domain.csproj" />
+      <ProjectReference Include="..\ToDoList.Domain\ToDoList.Domain.csproj" />
+      <ProjectReference Include="..\..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj" />
+      <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+      <PackageReference Include="automapper" Version="11.0.1" />
+      <PackageReference Include="microsoft.aspnetcore.identity" Version="2.2.0" />
+      <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.22.0" />
+    </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+</Project>

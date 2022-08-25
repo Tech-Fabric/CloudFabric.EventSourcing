@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+      <ProjectReference Include="..\..\CloudFabric.EventSourcing.Domain\CloudFabric.EventSourcing.Domain.csproj" />
+      <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj" />
+      <ProjectReference Include="..\..\CloudFabric.Projections.Attributes\CloudFabric.Projections.Attributes.csproj" />
+    </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+</Project>

@@ -1,0 +1,43 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "ToDoList - UI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build.ui",
+            // If you have changed target frameworks, make sure to update the program path.
+            "program": "${workspaceFolder}/Demos/ToDoList.Ui/bin/Debug/net6.0/ToDoList.Ui.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/Demos/ToDoList.Ui",
+            // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_URLS": "http://localhost:60001"
+            }
+        },
+        {
+            "name": "ToDoList - Api",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build.api",
+            // If you have changed target frameworks, make sure to update the program path.
+            "program": "${workspaceFolder}/Demos/ToDoList.Api/bin/Debug/net6.0/ToDoList.Api.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/Demos/ToDoList.Api",
+            // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_URLS": "http://localhost:60000"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Ui and Api",
+            "configurations": ["ToDoList - UI", "ToDoList - Api"]
+        }
+    ]
+}

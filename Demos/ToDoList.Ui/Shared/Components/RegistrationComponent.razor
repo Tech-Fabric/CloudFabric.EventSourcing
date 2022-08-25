@@ -1,0 +1,59 @@
+@using ToDoList.Ui.Services;
+@using ToDoList.Models;
+
+@inject UserAccountService userAccountService
+@inject NavigationManager navigationManager
+
+<FormComponent OnSubmit="@OnSubmit" Model="model">
+    <FormBody>
+        <h2>Happy to meet you!</h2>
+
+        <div class="col-sm-12">
+            <label for="firstName" class="form-label">First Name</label>
+            <InputText class="form-control" id="firstName" @bind-Value="model.FirstName" />
+            <ValidationMessage For="@(() => model.FirstName)" />
+            <div class="invalid-feedback">
+                Looks good!
+            </div>
+        </div>
+
+        <div class="col-sm-12">
+            <label for="email" class="form-label">Email</label>
+            <InputText class="form-control" type="email" id="email" @bind-Value="model.Email" />
+            <ValidationMessage For="@(() => model.Email)" />
+        </div>
+
+        <div class="col-sm-12">
+            <label for="password" class="form-label">Password</label>
+            <InputText class="form-control" type="password" id="password" @bind-Value="model.Password" />
+            <ValidationMessage For="@(() => model.Password)" />
+        </div>
+    </FormBody>
+    <FormFooter>
+        <div class="col-xs-12 col-sm-6">
+            <p>Already have an account? <a href="login">Log in</a></p>
+        </div>
+    </FormFooter>
+    <SubmitButtonText>
+        Submit
+    </SubmitButtonText>
+    <SubmitButtonTextInProgress>
+        Submitting...
+    </SubmitButtonTextInProgress>
+</FormComponent>
+
+@code {
+    public readonly RegisterNewUserAccountRequest model = new();
+
+    private async Task<ServiceResult> OnSubmit(RegisterNewUserAccountRequest model)
+    {
+        var serviceResult = await userAccountService
+            .Register(model);
+
+        if(serviceResult.Succeed) {
+            navigationManager.NavigateTo("/");
+        }
+
+        return serviceResult;
+    }
+}

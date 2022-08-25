@@ -1,0 +1,70 @@
+﻿@page "/tasks"
+
+@attribute [Authorize]
+
+@inject TaskListsService taskListsService
+
+<PageTitle>Tasks</PageTitle>
+
+<h1>Tasks</h1>
+
+<div class="row">
+    <div class="col-sm-2 col-xs-12">
+        <h2>Task Lists</h2>
+
+        @if (initialLoadingCompleted == true)
+        {
+            <CreateNewTaskListComponent />
+        }
+
+        @if (initialLoadingCompleted == false)
+        {
+            <div class="alert alert-info" role="alert">
+                Loading...
+            </div>
+        }
+        else if (initialLoadingCompleted && taskLists.Count == 0)
+        {
+            <div class="alert alert-info" role="alert">
+                There are no task lists yet.
+            </div>
+        }
+        else
+        {
+            foreach (var taskList in taskLists)
+            {
+                <div class="task-list">
+                    <div class="task-list-name">
+                        @taskList.Name
+                    </div>
+                </div>
+            }
+        }
+    </div>
+    <div class="col-sm-2 col-xs-12">
+        <h2>Tasks</h2>
+    </div>
+</div>
+
+
+@code {
+    public bool initialLoadingCompleted = false;
+
+    public List<TaskListViewModel> taskLists;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var serviceResult = await taskListsService.GetTaskLists(0, 100);
+            if (serviceResult.Succeed)
+            {
+                taskLists = serviceResult.Result;
+            }
+
+            initialLoadingCompleted = true;
+
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,154 @@
+using AutoMapper;
+
+using CloudFabric.EventSourcing.Domain;
+using CloudFabric.EventSourcing.EventStore.Persistence;
+using CloudFabric.Projections;
+using CloudFabric.Projections.Queries;
+
+using ToDoList.Domain;
+using ToDoList.Domain.Projections.TaskLists;
+using ToDoList.Models;
+using ToDoList.Models.RequestModels.TaskLists;
+using ToDoList.Models.ViewModels.TaskLists;
+using ToDoList.Services.Interfaces;
+
+namespace ToDoList.Services.Implementations;
+
+public class TaskListsService : ITaskListsService
+{
+    private readonly IMapper _mapper;
+    private readonly EventUserInfo _userInfo;
+
+    private readonly AggregateRepository<TaskList> _taskListsRepository;
+    private readonly AggregateRepository<Domain.Task> _tasksRepository;
+
+    private readonly IProjectionRepository<TaskListProjectionItem> _taskListsProjectionRepository;
+    private readonly IProjectionRepository<TaskProjectionItem> _tasksProjectionRepository;
+
+    public TaskListsService(
+        IMapper mapper,
+        EventUserInfo userInfo,
+        AggregateRepository<TaskList> taskListsRepository,
+        AggregateRepository<Domain.Task> tasksRepository,
+        IProjectionRepository<TaskListProjectionItem> taskListProjectionRepository,
+        IProjectionRepository<TaskProjectionItem> tasksProjectionRepository
+    )
+    {
+        _mapper = mapper;
+        _userInfo = userInfo;
+        _taskListsRepository = taskListsRepository;
+        _tasksRepository = tasksRepository;
+        _taskListsProjectionRepository = taskListProjectionRepository;
+        _tasksProjectionRepository = tasksProjectionRepository;
+    }
+
+    public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> CreateTaskList(CreateTaskListRequest request, CancellationToken cancellationToken)
+    {
+        var validationProblemDetails = ValidationHelper.Validate(request);
+
+        if (validationProblemDetails != null)
+        {
+            return ServiceResult<TaskListViewModel>.Failed(validationProblemDetails);
+        }
+
+        var taskList = new TaskList(_userInfo.UserId, Guid.NewGuid().ToString(), request.Name);
+
+        await _taskListsRepository.SaveAsync(_userInfo, taskList, cancellationToken);
+
+        return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
+    }
+
+    public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> GetTaskListById(string taskListId, CancellationToken cancellationToken)
+    {
+        var taskList = await _taskListsRepository.LoadAsync(taskListId, cancellationToken);
+
+        if (taskList == null)
+        {
+            return ServiceResult<TaskListViewModel>.Failed("task_list_not_found", "Task list does not exist");
+        }
+
+        return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
+    }
+
+    public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> UpdateTaskListName(string taskListId, UpdateTaskListNameRequest request, CancellationToken cancellationToken)
+    {
+        var validationProblemDetails = ValidationHelper.Validate(request);
+
+        if (validationProblemDetails != null)
+        {
+            return ServiceResult<TaskListViewModel>.Failed(validationProblemDetails);
+        }
+
+        var taskList = await _taskListsRepository.LoadAsync(taskListId, cancellationToken);
+
+        if (taskList == null)
+        {
+            return ServiceResult<TaskListViewModel>.Failed("task_list_not_found", "Task list does not exist");
+        }
+
+        taskList.UpdateName(request.Name);
+
+        await _taskListsRepository.SaveAsync(_userInfo, taskList, cancellationToken);
+
+        return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
+    }
+
+    public async System.Threading.Tasks.Task<ServiceResult<TaskViewModel>> CreateTask(CreateTaskRequest request, CancellationToken cancellationToken)
+    {
+        var validationProblemDetails = ValidationHelper.Validate(request);
+
+        if (validationProblemDetails != null)
+        {
+            return ServiceResult<TaskViewModel>.Failed(validationProblemDetails);
+        }
+
+        var task = new Domain.Task(_userInfo.UserId, request.TaskListId, Guid.NewGuid().ToString(), request.Name, request.Description);
+
+        await _tasksRepository.SaveAsync(_userInfo, task, cancellationToken);
+
+        return ServiceResult<TaskViewModel>.Success(_mapper.Map<TaskViewModel>(task));
+    }
+
+    public async System.Threading.Tasks.Task<ServiceResult<List<TaskViewModel>>> GetTasks(
+        string taskListId,
+        string search,
+        int limit,
+        int offset,
+        CancellationToken cancellationToken
+    )
+    {
+        var projectionQuery = ProjectionQuery.Where<TaskProjectionItem>(
+            t => t.UserAccountId == _userInfo.UserId && t.TaskListId == taskListId
+        );
+        projectionQuery.SearchText = search;
+        projectionQuery.Limit = limit;
+        projectionQuery.Offset = offset;
+
+        var tasks = await _tasksProjectionRepository.Query(
+            projectionQuery,
+            cancellationToken
+        );
+
+        return ServiceResult<List<TaskViewModel>>.Success(_mapper.Map<List<TaskViewModel>>(tasks));
+    }
+
+    public async System.Threading.Tasks.Task<ServiceResult<List<TaskViewModel>>> GetTaskLists(
+        string search,
+        int limit, 
+        int offset,
+        CancellationToken cancellationToken
+    )
+    {
+        var projectionQuery = ProjectionQuery.Where<TaskListProjectionItem>(t => t.UserAccountId == _userInfo.UserId);
+        projectionQuery.SearchText = search;
+        projectionQuery.Limit = limit;
+        projectionQuery.Offset = offset;
+
+        var taskLists = await _taskListsProjectionRepository.Query(
+            projectionQuery,
+            cancellationToken
+        );
+
+        return ServiceResult<List<TaskViewModel>>.Success(_mapper.Map<List<TaskViewModel>>(taskLists));
+    }
+}

@@ -1,0 +1,108 @@
+@typeparam TFormModel
+
+@using System
+@using ToDoList.Models
+
+
+<EditForm class="row g-3" Model="@Model" OnValidSubmit="OnValidSubmit">
+    @FormBody
+
+    <DataAnnotationsValidator />
+    <FormComponentServerProblemDetailsHandler @ref="serverProblemDetailsHandler"/>
+
+    @if (displayErrors)
+    {
+        <div class="col-sm-12">
+            <div class="alert alert-danger" role="alert">
+                <ValidationSummary />
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    @errorMessage
+                }
+            </div>
+        </div>
+    }
+
+    @FormFooter
+
+    <div class="col-xs-12 col-sm-4 text-end">
+        <button type="submit" disabled="@(submitInProgress)" class="btn btn-primary text-center">
+            @if (submitInProgress)
+            {
+                @SubmitButtonTextInProgress
+            }
+            else
+            {
+                @SubmitButtonText
+            }
+        </button>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter]
+    public RenderFragment? FormBody { get; set; }
+
+    [Parameter]
+    public RenderFragment? FormFooter { get; set; }
+
+    [Parameter]
+    public RenderFragment? SubmitButtonText { get; set; }
+
+    [Parameter]
+    public RenderFragment? SubmitButtonTextInProgress { get; set; }
+
+    [Parameter]
+    public Func<TFormModel, Task<ServiceResult>>? OnSubmit { get; set; }
+
+    [Parameter]
+    public TFormModel? Model { get; set; }
+
+    FormComponentServerProblemDetailsHandler? serverProblemDetailsHandler;
+
+    private EditContext? editContext;
+    private bool displayErrors = false;
+    private bool submitInProgress = false;
+    private string errorMessage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        editContext = new(Model);
+    }
+
+    private async Task OnValidSubmit(EditContext context)
+    {
+        submitInProgress = true;
+        errorMessage = string.Empty;
+
+        if (editContext != null && editContext.Validate())
+        {
+            displayErrors = false;
+
+            try
+            {
+                var serviceResult = await OnSubmit(Model);
+
+                if(serviceResult.Succeed == false) {
+                    errorMessage = $"{serviceResult.ProblemDetails?.Title}.";
+                    displayErrors = true;
+                    serverProblemDetailsHandler.DisplayErrors(serviceResult.ProblemDetails);
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                displayErrors = true;
+            }
+            finally
+            {
+                submitInProgress = false;
+            }
+        }
+        else
+        {
+            displayErrors = true;
+        }
+    }
+}
