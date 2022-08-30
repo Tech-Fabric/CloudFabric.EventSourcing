@@ -66,7 +66,7 @@ public abstract class OrderTests
         };
         var order = new Order(id, orderName, items);
 
-        var saved = await orderRepository.SaveOrder(userInfo, order);
+        await orderRepository.SaveOrder(userInfo, order);
         var order2 = await orderRepository.LoadOrder(id);
         order2.Id.Should().Be(id);
         order2.OrderName.Should().Be(orderName);
@@ -106,7 +106,7 @@ public abstract class OrderTests
         // add another item:
         var addItem = new OrderItem(DateTime.UtcNow, "Eclipse", 6.95m);
         order.AddItem(addItem);
-        var saved = await orderRepository.SaveOrder(userInfo, order);
+        await orderRepository.SaveOrder(userInfo, order);
 
         // update items so we can use it for comparison
         items.Add(addItem);
@@ -184,7 +184,7 @@ public abstract class OrderTests
 
         var order = new Order(id, orderName, items);
 
-        var saved = await orderRepository.SaveOrder(userInfo, order);
+        await orderRepository.SaveOrder(userInfo, order);
 
         await Task.Delay(ProjectionsUpdateDelay);
 
@@ -197,7 +197,7 @@ public abstract class OrderTests
         var addItem = new OrderItem(DateTime.UtcNow, "Twilight Struggle", 6.95m);
         order.AddItem(addItem);
 
-        var saved2 = await orderRepository.SaveOrder(userInfo, order);
+        await orderRepository.SaveOrder(userInfo, order);
 
         await Task.Delay(ProjectionsUpdateDelay);
 

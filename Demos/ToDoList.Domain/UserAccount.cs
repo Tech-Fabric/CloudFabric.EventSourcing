@@ -29,22 +29,16 @@ public class UserAccount : AggregateBase
 
     #region Event Handlers
 
-    protected void On(UserAccountRegistered @event)
+    public void On(UserAccountRegistered @event)
     {
         Id = @event.Id;
         FirstName = @event.FirstName;
         HashedPassword = @event.HashedPassword;
     }
 
-    protected void On(UserAccountPasswordUpdated @event)
+    public void On(UserAccountPasswordUpdated @event)
     {
         HashedPassword = @event.NewHashedPassword;
-    }
-
-
-    protected override void RaiseEvent(IEvent @event)
-    {
-        ((dynamic)this).On((dynamic)@event);
     }
 
     #endregion

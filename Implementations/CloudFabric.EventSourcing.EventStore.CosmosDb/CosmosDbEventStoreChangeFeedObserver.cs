@@ -25,7 +25,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
     protected readonly string _leaseContainerId;
     protected readonly string _leaseDatabaseId;
     private ChangeFeedProcessor _changeFeedProcessor;
-    private Func<IEvent, Task<bool>> _eventHandler;
+    private Func<IEvent, Task> _eventHandler;
 
     private string _processorName;
 
@@ -50,7 +50,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         _processorName = processorName;
     }
 
-    public void SetEventHandler(Func<IEvent, Task<bool>> eventHandler)
+    public void SetEventHandler(Func<IEvent, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }

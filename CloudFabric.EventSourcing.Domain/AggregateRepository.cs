@@ -3,27 +3,19 @@ using CloudFabric.EventSourcing.EventStore.Persistence;
 
 namespace CloudFabric.EventSourcing.Domain;
 
-public interface IAggregateRepository<T> where T : AggregateBase
-{
-    Task<T?> LoadAsync(string id, CancellationToken cancellationToken = default);
-    Task<T> LoadAsyncOrThrowNotFound(string id, CancellationToken cancellationToken = default);
-    Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, CancellationToken cancellationToken = default);
-}
-
 public class AggregateRepository<T> : IAggregateRepository<T> where T : AggregateBase
 {
     private readonly IEventStore _eventStore;
 
-    public AggregateRepository(
-        IEventStore eventStore
-    )
+    public AggregateRepository(IEventStore eventStore)
     {
         _eventStore = eventStore;
     }
 
     public async Task<T?> LoadAsync(string id, CancellationToken cancellationToken = default)
     {
-        if(string.IsNullOrEmpty(id)) {
+        if(string.IsNullOrEmpty(id))
+        {
             throw new ArgumentNullException(nameof(id));
         }
 
@@ -39,7 +31,8 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
 
     public async Task<T> LoadAsyncOrThrowNotFound(string id, CancellationToken cancellationToken = default)
     {
-        if(string.IsNullOrEmpty(id)) {
+        if(string.IsNullOrEmpty(id))
+        {
             throw new ArgumentNullException(nameof(id));
         }
 
@@ -48,19 +41,18 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         return (T)Activator.CreateInstance(typeof(T), new object[] { eventStream.Events });
     }
 
-    public async Task<bool> SaveAsync(
-        EventUserInfo eventUserInfo,
-        T aggregate,
-        CancellationToken cancellationToken = default
-    )
+    public async Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, CancellationToken cancellationToken = default)
     {
         if (aggregate.UncommittedEvents.Any())
         {
             var streamId = aggregate.Id.ToString();
 
-            var eventsSavedSuccessfully = await _eventStore.AppendToStreamAsync(eventUserInfo, streamId,
+            var eventsSavedSuccessfully = await _eventStore.AppendToStreamAsync(
+                eventUserInfo,
+                streamId,
                 aggregate.Version,
-                aggregate.UncommittedEvents);
+                aggregate.UncommittedEvents
+            );
 
             aggregate.OnChangesSaved();
 

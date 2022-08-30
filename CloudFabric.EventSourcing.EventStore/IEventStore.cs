@@ -5,6 +5,7 @@ namespace CloudFabric.EventSourcing.EventStore;
 public interface IEventStore
 {
     Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId);
+
     Task<EventStream> LoadStreamAsync(string streamId);
 
     Task<EventStream> LoadStreamAsync(string streamId, int fromVersion);

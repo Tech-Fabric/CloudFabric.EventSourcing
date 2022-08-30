@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Text.Json;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using Npgsql;
@@ -12,10 +12,7 @@ public class PostgresqlEventStore : IEventStore
     private readonly List<Func<IEvent, Task>> _eventAddedEventHandlers = new();
     private readonly string _tableName;
 
-    public PostgresqlEventStore(
-        string connectionString,
-        string tableName
-    )
+    public PostgresqlEventStore(string connectionString, string tableName)
     {
         _connectionString = connectionString;
         _tableName = tableName;
@@ -31,10 +28,7 @@ public class PostgresqlEventStore : IEventStore
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
 
-        await using var cmd = new NpgsqlCommand(
-            $"DELETE FROM {_tableName}", conn)
-        {
-        };
+        await using var cmd = new NpgsqlCommand($"DELETE FROM {_tableName}", conn);
 
         await cmd.ExecuteScalarAsync();
     }
@@ -151,8 +145,7 @@ public class PostgresqlEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, string streamId, int expectedVersion,
-        IEnumerable<IEvent> events)
+    public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, string streamId, int expectedVersion, IEnumerable<IEvent> events)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();

@@ -5,14 +5,14 @@ namespace CloudFabric.EventSourcing.EventStore.Postgresql;
 public class PostgresqlEventStoreEventObserver : IEventsObserver
 {
     private readonly PostgresqlEventStore _eventStore;
-    private Func<IEvent, Task<bool>>? _eventHandler;
+    private Func<IEvent, Task>? _eventHandler;
 
     public PostgresqlEventStoreEventObserver(PostgresqlEventStore eventStore)
     {
         _eventStore = eventStore;
     }
 
-    public void SetEventHandler(Func<IEvent, Task<bool>> eventHandler)
+    public void SetEventHandler(Func<IEvent, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }

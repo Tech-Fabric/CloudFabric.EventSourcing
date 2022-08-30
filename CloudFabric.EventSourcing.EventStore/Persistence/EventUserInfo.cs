@@ -4,7 +4,8 @@ namespace CloudFabric.EventSourcing.EventStore.Persistence;
 
 public record EventUserInfo
 {
-    public EventUserInfo() {
+    public EventUserInfo()
+    {
         UserId = "unauthorized";
     }
 

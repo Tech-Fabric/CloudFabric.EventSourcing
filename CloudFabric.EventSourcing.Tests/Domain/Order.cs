@@ -37,14 +37,14 @@ public class Order : AggregateBase
 
     #region Event Handlers
 
-    protected void On(OrderPlaced @event)
+    public void On(OrderPlaced @event)
     {
         Id = @event.Id;
         OrderName = @event.OrderName;
         Items = @event.Items;
     }
 
-    protected void On(OrderItemAdded @event)
+    public void On(OrderItemAdded @event)
     {
         // build new list
         var items = new List<OrderItem>(Items) { @event.Item };
@@ -52,18 +52,13 @@ public class Order : AggregateBase
         Items = items;
     }
 
-    protected void On(OrderItemRemoved @event)
+    public void On(OrderItemRemoved @event)
     {
         // build new list
         var items = new List<OrderItem>();
         items.AddRange(Items.Where(x => x.Name != @event.Name));
         // set to list without item
         Items = items;
-    }
-
-    protected override void RaiseEvent(IEvent @event)
-    {
-        ((dynamic)this).On((dynamic)@event);
     }
 
     #endregion
