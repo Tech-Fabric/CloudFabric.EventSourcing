@@ -4,12 +4,11 @@ using Npgsql;
 
 namespace CloudFabric.Projections.Postgresql;
 
-public class PostgresqlProjectionRepository<TProjectionDocument>
-    : PostgresqlProjectionRepository, IProjectionRepository<TProjectionDocument>
+public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlProjectionRepository, IProjectionRepository<TProjectionDocument>
     where TProjectionDocument : ProjectionDocument
 {
-    public PostgresqlProjectionRepository(string connectionString) :
-        base(connectionString, ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>())
+    public PostgresqlProjectionRepository(string connectionString)
+        : base(connectionString, ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>())
     {
     }
 
