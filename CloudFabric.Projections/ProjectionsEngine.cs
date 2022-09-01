@@ -5,7 +5,7 @@ namespace CloudFabric.Projections;
 public class ProjectionsEngine : IProjectionsEngine
 {
     private readonly List<IProjectionBuilder<ProjectionDocument>> _projectionBuilders = new();
-    private IEventsObserver? _observer;
+    private IEventsObserver? _observer; 
 
     public Task StartAsync(string instanceName)
     {
@@ -33,6 +33,25 @@ public class ProjectionsEngine : IProjectionsEngine
         _observer.SetEventHandler(HandleEvent);
     }
 
+    public void AddProjectionBuilder(IProjectionBuilder<ProjectionDocument> projectionBuilder)
+    {
+        _projectionBuilders.Add(projectionBuilder);
+    }
+
+    public async Task RebuildAsync(DateTime? dateFrom = null)
+    {
+        // TODO: merge main after prev PR
+        
+        // TODO: add rebuild status
+        
+        await _observer.LoadAndHandleEventsAsync(dateFrom);
+    }
+
+    public async Task RebuildOneAsync(string documentId)
+    {
+        await _observer.LoadAndHandleEventsForDocumentAsync(documentId);
+    }
+
     private async Task HandleEvent(IEvent @event)
     {
         foreach (var projectionBuilder in
@@ -47,10 +66,5 @@ public class ProjectionsEngine : IProjectionsEngine
                 throw;
             }
         }
-    }
-
-    public void AddProjectionBuilder(IProjectionBuilder<ProjectionDocument> projectionBuilder)
-    {
-        _projectionBuilders.Add(projectionBuilder);
     }
 }

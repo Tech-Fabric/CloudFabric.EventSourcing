@@ -145,6 +145,59 @@ public class PostgresqlEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
+    public async Task<List<IEvent>> LoadEventsByDateAsync(DateTime? dateFrom, DateTime? dateTo = null)
+    {        
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        string whereClause = dateFrom.HasValue
+            ? $"(event_data ->>'timestamp')::timestamp without time zone >= '{dateFrom.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone && "
+            : "";
+            
+        whereClause += dateTo.HasValue
+            ? $"(event_data ->>'timestamp')::timestamp without time zone <= '{dateTo.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone "
+            : "";
+
+        await using var cmd = new NpgsqlCommand(
+            $"SELECT id, event_type, event_data " +
+            $"FROM {_tableName} " +
+            (!string.IsNullOrEmpty(whereClause) 
+                ? $"WHERE {whereClause}" 
+                : "") +
+            $"ORDER BY stream_version ASC", conn);
+
+        try
+        {
+            await using var reader = await cmd.ExecuteReaderAsync();
+            var events = new List<IEvent>();
+
+            while (await reader.ReadAsync())
+            {
+                var eventWrapper = new EventWrapper()
+                {
+                    Id = reader.GetString("id"),
+                    EventType = reader.GetString("event_type"),
+                    EventData = JsonDocument.Parse(reader.GetString("event_data")).RootElement
+                };
+
+                events.Add(eventWrapper.GetEvent());
+            }
+
+            return events;
+        }
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            {
+                throw new Exception(
+                    "EventStore table not found, please make sure to call Initialize() on event store first.",
+                    ex);
+            }
+
+            throw;
+        }
+    }
+
     public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, string streamId, int expectedVersion, IEnumerable<IEvent> events)
     {
         await using var conn = new NpgsqlConnection(_connectionString);

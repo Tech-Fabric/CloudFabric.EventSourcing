@@ -9,4 +9,8 @@ public interface IEventsObserver
     public Task StopAsync();
 
     public void SetEventHandler(Func<IEvent, Task> eventHandler);
+
+    public Task LoadAndHandleEventsForDocumentAsync(string documentId);
+
+    public Task LoadAndHandleEventsAsync(DateTime? dateFrom);
 }

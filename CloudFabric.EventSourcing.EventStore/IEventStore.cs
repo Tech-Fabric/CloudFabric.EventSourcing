@@ -10,6 +10,8 @@ public interface IEventStore
 
     Task<EventStream> LoadStreamAsync(string streamId, int fromVersion);
 
+    Task<List<IEvent>> LoadEventsByDateAsync(DateTime? dateFrom, DateTime? dateTo = null);
+
     Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo,
         string streamId,
