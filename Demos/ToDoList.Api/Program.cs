@@ -1,17 +1,13 @@
-using ToDoList.Domain;
+using CloudFabric.EventSourcing.AspNetCore.Postgresql.Extensions;
 using CloudFabric.EventSourcing.Domain;
-using CloudFabric.EventSourcing.EventStore;
-using CloudFabric.EventSourcing.EventStore.Postgresql;
-using CloudFabric.Projections;
-using CloudFabric.Projections.Postgresql;
 using ToDoList.Api.Extensions;
+using ToDoList.Api.Middleware;
+using ToDoList.Domain;
+using ToDoList.Domain.Projections.TaskLists;
+using ToDoList.Domain.Projections.UserAccounts;
+using ToDoList.Services.Implementations;
 using ToDoList.Services.Interfaces;
 using ToDoList.Services.Interfaces.Options;
-using ToDoList.Services.Implementations;
-using ToDoList.Api.Middleware;
-using ToDoList.Domain.Projections.UserAccounts;
-using ToDoList.Domain.Projections.TaskLists;
-using CloudFabric.EventSourcing.Common.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 

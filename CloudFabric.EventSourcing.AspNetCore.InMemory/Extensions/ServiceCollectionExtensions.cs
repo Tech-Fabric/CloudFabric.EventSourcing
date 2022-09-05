@@ -1,19 +1,18 @@
-using CloudFabric.EventSourcing.EventStore.Postgresql;
+using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
-using CloudFabric.Projections.Postgresql;
+using CloudFabric.Projections.InMemory;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace CloudFabric.EventSourcing.Common.Extensions
+namespace CloudFabric.EventSourcing.AspNetCore.InMemory.Extensions
 {
     public static class ServiceCollectionExtensions
     {
-        public static IEventSourcingBuilder AddPostgresqlEventStore(
+        public static IEventSourcingBuilder AddInMemoryEventStore(
             this IServiceCollection services,
-            string eventsConnectionString,
-            string tableName
+            Dictionary<string, List<string>> eventsContainer
         )
         {
-            var eventStore = new PostgresqlEventStore(eventsConnectionString, tableName);
+            var eventStore = new InMemoryEventStore(eventsContainer);
             eventStore.Initialize().Wait();
 
             return new EventSourcingBuilder
@@ -30,15 +29,14 @@ namespace CloudFabric.EventSourcing.Common.Extensions
             return builder;
         }
 
-        public static IEventSourcingBuilder AddPostgresqlProjections<TDocument>(
+        public static IEventSourcingBuilder AddInMemoryProjections<TDocument>(
             this IEventSourcingBuilder builder,
-            string projectionsConnectionString,
             params Type[] projectionBuildersTypes
         ) where TDocument : ProjectionDocument
         {
-            var eventStoreObserver = new PostgresqlEventStoreEventObserver((PostgresqlEventStore)builder.EventStore);
+            var eventStoreObserver = new InMemoryEventStoreEventObserver((InMemoryEventStore)builder.EventStore);
 
-            var projectionRepository = new PostgresqlProjectionRepository<TDocument>(projectionsConnectionString);
+            var projectionRepository = new InMemoryProjectionRepository<TDocument>();
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
             var projectionsEngine = new ProjectionsEngine();
