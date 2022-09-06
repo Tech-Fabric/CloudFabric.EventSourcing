@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Net;
 using System.Text.Json.Serialization;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using CloudFabric.Projections;
@@ -69,7 +71,6 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
             .WithInstanceName(instanceName)
             .WithLeaseContainer(leaseContainer)
             .WithStartTime(DateTime.UtcNow.AddMinutes(-50))
-            //.WithStartTime(myTime)
             .Build();
 
         return _changeFeedProcessor.StartAsync();
@@ -78,6 +79,61 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
     public Task StopAsync()
     {
         return _changeFeedProcessor.StopAsync();
+    }
+
+    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom = null)
+    {
+        Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
+        
+        DateTime endTime = DateTime.UtcNow;
+
+        using var feedIterator = eventContainer
+            .GetChangeFeedIterator<Change>(
+                dateFrom.HasValue ? ChangeFeedStartFrom.Time(dateFrom.Value) : ChangeFeedStartFrom.Beginning(),
+                ChangeFeedMode.Incremental,
+                new ChangeFeedRequestOptions
+                {
+                    PageSizeHint = 100
+                }
+            );
+
+        while (feedIterator.HasMoreResults)
+        {
+            FeedResponse<Change> response = await feedIterator.ReadNextAsync();
+
+            if (response.All(x => x.GetEvent().Timestamp > endTime))
+            {
+                break;
+            }
+
+            if (response.StatusCode != HttpStatusCode.NotModified) 
+            {                
+                await HandleChangesAsync(new ReadOnlyCollection<Change>(response.ToList()), CancellationToken.None);
+            }
+        }
+    }
+
+    public async Task LoadAndHandleEventsForDocumentAsync(string documentId)
+    {
+        Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
+
+        var sqlQueryText = $"SELECT * FROM {_eventsContainerId} e" +
+                           " WHERE e.stream.id = @streamId" +
+                           " ORDER BY e.stream.version";
+
+        QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
+            .WithParameter("@streamId", documentId);
+
+        FeedIterator<EventWrapper> feedIterator = eventContainer.GetItemQueryIterator<EventWrapper>(queryDefinition);
+        while (feedIterator.HasMoreResults)
+        {
+            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
+            foreach (var eventWrapper in response)
+            {
+                var @event = eventWrapper.GetEvent();
+                await _eventHandler(@event);
+            }
+        }
     }
 
     private async Task HandleChangesAsync(IReadOnlyCollection<Change> changes, CancellationToken cancellationToken)

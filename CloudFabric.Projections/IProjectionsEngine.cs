@@ -6,7 +6,7 @@ public interface IProjectionsEngine
 
     Task StopAsync();
 
-    Task RebuildAsync(DateTime? dateFrom = null);
+    Task RebuildAsync(string instanceName, DateTime? dateFrom = null);
 
     Task RebuildOneAsync(string documentId);
 }

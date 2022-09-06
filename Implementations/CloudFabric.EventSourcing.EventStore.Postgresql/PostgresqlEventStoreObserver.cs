@@ -40,12 +40,12 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         }
     }
 
-    public async Task LoadAndHandleEventsAsync(DateTime? dateFrom)
+    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom)
     {
         Func<DateTime?, DateTime?, Task> handleEvents = 
             async (dateFrom, dateTo) =>
             {
-                var events = await _eventStore.LoadEventsByDateAsync(dateFrom, dateTo);
+                var events = await _eventStore.LoadEventsAsync(dateFrom, dateTo);
 
                 foreach (var @event in events)
                 {
@@ -53,7 +53,6 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
                 }
             };
         
-        // pagination
         if (!dateFrom.HasValue)
         {
             await handleEvents(null, null);

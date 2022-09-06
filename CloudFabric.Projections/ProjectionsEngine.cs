@@ -2,10 +2,26 @@ using CloudFabric.EventSourcing.EventStore;
 
 namespace CloudFabric.Projections;
 
+public enum RebuildStatus
+{
+    NotRun,
+    Running,
+    Completed,
+    Failed
+}
+
+public class RebuildState
+{
+    public string InstanceName { get; set; }
+
+    public RebuildStatus Status { get; set; } = RebuildStatus.NotRun;
+}
+
 public class ProjectionsEngine : IProjectionsEngine
 {
     private readonly List<IProjectionBuilder<ProjectionDocument>> _projectionBuilders = new();
     private IEventsObserver? _observer; 
+    private List<RebuildState> _rebuildStates = new();
 
     public Task StartAsync(string instanceName)
     {
@@ -38,13 +54,9 @@ public class ProjectionsEngine : IProjectionsEngine
         _projectionBuilders.Add(projectionBuilder);
     }
 
-    public async Task RebuildAsync(DateTime? dateFrom = null)
+    public Task RebuildAsync(string instanceName, DateTime? dateFrom = null)
     {
-        // TODO: merge main after prev PR
-        
-        // TODO: add rebuild status
-        
-        await _observer.LoadAndHandleEventsAsync(dateFrom);
+        return _observer.LoadAndHandleEventsAsync(instanceName, dateFrom);
     }
 
     public async Task RebuildOneAsync(string documentId)

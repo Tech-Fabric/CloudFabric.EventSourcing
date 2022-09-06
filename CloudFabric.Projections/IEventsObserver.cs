@@ -12,5 +12,5 @@ public interface IEventsObserver
 
     public Task LoadAndHandleEventsForDocumentAsync(string documentId);
 
-    public Task LoadAndHandleEventsAsync(DateTime? dateFrom);
+    public Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom);
 }

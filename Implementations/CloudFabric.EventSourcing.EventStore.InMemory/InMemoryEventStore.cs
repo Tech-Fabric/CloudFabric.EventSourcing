@@ -84,6 +84,23 @@ public class InMemoryEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
+    public async Task<List<IEvent>> LoadEventsAsync(DateTime? dateFrom)
+    {
+        if (_eventsContainer == null || !_eventsContainer.Any())
+        {
+            return new List<IEvent>();
+        }
+
+        var events = _eventsContainer.Values
+            .SelectMany(x => x)
+            .Select(x => JsonSerializer.Deserialize<EventWrapper>(x).GetEvent())
+            .Where(x => !dateFrom.HasValue || x.Timestamp >= dateFrom)
+            .OrderBy(x => x.Timestamp)
+            .ToList();
+
+        return events;
+    }
+
     public async Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo, string streamId, int expectedVersion, IEnumerable<IEvent> events
     )

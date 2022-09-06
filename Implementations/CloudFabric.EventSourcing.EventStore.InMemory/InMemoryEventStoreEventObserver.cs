@@ -30,6 +30,32 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
         return Task.CompletedTask;
     }
 
+    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom)
+    {
+        var events = await _eventStore.LoadEventsAsync(dateFrom);
+
+        foreach (var @event in events)
+        {
+            await EventStoreOnEventAdded(
+                this,
+                new EventAddedEventArgs { Event = @event }
+            );
+        }
+    }
+
+    public async Task LoadAndHandleEventsForDocumentAsync(string documentId)
+    {
+        var stream = await _eventStore.LoadStreamAsync(documentId);
+
+        foreach (var @event in stream.Events)
+        {
+            await EventStoreOnEventAdded(
+                this,
+                new EventAddedEventArgs { Event = @event }
+            );
+        }
+    }
+
     private async Task EventStoreOnEventAdded(object? sender, EventAddedEventArgs e)
     {
         await _eventHandler(e.Event);

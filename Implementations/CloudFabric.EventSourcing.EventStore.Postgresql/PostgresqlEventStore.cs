@@ -145,7 +145,7 @@ public class PostgresqlEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<List<IEvent>> LoadEventsByDateAsync(DateTime? dateFrom, DateTime? dateTo = null)
+    public async Task<List<IEvent>> LoadEventsAsync(DateTime? dateFrom = null, DateTime? dateTo = null)
     {        
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
