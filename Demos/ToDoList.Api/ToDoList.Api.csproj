@@ -12,6 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.Postgresql\CloudFabric.EventSourcing.AspNet.Postgresql.csproj" />
       <ProjectReference Include="..\ToDoList.Services.Implementations\ToDoList.Services.Implementations.csproj" />
       <ProjectReference Include="..\..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj" />
       <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.Postgresql\CloudFabric.EventSourcing.EventStore.Postgresql.csproj" />

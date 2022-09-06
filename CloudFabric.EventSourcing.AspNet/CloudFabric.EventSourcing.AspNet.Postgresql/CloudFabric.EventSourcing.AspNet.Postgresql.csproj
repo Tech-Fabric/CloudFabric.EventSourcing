@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.Postgresql\CloudFabric.EventSourcing.EventStore.Postgresql.csproj" />
+    <ProjectReference Include="..\..\Implementations\CloudFabric.Projections.Postgresql\CloudFabric.Projections.Postgresql.csproj" />
+    <ProjectReference Include="..\CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.csproj" />
+  </ItemGroup>
+
+</Project>

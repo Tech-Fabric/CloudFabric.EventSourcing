@@ -1,75 +1,82 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30114.105
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.EventStore", "CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj", "{A577F6EB-709C-4E0D-B938-D687ED598E00}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.EventStore", "CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj", "{A577F6EB-709C-4E0D-B938-D687ED598E00}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.Domain", "CloudFabric.EventSourcing.Domain\CloudFabric.EventSourcing.Domain.csproj", "{B63D0AF6-7599-4EC8-92CD-2CF1D4CDE914}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.Domain", "CloudFabric.EventSourcing.Domain\CloudFabric.EventSourcing.Domain.csproj", "{B63D0AF6-7599-4EC8-92CD-2CF1D4CDE914}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.EventStore.InMemory", "Implementations\CloudFabric.EventSourcing.EventStore.InMemory\CloudFabric.EventSourcing.EventStore.InMemory.csproj", "{8974D2B1-ABF4-4FE0-A6F1-5577C54393E8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.EventStore.InMemory", "Implementations\CloudFabric.EventSourcing.EventStore.InMemory\CloudFabric.EventSourcing.EventStore.InMemory.csproj", "{8974D2B1-ABF4-4FE0-A6F1-5577C54393E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.Tests", "CloudFabric.EventSourcing.Tests\CloudFabric.EventSourcing.Tests.csproj", "{8D0CAEBD-0769-4217-8D4B-A21776B5020C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.Tests", "CloudFabric.EventSourcing.Tests\CloudFabric.EventSourcing.Tests.csproj", "{8D0CAEBD-0769-4217-8D4B-A21776B5020C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.Tests.InMemory", "Implementations\CloudFabric.EventSourcing.Tests.InMemory\CloudFabric.EventSourcing.Tests.InMemory.csproj", "{52705160-4859-4BBB-8368-0B2B9420802B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.Tests.InMemory", "Implementations\CloudFabric.EventSourcing.Tests.InMemory\CloudFabric.EventSourcing.Tests.InMemory.csproj", "{52705160-4859-4BBB-8368-0B2B9420802B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.EventStore.Postgresql", "Implementations\CloudFabric.EventSourcing.EventStore.Postgresql\CloudFabric.EventSourcing.EventStore.Postgresql.csproj", "{22E6FD59-CE8C-470B-B4B3-DE55B079E35C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.EventStore.Postgresql", "Implementations\CloudFabric.EventSourcing.EventStore.Postgresql\CloudFabric.EventSourcing.EventStore.Postgresql.csproj", "{22E6FD59-CE8C-470B-B4B3-DE55B079E35C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.Tests.Postgresql", "Implementations\CloudFabric.EventSourcing.Tests.Postgresql\CloudFabric.EventSourcing.Tests.Postgresql.csproj", "{15AC5D95-111C-4214-B1CB-54091DD7D37B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.Tests.Postgresql", "Implementations\CloudFabric.EventSourcing.Tests.Postgresql\CloudFabric.EventSourcing.Tests.Postgresql.csproj", "{15AC5D95-111C-4214-B1CB-54091DD7D37B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.EventStore.CosmosDb", "Implementations\CloudFabric.EventSourcing.EventStore.CosmosDb\CloudFabric.EventSourcing.EventStore.CosmosDb.csproj", "{B9AB2D2F-B3D1-4965-9AD0-313019239E4C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.EventStore.CosmosDb", "Implementations\CloudFabric.EventSourcing.EventStore.CosmosDb\CloudFabric.EventSourcing.EventStore.CosmosDb.csproj", "{B9AB2D2F-B3D1-4965-9AD0-313019239E4C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.Tests.CosmosDb", "Implementations\CloudFabric.EventSourcing.Tests.CosmosDb\CloudFabric.EventSourcing.Tests.CosmosDb.csproj", "{0403D639-AF31-46A4-8E24-1FBAA0F627CA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.Tests.CosmosDb", "Implementations\CloudFabric.EventSourcing.Tests.CosmosDb\CloudFabric.EventSourcing.Tests.CosmosDb.csproj", "{0403D639-AF31-46A4-8E24-1FBAA0F627CA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.Benchmarks", "CloudFabric.EventSourcing.Benchmarks\CloudFabric.EventSourcing.Benchmarks.csproj", "{21A2F7E1-EF3F-4A4B-88A2-89A8A954EF5B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.Benchmarks", "CloudFabric.EventSourcing.Benchmarks\CloudFabric.EventSourcing.Benchmarks.csproj", "{21A2F7E1-EF3F-4A4B-88A2-89A8A954EF5B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections", "CloudFabric.Projections\CloudFabric.Projections.csproj", "{F58F536E-CCEA-4105-88F2-75A3E4A9839B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.Projections", "CloudFabric.Projections\CloudFabric.Projections.csproj", "{F58F536E-CCEA-4105-88F2-75A3E4A9839B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Implementations", "Implementations", "{BEF8E4F3-BF56-4D98-939C-FDF2C89160DA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections.Attributes", "CloudFabric.Projections.Attributes\CloudFabric.Projections.Attributes.csproj", "{F5032804-7113-4ACD-B32C-314F910A3603}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.Projections.Attributes", "CloudFabric.Projections.Attributes\CloudFabric.Projections.Attributes.csproj", "{F5032804-7113-4ACD-B32C-314F910A3603}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections.CosmosDb", "Implementations\CloudFabric.Projections.CosmosDb\CloudFabric.Projections.CosmosDb.csproj", "{D4B1CBB3-E447-4214-BA7F-11B9BC6C3F29}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.Projections.CosmosDb", "Implementations\CloudFabric.Projections.CosmosDb\CloudFabric.Projections.CosmosDb.csproj", "{D4B1CBB3-E447-4214-BA7F-11B9BC6C3F29}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CosmosDb", "CosmosDb", "{CA57819A-0CF5-422A-AC76-455AB71F5D02}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Postgresql", "Postgresql", "{765F65BA-7B52-4FFE-A16A-E94CC7A02ADE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections.Postgresql", "Implementations\CloudFabric.Projections.Postgresql\CloudFabric.Projections.Postgresql.csproj", "{C57EF6EA-408B-4A59-B909-8E7DF7878CA8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.Projections.Postgresql", "Implementations\CloudFabric.Projections.Postgresql\CloudFabric.Projections.Postgresql.csproj", "{C57EF6EA-408B-4A59-B909-8E7DF7878CA8}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "InMemory", "InMemory", "{221129C1-22E4-4915-9A0C-EE7F190FA401}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections.InMemory", "Implementations\CloudFabric.Projections.InMemory\CloudFabric.Projections.InMemory.csproj", "{9D235331-783B-4655-BA09-80F6BF252610}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.Projections.InMemory", "Implementations\CloudFabric.Projections.InMemory\CloudFabric.Projections.InMemory.csproj", "{9D235331-783B-4655-BA09-80F6BF252610}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AzureSearch", "AzureSearch", "{5FAF6C43-E3ED-47B1-BF65-0B36BBB8A8CB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections.AzureSearch", "Implementations\CloudFabric.Projections.AzureSearch\CloudFabric.Projections.AzureSearch.csproj", "{23C1AB97-FD5A-44A0-AF2A-9E5D6B32510F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.Projections.AzureSearch", "Implementations\CloudFabric.Projections.AzureSearch\CloudFabric.Projections.AzureSearch.csproj", "{23C1AB97-FD5A-44A0-AF2A-9E5D6B32510F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OpenSearch", "OpenSearch", "{52A1537C-AA5E-4B6E-BCD0-3C61DC33AC34}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections.OpenSearch", "Implementations\CloudFabric.Projections.OpenSearch\CloudFabric.Projections.OpenSearch.csproj", "{482CB112-4980-4541-99CD-DD9AD42D1494}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.Projections.OpenSearch", "Implementations\CloudFabric.Projections.OpenSearch\CloudFabric.Projections.OpenSearch.csproj", "{482CB112-4980-4541-99CD-DD9AD42D1494}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToDoList.Api", "Demos\ToDoList.Api\ToDoList.Api.csproj", "{D1936489-3F43-411C-945A-C899875E35D8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ToDoList.Api", "Demos\ToDoList.Api\ToDoList.Api.csproj", "{D1936489-3F43-411C-945A-C899875E35D8}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Demos", "Demos", "{07858CA6-5352-4910-BBE7-2DDF524CFF67}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToDoList.Ui", "Demos\ToDoList.Ui\ToDoList.Ui.csproj", "{F4793811-C982-48CD-9BBB-DCF96BC8DFC6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ToDoList.Ui", "Demos\ToDoList.Ui\ToDoList.Ui.csproj", "{F4793811-C982-48CD-9BBB-DCF96BC8DFC6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToDoList.Domain", "Demos\ToDoList.Domain\ToDoList.Domain.csproj", "{3FD6D345-D6E3-4A9A-977E-4E207EF2B891}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ToDoList.Domain", "Demos\ToDoList.Domain\ToDoList.Domain.csproj", "{3FD6D345-D6E3-4A9A-977E-4E207EF2B891}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToDoList.Services.Implementations", "Demos\ToDoList.Services.Implementations\ToDoList.Services.Implementations.csproj", "{B40ED134-6933-455D-9518-CDF4321814BA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ToDoList.Services.Implementations", "Demos\ToDoList.Services.Implementations\ToDoList.Services.Implementations.csproj", "{B40ED134-6933-455D-9518-CDF4321814BA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToDoList.Models", "Demos\ToDoList.Models\ToDoList.Models.csproj", "{ED06B6B6-E210-4252-8A49-5FB73B33C95B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ToDoList.Models", "Demos\ToDoList.Models\ToDoList.Models.csproj", "{ED06B6B6-E210-4252-8A49-5FB73B33C95B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToDoList.Services.Interfaces", "Demos\ToDoList.Services.Interfaces\ToDoList.Services.Interfaces.csproj", "{6816619C-23EC-4749-BA02-C37F44177BC7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ToDoList.Services.Interfaces", "Demos\ToDoList.Services.Interfaces\ToDoList.Services.Interfaces.csproj", "{6816619C-23EC-4749-BA02-C37F44177BC7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CloudFabric.EventSourcing.AspNet", "CloudFabric.EventSourcing.AspNet", "{B95E7A5F-FBFB-450B-B4E0-6F3E39C3DF81}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.AspNet", "CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.csproj", "{94C614D3-302F-47EE-9DA2-3578E474F641}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.AspNet.CosmosDb", "CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.CosmosDb\CloudFabric.EventSourcing.AspNet.CosmosDb.csproj", "{9AFB8620-BE88-446E-8267-0E5DD382DA5B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.AspNet.Postgresql", "CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.Postgresql\CloudFabric.EventSourcing.AspNet.Postgresql.csproj", "{16C230CD-DE84-488D-B832-503FE3FCF068}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudFabric.EventSourcing.AspNet.InMemory", "CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.InMemory\CloudFabric.EventSourcing.AspNet.InMemory.csproj", "{B86AE681-F8AD-4695-869A-429009AD8BCD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{A577F6EB-709C-4E0D-B938-D687ED598E00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -164,19 +171,38 @@ Global
 		{6816619C-23EC-4749-BA02-C37F44177BC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6816619C-23EC-4749-BA02-C37F44177BC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6816619C-23EC-4749-BA02-C37F44177BC7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94C614D3-302F-47EE-9DA2-3578E474F641}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94C614D3-302F-47EE-9DA2-3578E474F641}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94C614D3-302F-47EE-9DA2-3578E474F641}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94C614D3-302F-47EE-9DA2-3578E474F641}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9AFB8620-BE88-446E-8267-0E5DD382DA5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9AFB8620-BE88-446E-8267-0E5DD382DA5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9AFB8620-BE88-446E-8267-0E5DD382DA5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9AFB8620-BE88-446E-8267-0E5DD382DA5B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{16C230CD-DE84-488D-B832-503FE3FCF068}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{16C230CD-DE84-488D-B832-503FE3FCF068}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{16C230CD-DE84-488D-B832-503FE3FCF068}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{16C230CD-DE84-488D-B832-503FE3FCF068}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B86AE681-F8AD-4695-869A-429009AD8BCD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B86AE681-F8AD-4695-869A-429009AD8BCD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B86AE681-F8AD-4695-869A-429009AD8BCD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B86AE681-F8AD-4695-869A-429009AD8BCD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{CA57819A-0CF5-422A-AC76-455AB71F5D02} = {BEF8E4F3-BF56-4D98-939C-FDF2C89160DA}
-		{B9AB2D2F-B3D1-4965-9AD0-313019239E4C} = {CA57819A-0CF5-422A-AC76-455AB71F5D02}
-		{D4B1CBB3-E447-4214-BA7F-11B9BC6C3F29} = {CA57819A-0CF5-422A-AC76-455AB71F5D02}
-		{765F65BA-7B52-4FFE-A16A-E94CC7A02ADE} = {BEF8E4F3-BF56-4D98-939C-FDF2C89160DA}
-		{0403D639-AF31-46A4-8E24-1FBAA0F627CA} = {CA57819A-0CF5-422A-AC76-455AB71F5D02}
-		{22E6FD59-CE8C-470B-B4B3-DE55B079E35C} = {765F65BA-7B52-4FFE-A16A-E94CC7A02ADE}
-		{C57EF6EA-408B-4A59-B909-8E7DF7878CA8} = {765F65BA-7B52-4FFE-A16A-E94CC7A02ADE}
-		{15AC5D95-111C-4214-B1CB-54091DD7D37B} = {765F65BA-7B52-4FFE-A16A-E94CC7A02ADE}
-		{221129C1-22E4-4915-9A0C-EE7F190FA401} = {BEF8E4F3-BF56-4D98-939C-FDF2C89160DA}
 		{8974D2B1-ABF4-4FE0-A6F1-5577C54393E8} = {221129C1-22E4-4915-9A0C-EE7F190FA401}
 		{52705160-4859-4BBB-8368-0B2B9420802B} = {221129C1-22E4-4915-9A0C-EE7F190FA401}
+		{22E6FD59-CE8C-470B-B4B3-DE55B079E35C} = {765F65BA-7B52-4FFE-A16A-E94CC7A02ADE}
+		{15AC5D95-111C-4214-B1CB-54091DD7D37B} = {765F65BA-7B52-4FFE-A16A-E94CC7A02ADE}
+		{B9AB2D2F-B3D1-4965-9AD0-313019239E4C} = {CA57819A-0CF5-422A-AC76-455AB71F5D02}
+		{0403D639-AF31-46A4-8E24-1FBAA0F627CA} = {CA57819A-0CF5-422A-AC76-455AB71F5D02}
+		{D4B1CBB3-E447-4214-BA7F-11B9BC6C3F29} = {CA57819A-0CF5-422A-AC76-455AB71F5D02}
+		{CA57819A-0CF5-422A-AC76-455AB71F5D02} = {BEF8E4F3-BF56-4D98-939C-FDF2C89160DA}
+		{765F65BA-7B52-4FFE-A16A-E94CC7A02ADE} = {BEF8E4F3-BF56-4D98-939C-FDF2C89160DA}
+		{C57EF6EA-408B-4A59-B909-8E7DF7878CA8} = {765F65BA-7B52-4FFE-A16A-E94CC7A02ADE}
+		{221129C1-22E4-4915-9A0C-EE7F190FA401} = {BEF8E4F3-BF56-4D98-939C-FDF2C89160DA}
 		{9D235331-783B-4655-BA09-80F6BF252610} = {221129C1-22E4-4915-9A0C-EE7F190FA401}
 		{5FAF6C43-E3ED-47B1-BF65-0B36BBB8A8CB} = {BEF8E4F3-BF56-4D98-939C-FDF2C89160DA}
 		{23C1AB97-FD5A-44A0-AF2A-9E5D6B32510F} = {5FAF6C43-E3ED-47B1-BF65-0B36BBB8A8CB}
@@ -188,5 +214,12 @@ Global
 		{B40ED134-6933-455D-9518-CDF4321814BA} = {07858CA6-5352-4910-BBE7-2DDF524CFF67}
 		{ED06B6B6-E210-4252-8A49-5FB73B33C95B} = {07858CA6-5352-4910-BBE7-2DDF524CFF67}
 		{6816619C-23EC-4749-BA02-C37F44177BC7} = {07858CA6-5352-4910-BBE7-2DDF524CFF67}
+		{94C614D3-302F-47EE-9DA2-3578E474F641} = {B95E7A5F-FBFB-450B-B4E0-6F3E39C3DF81}
+		{9AFB8620-BE88-446E-8267-0E5DD382DA5B} = {B95E7A5F-FBFB-450B-B4E0-6F3E39C3DF81}
+		{16C230CD-DE84-488D-B832-503FE3FCF068} = {B95E7A5F-FBFB-450B-B4E0-6F3E39C3DF81}
+		{B86AE681-F8AD-4695-869A-429009AD8BCD} = {B95E7A5F-FBFB-450B-B4E0-6F3E39C3DF81}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {72905C16-2FA5-4C5E-8DAE-EBB916FA1C9F}
 	EndGlobalSection
 EndGlobal

@@ -1,4 +1,4 @@
-﻿using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.EventSourcing.EventStore;
 
 namespace CloudFabric.EventSourcing.Domain;
 
@@ -63,5 +63,8 @@ public abstract class AggregateBase
         RaiseEvent(@event);
     }
 
-    protected abstract void RaiseEvent(IEvent @event);
+    protected virtual void RaiseEvent(IEvent @event)
+    {
+        ((dynamic)this).On((dynamic)@event);
+    }
 }

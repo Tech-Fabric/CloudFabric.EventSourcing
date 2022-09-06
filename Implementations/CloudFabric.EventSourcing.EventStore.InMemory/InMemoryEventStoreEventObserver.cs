@@ -5,14 +5,14 @@ namespace CloudFabric.EventSourcing.EventStore.InMemory;
 public class InMemoryEventStoreEventObserver : IEventsObserver
 {
     private readonly InMemoryEventStore _eventStore;
-    private Func<IEvent, Task<bool>> _eventHandler;
+    private Func<IEvent, Task> _eventHandler;
 
     public InMemoryEventStoreEventObserver(InMemoryEventStore eventStore)
     {
         _eventStore = eventStore;
     }
 
-    public void SetEventHandler(Func<IEvent, Task<bool>> eventHandler)
+    public void SetEventHandler(Func<IEvent, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }

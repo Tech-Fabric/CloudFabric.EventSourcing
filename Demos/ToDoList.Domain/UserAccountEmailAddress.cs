@@ -39,30 +39,29 @@ public class UserAccountEmailAddress : AggregateBase
         Apply(new UserAccountEmailAssigned(userAccountId, EmailAddress));
     }
 
-    protected void On(UserAccountEmailRegistered @event)
+    #region Event Handlers
+
+    public void On(UserAccountEmailRegistered @event)
     {
         EmailAddress = @event.EmailAddress;
         ConfirmedAt = null;
     }
 
-    protected void On(UserAccountEmailAssigned @event)
+    public void On(UserAccountEmailAssigned @event)
     {
         UserAccountId = @event.UserAccountId;
     }
 
-    protected void On(UserAccountEmailAddressChanged @event)
+    public void On(UserAccountEmailAddressChanged @event)
     {
         EmailAddress = @event.NewEmail;
         ConfirmedAt = null;
     }
 
-    protected void On(UserAccountEmailAddressConfirmed _)
+    public void On(UserAccountEmailAddressConfirmed _)
     {
         ConfirmedAt = DateTime.UtcNow;
     }
 
-    protected override void RaiseEvent(IEvent @event)
-    {
-        ((dynamic)this).On((dynamic)@event);
-    }
+    #endregion
 }

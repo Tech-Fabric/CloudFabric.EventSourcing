@@ -8,5 +8,5 @@ public interface IEventsObserver
 
     public Task StopAsync();
 
-    public void SetEventHandler(Func<IEvent, Task<bool>> eventHandler);
+    public void SetEventHandler(Func<IEvent, Task> eventHandler);
 }

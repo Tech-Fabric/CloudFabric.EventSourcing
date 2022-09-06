@@ -37,26 +37,21 @@ public class Task : AggregateBase
 
     #region Event Handlers
 
-    protected void On(TaskCreated @event)
+    public void On(TaskCreated @event)
     {
         Id = @event.Id;
         Title = @event.Title;
         Description = @event.Description;
     }
 
-    protected void On(TaskTitleUpdated @event)
+    public void On(TaskTitleUpdated @event)
     {
         Title = @event.NewTitle;
     }
 
-    protected void On(TaskCompletedStatusUpdpated @event)
+    public void On(TaskCompletedStatusUpdpated @event)
     {
         IsCompleted = @event.IsCompleted;
-    }
-
-    protected override void RaiseEvent(IEvent @event)
-    {
-        ((dynamic)this).On((dynamic)@event);
     }
 
     #endregion

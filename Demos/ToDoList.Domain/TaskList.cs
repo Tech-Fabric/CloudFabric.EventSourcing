@@ -25,21 +25,16 @@ public class TaskList : AggregateBase
 
     #region Event Handlers
 
-    protected void On(TaskListCreated @event)
+    public void On(TaskListCreated @event)
     {
         Id = @event.Id;
         UserAccountId = @event.UserAccountId;
         Name = @event.Name;
     }
 
-    protected void On(TaskListNameUpdated @event)
+    public void On(TaskListNameUpdated @event)
     {
         Name = @event.NewName;
-    }
-
-    protected override void RaiseEvent(IEvent @event)
-    {
-        ((dynamic)this).On((dynamic)@event);
     }
 
     #endregion

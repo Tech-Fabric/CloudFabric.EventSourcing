@@ -33,7 +33,7 @@ public class ProjectionsEngine : IProjectionsEngine
         _observer.SetEventHandler(HandleEvent);
     }
 
-    private async Task<bool> HandleEvent(IEvent @event)
+    private async Task HandleEvent(IEvent @event)
     {
         foreach (var projectionBuilder in
                  _projectionBuilders.Where(p => p.HandledEventTypes.Contains(@event.GetType())))
@@ -47,8 +47,6 @@ public class ProjectionsEngine : IProjectionsEngine
                 throw;
             }
         }
-
-        return true;
     }
 
     public void AddProjectionBuilder(IProjectionBuilder<ProjectionDocument> projectionBuilder)
