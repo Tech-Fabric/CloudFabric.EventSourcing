@@ -1,6 +1,6 @@
 using Microsoft.Azure.Cosmos;
 
-namespace CloudFabric.EventSourcing.AspNetCore.CosmosDb;
+namespace CloudFabric.EventSourcing.AspNet.CosmosDb;
 
 public class CosmosChangeFeedObserverConnectionInfo
 {

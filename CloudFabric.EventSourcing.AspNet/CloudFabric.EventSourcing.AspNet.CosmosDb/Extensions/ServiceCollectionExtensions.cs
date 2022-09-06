@@ -5,7 +5,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace CloudFabric.EventSourcing.AspNetCore.CosmosDb.Extensions
+namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
 {
     public static class ServiceCollectionExtensions
     {

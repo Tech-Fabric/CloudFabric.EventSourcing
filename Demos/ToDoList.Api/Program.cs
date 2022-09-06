@@ -1,4 +1,4 @@
-using CloudFabric.EventSourcing.AspNetCore.Postgresql.Extensions;
+using CloudFabric.EventSourcing.AspNet.Postgresql.Extensions;
 using CloudFabric.EventSourcing.Domain;
 using ToDoList.Api.Extensions;
 using ToDoList.Api.Middleware;

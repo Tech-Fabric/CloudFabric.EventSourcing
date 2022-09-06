@@ -1,18 +1,19 @@
-using CloudFabric.EventSourcing.EventStore.InMemory;
+using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
-using CloudFabric.Projections.InMemory;
+using CloudFabric.Projections.Postgresql;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace CloudFabric.EventSourcing.AspNetCore.InMemory.Extensions
+namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
 {
     public static class ServiceCollectionExtensions
     {
-        public static IEventSourcingBuilder AddInMemoryEventStore(
+        public static IEventSourcingBuilder AddPostgresqlEventStore(
             this IServiceCollection services,
-            Dictionary<string, List<string>> eventsContainer
+            string eventsConnectionString,
+            string tableName
         )
         {
-            var eventStore = new InMemoryEventStore(eventsContainer);
+            var eventStore = new PostgresqlEventStore(eventsConnectionString, tableName);
             eventStore.Initialize().Wait();
 
             return new EventSourcingBuilder
@@ -29,14 +30,15 @@ namespace CloudFabric.EventSourcing.AspNetCore.InMemory.Extensions
             return builder;
         }
 
-        public static IEventSourcingBuilder AddInMemoryProjections<TDocument>(
+        public static IEventSourcingBuilder AddPostgresqlProjections<TDocument>(
             this IEventSourcingBuilder builder,
+            string projectionsConnectionString,
             params Type[] projectionBuildersTypes
         ) where TDocument : ProjectionDocument
         {
-            var eventStoreObserver = new InMemoryEventStoreEventObserver((InMemoryEventStore)builder.EventStore);
+            var eventStoreObserver = new PostgresqlEventStoreEventObserver((PostgresqlEventStore)builder.EventStore);
 
-            var projectionRepository = new InMemoryProjectionRepository<TDocument>();
+            var projectionRepository = new PostgresqlProjectionRepository<TDocument>(projectionsConnectionString);
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
             var projectionsEngine = new ProjectionsEngine();

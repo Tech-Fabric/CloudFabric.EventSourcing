@@ -2,7 +2,7 @@ using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.Projections;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace CloudFabric.EventSourcing.AspNetCore;
+namespace CloudFabric.EventSourcing.AspNet;
 
 public interface IEventSourcingBuilder
 {

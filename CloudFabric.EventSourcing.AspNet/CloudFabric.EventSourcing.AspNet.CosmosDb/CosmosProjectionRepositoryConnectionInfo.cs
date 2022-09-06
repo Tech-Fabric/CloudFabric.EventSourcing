@@ -1,7 +1,7 @@
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 
-namespace CloudFabric.EventSourcing.AspNetCore.CosmosDb;
+namespace CloudFabric.EventSourcing.AspNet.CosmosDb;
 
 public class CosmosProjectionRepositoryConnectionInfo
 {
