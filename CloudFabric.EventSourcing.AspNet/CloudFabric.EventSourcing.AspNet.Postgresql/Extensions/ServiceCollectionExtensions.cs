@@ -3,7 +3,7 @@ using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace CloudFabric.EventSourcing.Common.Extensions
+namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
 {
     public static class ServiceCollectionExtensions
     {
