@@ -81,36 +81,46 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         return _changeFeedProcessor.StopAsync();
     }
 
-    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom = null)
+    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom, Action<string> onCompleted, Action<string, string> onError)
     {
-        Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
-        
-        DateTime endTime = DateTime.UtcNow;
-
-        using var feedIterator = eventContainer
-            .GetChangeFeedIterator<Change>(
-                dateFrom.HasValue ? ChangeFeedStartFrom.Time(dateFrom.Value) : ChangeFeedStartFrom.Beginning(),
-                ChangeFeedMode.Incremental,
-                new ChangeFeedRequestOptions
-                {
-                    PageSizeHint = 100
-                }
-            );
-
-        while (feedIterator.HasMoreResults)
+        try
         {
-            FeedResponse<Change> response = await feedIterator.ReadNextAsync();
+            Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
+            
+            DateTime endTime = DateTime.UtcNow;
 
-            if (response.All(x => x.GetEvent().Timestamp > endTime))
+            using var feedIterator = eventContainer
+                .GetChangeFeedIterator<Change>(
+                    dateFrom.HasValue ? ChangeFeedStartFrom.Time(dateFrom.Value) : ChangeFeedStartFrom.Beginning(),
+                    ChangeFeedMode.Incremental,
+                    new ChangeFeedRequestOptions
+                    {
+                        PageSizeHint = 100
+                    }
+                );
+
+            while (feedIterator.HasMoreResults)
             {
-                break;
-            }
+                FeedResponse<Change> response = await feedIterator.ReadNextAsync();
 
-            if (response.StatusCode != HttpStatusCode.NotModified) 
-            {                
-                await HandleChangesAsync(new ReadOnlyCollection<Change>(response.ToList()), CancellationToken.None);
+                if (response.All(x => x.GetEvent().Timestamp > endTime))
+                {
+                    break;
+                }
+
+                if (response.StatusCode != HttpStatusCode.NotModified) 
+                {                
+                    await HandleChangesAsync(new ReadOnlyCollection<Change>(response.ToList()), CancellationToken.None);
+                }
             }
         }
+        catch (Exception ex)
+        {
+            onError(instanceName, ex.InnerException?.Message ?? ex.Message);
+            throw;
+        }
+
+        onCompleted(instanceName);
     }
 
     public async Task LoadAndHandleEventsForDocumentAsync(string documentId)

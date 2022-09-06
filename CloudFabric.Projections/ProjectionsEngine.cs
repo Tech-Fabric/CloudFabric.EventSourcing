@@ -2,26 +2,11 @@ using CloudFabric.EventSourcing.EventStore;
 
 namespace CloudFabric.Projections;
 
-public enum RebuildStatus
-{
-    NotRun,
-    Running,
-    Completed,
-    Failed
-}
-
-public class RebuildState
-{
-    public string InstanceName { get; set; }
-
-    public RebuildStatus Status { get; set; } = RebuildStatus.NotRun;
-}
-
 public class ProjectionsEngine : IProjectionsEngine
 {
     private readonly List<IProjectionBuilder<ProjectionDocument>> _projectionBuilders = new();
     private IEventsObserver? _observer; 
-    private List<RebuildState> _rebuildStates = new();
+    private Dictionary<string, ProjectionRebuildState> _rebuildStates = new();
 
     public Task StartAsync(string instanceName)
     {
@@ -56,7 +41,12 @@ public class ProjectionsEngine : IProjectionsEngine
 
     public Task RebuildAsync(string instanceName, DateTime? dateFrom = null)
     {
-        return _observer.LoadAndHandleEventsAsync(instanceName, dateFrom);
+        _rebuildStates.Add(
+            instanceName,
+            new ProjectionRebuildState { Status = RebuildStatus.Running }
+        );
+
+        return _observer.LoadAndHandleEventsAsync(instanceName, dateFrom, OnRebuildCompleted, OnRebuildFailed);
     }
 
     public async Task RebuildOneAsync(string documentId)
@@ -77,6 +67,23 @@ public class ProjectionsEngine : IProjectionsEngine
             {
                 throw;
             }
+        }
+    }
+
+    private void OnRebuildCompleted(string instanceName)
+    {
+        if (_rebuildStates.ContainsKey(instanceName))
+        {
+            _rebuildStates[instanceName].Status = RebuildStatus.Completed;
+        }
+    }
+
+    private void OnRebuildFailed(string instanceName, string errorMessage)
+    {
+        if (_rebuildStates.ContainsKey(instanceName))
+        {
+            _rebuildStates[instanceName].Status = RebuildStatus.Failed;
+            _rebuildStates[instanceName].ErrorMessage = errorMessage;
         }
     }
 }

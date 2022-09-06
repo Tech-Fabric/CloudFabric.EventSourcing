@@ -40,7 +40,7 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         }
     }
 
-    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom)
+    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom, Action<string> onCompleted, Action<string, string> onError)
     {
         Func<DateTime?, DateTime?, Task> handleEvents = 
             async (dateFrom, dateTo) =>
@@ -53,21 +53,31 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
                 }
             };
         
-        if (!dateFrom.HasValue)
+        try
         {
-            await handleEvents(null, null);
-        }
-        else
-        {            
-            DateTime startDate = dateFrom.Value.Date;
-            while (startDate <= DateTime.UtcNow.Date)
+            if (!dateFrom.HasValue)
             {
-                DateTime endDate = startDate.AddDays(1);
-                await handleEvents(startDate, endDate);
-                
-                startDate = endDate;
+                await handleEvents(null, null);
+            }
+            else
+            {            
+                DateTime startDate = dateFrom.Value.Date;
+                while (startDate <= DateTime.UtcNow.Date)
+                {
+                    DateTime endDate = startDate.AddDays(1);
+                    await handleEvents(startDate, endDate);
+                    
+                    startDate = endDate;
+                }
             }
         }
+        catch (Exception ex)
+        {
+            onError(instanceName, ex.InnerException?.Message ?? ex.Message);
+            throw;
+        }
+
+        onCompleted(instanceName);
     }
 
     private async Task EventStoreOnEventAdded(IEvent e)

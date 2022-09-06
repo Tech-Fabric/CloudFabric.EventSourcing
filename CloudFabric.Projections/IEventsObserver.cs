@@ -12,5 +12,6 @@ public interface IEventsObserver
 
     public Task LoadAndHandleEventsForDocumentAsync(string documentId);
 
-    public Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom);
+    // onCompleted has instanceName as a parameter, onError - instanceName and errorMessage
+    public Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom, Action<string> onCompleted, Action<string, string> onError);
 }
