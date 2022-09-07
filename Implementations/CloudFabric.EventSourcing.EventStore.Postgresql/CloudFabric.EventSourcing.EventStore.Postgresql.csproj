@@ -6,6 +6,10 @@
         <Nullable>enable</Nullable>
         <RootNamespace>CloudFabric.EventSourcing.EventStore.Postgresql</RootNamespace>
         <AssemblyName>CloudFabric.EventSourcing.EventStore.Postgresql</AssemblyName>
+        <PackageId>CloudFabric.EventSourcing.EventStore.Postgresql</PackageId>
+        <Version>0.0.1</Version>
+        <Authors>CloudFabric Developers</Authors>
+        <Company>CloudFabric</Company>
     </PropertyGroup>
 
     <ItemGroup>
