@@ -89,6 +89,13 @@ RUN service postgresql start && \
 
 RUN dotnet test /src/Implementations/CloudFabric.EventSourcing.Tests.InMemory/CloudFabric.EventSourcing.Tests.InMemory.csproj --logger trx --results-directory /artifacts/tests --configuration Release --collect:"XPlat Code Coverage"
 
+ARG COVERAGE_REPORT_GENERATOR_LICENSE
+ARG COVERAGE_REPORT_TITLE
+ARG COVERAGE_REPORT_TAG
+ARG COVERAGE_REPORT_GENERATOR_HISTORY_DIRECTORY
+
+RUN reportgenerator "-reports:/artifacts/tests/*/coverage.cobertura.xml" -targetdir:/artifacts/code-coverage "-reporttypes:HtmlInline_AzurePipelines_Light;SonarQube;TextSummary" "-title:$COVERAGE_REPORT_TITLE" "-tag:$COVERAGE_REPORT_TAG" "-license:$COVERAGE_REPORT_GENERATOR_LICENSE" "-historydir:$COVERAGE_REPORT_GENERATOR_HISTORY_DIRECTORY"
+
 RUN dotnet pack /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/CloudFabric.EventSourcing.EventStore/CloudFabric.EventSourcing.EventStore.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/CloudFabric.Projections/CloudFabric.Projections.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
@@ -99,15 +106,6 @@ RUN dotnet pack /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.
     dotnet pack /src/Implementations/CloudFabric.Projections.CosmosDb/CloudFabric.Projections.CosmosDb.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/Implementations/CloudFabric.Projections.InMemory/CloudFabric.Projections.InMemory.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg 
-
-RUN ls /artifacts/tests/
-
-ARG COVERAGE_REPORT_GENERATOR_LICENSE
-ARG COVERAGE_REPORT_TITLE
-ARG COVERAGE_REPORT_TAG
-ARG COVERAGE_REPORT_GENERATOR_HISTORY_DIRECTORY
-
-RUN reportgenerator "-reports:/artifacts/tests/*/coverage.cobertura.xml" -targetdir:/artifacts/code-coverage "-reporttypes:HtmlInline_AzurePipelines_Light;SonarQube;TextSummary" "-title:$COVERAGE_REPORT_TITLE" "-tag:$COVERAGE_REPORT_TAG" "-license:$COVERAGE_REPORT_GENERATOR_LICENSE" "-historydir:$COVERAGE_REPORT_GENERATOR_HISTORY_DIRECTORY"
 #---------------------------------------------------------------------
 # /Build artifacts
 #---------------------------------------------------------------------
