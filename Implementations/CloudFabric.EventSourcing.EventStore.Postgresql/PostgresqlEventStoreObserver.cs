@@ -40,7 +40,12 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         }
     }
 
-    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom, Action<string> onCompleted, Action<string, string> onError)
+    public async Task LoadAndHandleEventsAsync(
+        string instanceName,
+        DateTime? dateFrom,
+        Func<string, Task> onCompleted,
+        Func<string, string, Task> onError
+    )
     {
         Func<DateTime?, DateTime?, Task> handleEvents = 
             async (dateFrom, dateTo) =>
@@ -73,11 +78,11 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         }
         catch (Exception ex)
         {
-            onError(instanceName, ex.InnerException?.Message ?? ex.Message);
+            await onError(instanceName, ex.InnerException?.Message ?? ex.Message);
             throw;
         }
 
-        onCompleted(instanceName);
+        await onCompleted(instanceName);
     }
 
     private async Task EventStoreOnEventAdded(IEvent e)

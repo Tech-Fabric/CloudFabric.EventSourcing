@@ -43,4 +43,9 @@ public class OrderTestsInMemory : OrderTests
 
         return (IProjectionRepository<T>)_projectionsRepositories[typeof(T)];
     }
+
+    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
+    {
+        return new InMemoryProjectionRepository<ProjectionRebuildState>();
+    }
 }

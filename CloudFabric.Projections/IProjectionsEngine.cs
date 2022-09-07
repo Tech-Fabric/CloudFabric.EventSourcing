@@ -9,4 +9,6 @@ public interface IProjectionsEngine
     Task RebuildAsync(string instanceName, DateTime? dateFrom = null);
 
     Task RebuildOneAsync(string documentId);
+
+    Task<ProjectionRebuildState> GetRebuildState(string instanceName);
 }

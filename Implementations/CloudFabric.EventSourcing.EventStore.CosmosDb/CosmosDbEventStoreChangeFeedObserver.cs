@@ -81,7 +81,12 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         return _changeFeedProcessor.StopAsync();
     }
 
-    public async Task LoadAndHandleEventsAsync(string instanceName, DateTime? dateFrom, Action<string> onCompleted, Action<string, string> onError)
+    public async Task LoadAndHandleEventsAsync(
+        string instanceName,
+        DateTime? dateFrom,
+        Func<string, Task> onCompleted,
+        Func<string, string, Task> onError
+    )
     {
         try
         {
@@ -116,11 +121,11 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         }
         catch (Exception ex)
         {
-            onError(instanceName, ex.InnerException?.Message ?? ex.Message);
+            await onError(instanceName, ex.InnerException?.Message ?? ex.Message);
             throw;
         }
 
-        onCompleted(instanceName);
+        await onCompleted(instanceName);
     }
 
     public async Task LoadAndHandleEventsForDocumentAsync(string documentId)

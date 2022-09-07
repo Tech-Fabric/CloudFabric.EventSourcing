@@ -19,9 +19,11 @@ public abstract class OrderTests
     protected TimeSpan ProjectionsUpdateDelay { get; set; } = TimeSpan.FromSeconds(0);
     protected abstract Task<IEventStore> GetEventStore();
     protected abstract IProjectionRepository<T> GetProjectionRepository<T>() where T : ProjectionDocument;
+    
+    protected abstract IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository();
     protected abstract IEventsObserver GetEventStoreEventsObserver();
 
-    [TestCleanup]
+    //[TestCleanup]
     public async Task Cleanup()
     {
         var store = await GetEventStore();
@@ -149,7 +151,7 @@ public abstract class OrderTests
         var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine();
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
         projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
 
         var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
@@ -220,6 +222,151 @@ public abstract class OrderTests
             );
         orderProjectionFromQuery.Count.Should().Be(1);
         orderProjectionFromQuery.First().Name.Should().Be(orderName);
+
+        await projectionsEngine.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task TestRebuildOrderDocumentProjection()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
+        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
+
+        // Projections engine - takes events from events observer and passes them to multiple projection builders
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
+        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
+
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
+        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
+
+
+        await projectionsEngine.StartAsync("RebuildDocumentTestInstance");
+
+
+        var userId = new Guid().ToString();
+        var userInfo = new EventUserInfo(userId);
+        var items = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "RebuildDocumentItem",
+                12.00m
+            )
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "Rebuild product first order", items);
+        await orderRepository.SaveOrder(userInfo, firstOrder);
+
+        var secondOrder = new Order(Guid.NewGuid(), "Rebuild product second order", items);
+        await orderRepository.SaveOrder(userInfo, secondOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        var firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString());
+        var secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString());
+
+        firstOrderProjection.Should().NotBeNull();
+        secondOrderProjection.Should().NotBeNull();
+        
+        // remove orders
+        await ordersListProjectionsRepository.Delete(firstOrder.Id.ToString());
+        await ordersListProjectionsRepository.Delete(secondOrder.Id.ToString());
+        
+        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString());
+        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString());
+        firstOrderProjection.Should().BeNull();
+        secondOrderProjection.Should().BeNull();
+
+        // rebuild the firstOrder document
+        await projectionsEngine.RebuildOneAsync(firstOrder.Id.ToString());
+
+        // check firstOrder document is rebuild and second is not
+        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString());
+        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString());
+
+        firstOrderProjection.Should().NotBeNull();
+        secondOrderProjection.Should().BeNull();
+
+        await projectionsEngine.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task TestRebuildAllOrdersProjections()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
+        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
+
+        // Projections engine - takes events from events observer and passes them to multiple projection builders
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
+        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
+
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
+        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
+
+        string instanceName = "RebuildOrdersTestInstance";
+        
+        await projectionsEngine.StartAsync(instanceName);
+
+
+        var userId = new Guid().ToString();
+        var userInfo = new EventUserInfo(userId);
+        var items = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "RebuildDocumentItem",
+                12.00m
+            )
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "Rebuild orders first order", items);
+        await orderRepository.SaveOrder(userInfo, firstOrder);
+
+        var secondOrder = new Order(Guid.NewGuid(), "Rebuild orders second order", items);
+        await orderRepository.SaveOrder(userInfo, secondOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        var firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString());
+        var secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString());
+
+        firstOrderProjection.Should().NotBeNull();
+        secondOrderProjection.Should().NotBeNull();
+        
+        // remove orders
+        await ordersListProjectionsRepository.Delete(firstOrder.Id.ToString());
+        await ordersListProjectionsRepository.Delete(secondOrder.Id.ToString());
+        
+        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString());
+        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString());
+        firstOrderProjection.Should().BeNull();
+        secondOrderProjection.Should().BeNull();
+
+        // rebuild the firstOrder document
+        await projectionsEngine.RebuildAsync(instanceName);
+
+        // wait for the rebuild to finish
+        ProjectionRebuildState rebuildState;
+        do
+        {
+            rebuildState = await projectionsEngine.GetRebuildState(instanceName);
+        }
+        while (rebuildState.Status != RebuildStatus.Completed || rebuildState.Status != RebuildStatus.Failed);
+
+        // check firstOrder document is rebuild and second is not
+        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString());
+        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString());
+
+        firstOrderProjection.Should().NotBeNull();
+        secondOrderProjection.Should().NotBeNull();
 
         await projectionsEngine.StopAsync();
     }

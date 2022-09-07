@@ -79,7 +79,7 @@ public class InMemoryProjectionRepository : IProjectionRepository
 
     public Task<Dictionary<string, object?>?> Single(string id, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(_storage[id] ?? null);
+        return Task.FromResult(_storage.GetValueOrDefault(id) ?? null);
     }
 
     public Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(ProjectionQuery projectionQuery,

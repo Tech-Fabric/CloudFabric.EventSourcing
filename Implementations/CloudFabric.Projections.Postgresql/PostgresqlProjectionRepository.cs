@@ -193,7 +193,13 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         await using var cmd = new NpgsqlCommand(
             $"DELETE " +
             $" FROM {TableName} WHERE {KeyColumnName} = @id", conn
-        );
+        )
+        {
+            Parameters =
+            {
+                new("id", id)
+            }
+        };
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }

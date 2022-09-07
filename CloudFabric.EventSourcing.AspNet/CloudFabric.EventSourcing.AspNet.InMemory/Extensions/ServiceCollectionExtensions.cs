@@ -39,7 +39,10 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
             var projectionRepository = new InMemoryProjectionRepository<TDocument>();
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
-            var projectionsEngine = new ProjectionsEngine();
+            // add repository for saving rebuild states
+            var projectionStateRepository = new InMemoryProjectionRepository<ProjectionRebuildState>();
+
+            var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
             projectionsEngine.SetEventsObserver(eventStoreObserver);
 
             foreach (var projectionBuilderType in projectionBuildersTypes)

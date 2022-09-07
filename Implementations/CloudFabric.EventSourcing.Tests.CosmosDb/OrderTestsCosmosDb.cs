@@ -168,6 +168,18 @@ public class OrderTestsCosmosDb : OrderTests
         return (IProjectionRepository<T>)_projectionsRepositories[typeof(T)];
     }
 
+    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
+    {
+        return new CosmosDbProjectionRepository<ProjectionRebuildState>(
+            new LoggerFactory(),
+            CosmosDbConnectionString,
+            _cosmosClientOptions,
+            DatabaseName,
+            ProjectionsContainerName,
+            partitionKey: "ProjectionRebuildState"
+        );
+    }
+
     public async Task LoadTest()
     {
         var watch = Stopwatch.StartNew();

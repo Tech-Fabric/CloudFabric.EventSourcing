@@ -1,12 +1,18 @@
 using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.Projections.Queries;
 
 namespace CloudFabric.Projections;
 
 public class ProjectionsEngine : IProjectionsEngine
 {
     private readonly List<IProjectionBuilder<ProjectionDocument>> _projectionBuilders = new();
-    private IEventsObserver? _observer; 
-    private Dictionary<string, ProjectionRebuildState> _rebuildStates = new();
+    private IEventsObserver? _observer;
+    private readonly IProjectionRepository<ProjectionRebuildState> _projectionsStateRepository;
+
+    public ProjectionsEngine(IProjectionRepository<ProjectionRebuildState> projectionsStateRepository)
+    {
+        _projectionsStateRepository = projectionsStateRepository;
+    }
 
     public Task StartAsync(string instanceName)
     {
@@ -39,19 +45,32 @@ public class ProjectionsEngine : IProjectionsEngine
         _projectionBuilders.Add(projectionBuilder);
     }
 
-    public Task RebuildAsync(string instanceName, DateTime? dateFrom = null)
+    public async Task RebuildAsync(string instanceName, DateTime? dateFrom = null)
     {
-        _rebuildStates.Add(
-            instanceName,
-            new ProjectionRebuildState { Status = RebuildStatus.Running }
-        );
+        await _projectionsStateRepository.Upsert(new ProjectionRebuildState
+        {
+            Id = Guid.NewGuid().ToString(),
+            InstanceName = instanceName,
+            Status = RebuildStatus.Running
+        });
 
-        return _observer.LoadAndHandleEventsAsync(instanceName, dateFrom, OnRebuildCompleted, OnRebuildFailed);
+        // run in background
+        _observer.LoadAndHandleEventsAsync(instanceName, dateFrom, OnRebuildCompleted, OnRebuildFailed);
     }
 
     public async Task RebuildOneAsync(string documentId)
     {
         await _observer.LoadAndHandleEventsForDocumentAsync(documentId);
+    }
+
+    public async Task<ProjectionRebuildState> GetRebuildState(string instanceName)
+    {
+        var rebuildState = (await _projectionsStateRepository.Query(
+            ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
+        ))
+        .FirstOrDefault();
+
+        return rebuildState;
     }
 
     private async Task HandleEvent(IEvent @event)
@@ -70,20 +89,46 @@ public class ProjectionsEngine : IProjectionsEngine
         }
     }
 
-    private void OnRebuildCompleted(string instanceName)
+    private async Task OnRebuildCompleted(string instanceName)
     {
-        if (_rebuildStates.ContainsKey(instanceName))
+        var rebuildState = (await _projectionsStateRepository.Query(
+            ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
+        ))
+        .FirstOrDefault();
+        
+        if (rebuildState == null)
         {
-            _rebuildStates[instanceName].Status = RebuildStatus.Completed;
+            rebuildState = new ProjectionRebuildState
+            {
+                Id = Guid.NewGuid().ToString(),
+                InstanceName = instanceName
+            };
         }
+        
+        rebuildState.Status = RebuildStatus.Completed;
+
+        await _projectionsStateRepository.Upsert(rebuildState);
     }
 
-    private void OnRebuildFailed(string instanceName, string errorMessage)
+    private async Task OnRebuildFailed(string instanceName, string errorMessage)
     {
-        if (_rebuildStates.ContainsKey(instanceName))
+        var rebuildState = (await _projectionsStateRepository.Query(
+            ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
+        ))
+        .FirstOrDefault();
+        
+        if (rebuildState == null)
         {
-            _rebuildStates[instanceName].Status = RebuildStatus.Failed;
-            _rebuildStates[instanceName].ErrorMessage = errorMessage;
+            rebuildState = new ProjectionRebuildState
+            {
+                Id = Guid.NewGuid().ToString(),
+                InstanceName = instanceName
+            };
         }
+        
+        rebuildState.Status = RebuildStatus.Failed;
+        rebuildState.ErrorMessage = errorMessage;
+
+        await _projectionsStateRepository.Upsert(rebuildState);
     }
 }
