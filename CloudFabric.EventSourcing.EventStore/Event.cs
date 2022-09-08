@@ -5,5 +5,5 @@ namespace CloudFabric.EventSourcing.EventStore;
 [DebuggerStepThrough]
 public record Event : IEvent
 {
-    public DateTime Timestamp { get; } = DateTime.UtcNow;
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }

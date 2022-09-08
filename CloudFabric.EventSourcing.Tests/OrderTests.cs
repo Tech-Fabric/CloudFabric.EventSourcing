@@ -23,7 +23,7 @@ public abstract class OrderTests
     protected abstract IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository();
     protected abstract IEventsObserver GetEventStoreEventsObserver();
 
-    //[TestCleanup]
+    [TestCleanup]
     public async Task Cleanup()
     {
         var store = await GetEventStore();
@@ -358,8 +358,12 @@ public abstract class OrderTests
         do
         {
             rebuildState = await projectionsEngine.GetRebuildState(instanceName);
+            await Task.Delay(10);
         }
-        while (rebuildState.Status != RebuildStatus.Completed || rebuildState.Status != RebuildStatus.Failed);
+        while (rebuildState.Status != RebuildStatus.Completed && rebuildState.Status != RebuildStatus.Failed);
+
+
+        rebuildState.Status.Should().Be(RebuildStatus.Completed);
 
         // check firstOrder document is rebuild and second is not
         firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString());

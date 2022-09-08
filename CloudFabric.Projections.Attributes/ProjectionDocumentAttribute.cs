@@ -52,6 +52,27 @@ public class ProjectionDocumentAttribute : Attribute
         return null;
     }
 
+    public static Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> GetProperties<T>()
+    {
+        Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> properties =
+            new Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute>();
+
+        PropertyInfo[] props = typeof(T).GetProperties();
+        foreach (PropertyInfo prop in props)
+        {
+            object[] attrs = prop.GetCustomAttributes(true);
+            foreach (object attr in attrs)
+            {
+                if (attr is ProjectionDocumentPropertyAttribute propertyAttribute)
+                {
+                    properties.Add(prop, propertyAttribute);
+                }
+            }
+        }
+
+        return properties;
+    }
+
     public static Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> GetFacetableProperties<T>()
     {
         Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> facetableProperties =

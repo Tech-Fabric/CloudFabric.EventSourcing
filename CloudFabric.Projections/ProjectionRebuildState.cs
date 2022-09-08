@@ -18,8 +18,8 @@ public class ProjectionRebuildState : ProjectionDocument
 
 public enum RebuildStatus
 {
-    NotRun,
-    Running,
-    Completed,
-    Failed
+    NotRun = 1,
+    Running = 2,
+    Completed = 3,
+    Failed = 4
 }

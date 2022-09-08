@@ -18,19 +18,12 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
 
         if (document == null) return null;
 
-        return Deserialize(document);
+        return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
     public Task Upsert(TProjectionDocument document, CancellationToken cancellationToken = default)
     {
-        var documentDictionary = new Dictionary<string, object?>();
-
-        var propertyInfos = typeof(TProjectionDocument).GetProperties();
-        foreach (var propertyInfo in propertyInfos)
-        {
-            documentDictionary[propertyInfo.Name] = propertyInfo.GetValue(document);
-        }
-
+        var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
         return Upsert(documentDictionary, cancellationToken);
     }
 
@@ -45,23 +38,12 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
 
         foreach (var dict in recordsDictionary)
         {
-            records.Add(Deserialize(dict));
+            records.Add(
+                ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
+            );
         }
 
         return records;
-    }
-
-    private static TProjectionDocument Deserialize(Dictionary<string, object?> document)
-    {
-        var documentTypedInstance = Activator.CreateInstance<TProjectionDocument>();
-
-        foreach (var propertyName in document.Keys)
-        {
-            var propertyInfo = typeof(TProjectionDocument).GetProperty(propertyName);
-            propertyInfo?.SetValue(documentTypedInstance, document[propertyName]);
-        }
-
-        return documentTypedInstance;
     }
 }
 

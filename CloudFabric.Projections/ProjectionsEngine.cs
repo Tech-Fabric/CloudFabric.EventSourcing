@@ -68,7 +68,7 @@ public class ProjectionsEngine : IProjectionsEngine
         var rebuildState = (await _projectionsStateRepository.Query(
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
         ))
-        .FirstOrDefault();
+        .LastOrDefault();
 
         return rebuildState;
     }
