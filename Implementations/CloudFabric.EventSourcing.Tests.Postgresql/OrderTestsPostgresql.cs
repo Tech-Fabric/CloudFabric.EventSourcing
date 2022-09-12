@@ -53,7 +53,7 @@ public class OrderTestsPostgresql : OrderTests
     protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
     {
         return new PostgresqlProjectionRepository<ProjectionRebuildState>(
-            "Host=localhost;Username=fiber_eventsourcing_test;Password=fiber_eventsourcing_test;Database=fiber_eventsourcing_test;Maximum Pool Size=1000"
+            "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000"
         );
     }
 
