@@ -19,7 +19,7 @@ public class OrderTestsPostgresql : OrderTests
         if (_eventStore == null)
         {
             _eventStore = new PostgresqlEventStore(
-                "Host=localhost;Username=fiber_eventsourcing_test;Password=fiber_eventsourcing_test;Database=fiber_eventsourcing_test;Maximum Pool Size=1000",
+                "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000",
                 "orders_events"
             );
             await _eventStore.Initialize();
@@ -43,7 +43,7 @@ public class OrderTestsPostgresql : OrderTests
         if (!_projectionsRepositories.ContainsKey(typeof(T)))
         {
             _projectionsRepositories[typeof(T)] = new PostgresqlProjectionRepository<T>(
-                "Host=localhost;Username=fiber_eventsourcing_test;Password=fiber_eventsourcing_test;Database=fiber_eventsourcing_test;Maximum Pool Size=1000"
+                "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000"
             );
         }
 

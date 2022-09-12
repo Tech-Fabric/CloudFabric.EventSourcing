@@ -13,13 +13,13 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.Postgresql\CloudFabric.EventSourcing.AspNet.Postgresql.csproj" />
+      <ProjectReference Include="..\ToDoList.Services.Interfaces\ToDoList.Services.Interfaces.csproj" />
       <ProjectReference Include="..\ToDoList.Services.Implementations\ToDoList.Services.Implementations.csproj" />
       <ProjectReference Include="..\..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj" />
-      <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.Postgresql\CloudFabric.EventSourcing.EventStore.Postgresql.csproj" />
-      <ProjectReference Include="..\..\Implementations\CloudFabric.Projections.Postgresql\CloudFabric.Projections.Postgresql.csproj" />
-      <ProjectReference Include="..\ToDoList.Services.Interfaces\ToDoList.Services.Interfaces.csproj" />
       <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj" />
       <ProjectReference Include="..\..\CloudFabric.Projections.Attributes\CloudFabric.Projections.Attributes.csproj" />
+      <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.Postgresql\CloudFabric.EventSourcing.EventStore.Postgresql.csproj" />
+      <ProjectReference Include="..\..\Implementations\CloudFabric.Projections.Postgresql\CloudFabric.Projections.Postgresql.csproj" />
     </ItemGroup>
 
 </Project>

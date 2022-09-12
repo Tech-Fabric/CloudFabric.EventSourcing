@@ -1,0 +1,27 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag artifacts:$(date +%s)
+    - name: Copy artifacts
+      run: containerId=$(docker create $(docker images --format='{{.ID}}' | head -1)) && docker cp $containerId:/artifacts/ ./artifacts
+    - name: Codecov
+      uses: codecov/codecov-action@v3.1.0
+      with:
+        # Comma-separated list of files to upload
+        files: # optional
+        # Directory to search for coverage reports.
+        directory: ./artifacts
