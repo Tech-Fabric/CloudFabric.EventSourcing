@@ -1,48 +1,37 @@
-using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
-using CloudFabric.Projections.InMemory;
+using CloudFabric.Projections.ElasticSearch;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
-namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
+namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
 {
     public static class ServiceCollectionExtensions
     {
-        public static IEventSourcingBuilder AddInMemoryEventStore(
-            this IServiceCollection services,
-            Dictionary<(string, string), List<string>> eventsContainer
-        )
-        {
-            var eventStore = new InMemoryEventStore(eventsContainer);
-            eventStore.Initialize().Wait();
-
-            // add events observer for projections
-            var eventStoreObserver = new InMemoryEventStoreEventObserver(eventStore);
-
-            return new EventSourcingBuilder
-            {
-                EventStore = eventStore,
-                Services = services,
-                ProjectionEventsObserver = eventStoreObserver
-            };
-        }
-
-        public static IEventSourcingBuilder AddRepository<TRepo>(this IEventSourcingBuilder builder)
-            where TRepo : class
-        {
-            builder.Services.AddSingleton(sp => ActivatorUtilities.CreateInstance<TRepo>(sp, new object[] { builder.EventStore }));
-            return builder;
-        }
-
-        public static IEventSourcingBuilder AddInMemoryProjections<TDocument>(
+        public static IEventSourcingBuilder AddElasticSearchProjections<TDocument>(
             this IEventSourcingBuilder builder,
+            string uri,
+            string username,
+            string password,
+            LoggerFactory loggerFactory,
             params Type[] projectionBuildersTypes
         ) where TDocument : ProjectionDocument
         {
-            var projectionRepository = new InMemoryProjectionRepository<TDocument>();
+            var projectionRepository = new ElasticSearchProjectionRepository<TDocument>(
+                uri,
+                username,
+                password,
+                loggerFactory
+            );
+
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
             // add repository for saving rebuild states
-            var projectionStateRepository = new InMemoryProjectionRepository<ProjectionRebuildState>();
+            var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
+                uri,
+                username,
+                password,
+                loggerFactory
+            );
 
             var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
 

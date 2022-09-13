@@ -16,10 +16,14 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             var eventStore = new PostgresqlEventStore(eventsConnectionString, tableName);
             eventStore.Initialize().Wait();
 
+            // add events observer for projections
+            var eventStoreObserver = new PostgresqlEventStoreEventObserver(eventStore);
+
             return new EventSourcingBuilder
             {
                 EventStore = eventStore,
-                Services = services
+                Services = services,
+                ProjectionEventsObserver = eventStoreObserver
             };
         }
 
@@ -36,8 +40,6 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             params Type[] projectionBuildersTypes
         ) where TDocument : ProjectionDocument
         {
-            var eventStoreObserver = new PostgresqlEventStoreEventObserver((PostgresqlEventStore)builder.EventStore);
-
             var projectionRepository = new PostgresqlProjectionRepository<TDocument>(projectionsConnectionString);
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
@@ -45,7 +47,13 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             var projectionStateRepository = new PostgresqlProjectionRepository<ProjectionRebuildState>(projectionsConnectionString);
 
             var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
-            projectionsEngine.SetEventsObserver(eventStoreObserver);
+
+            if (builder.ProjectionEventsObserver == null)
+            {
+                throw new ArgumentException("Projection events observer is missing");
+            }
+
+            projectionsEngine.SetEventsObserver(builder.ProjectionEventsObserver);
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {

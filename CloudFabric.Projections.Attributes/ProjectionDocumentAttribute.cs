@@ -8,7 +8,7 @@ public class ProjectionDocumentAttribute : Attribute
 {
     public static string GetIndexName<TProjectionDocument>()
     {
-        var properties = GetQueryableProperties<TProjectionDocument>();
+        var properties = GetProperties<TProjectionDocument>();
 
         StringBuilder sb = new StringBuilder();
 

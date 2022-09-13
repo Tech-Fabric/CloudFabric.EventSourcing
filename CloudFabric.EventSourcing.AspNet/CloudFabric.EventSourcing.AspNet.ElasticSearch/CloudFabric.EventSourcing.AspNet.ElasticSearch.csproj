@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Implementations\CloudFabric.Projections.ElasticSearch\CloudFabric.Projections.ElasticSearch.csproj" />
+    <ProjectReference Include="..\CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.csproj" />
+  </ItemGroup>
+
+</Project>
