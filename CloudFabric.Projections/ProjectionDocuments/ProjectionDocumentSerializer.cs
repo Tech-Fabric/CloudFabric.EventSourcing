@@ -50,6 +50,10 @@ public static class ProjectionDocumentSerializer
                     ? parsedValue
                     : null;
             }
+            else if (propertyInfo.PropertyType.IsEnum)
+            {
+                value = Convert.ToInt32(value);
+            }
 
             propertyInfo?.SetValue(documentTypedInstance, value);
         }

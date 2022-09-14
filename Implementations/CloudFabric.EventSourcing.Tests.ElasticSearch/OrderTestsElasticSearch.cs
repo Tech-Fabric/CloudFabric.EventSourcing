@@ -47,9 +47,9 @@ public class OrderTestsElasticSearch : OrderTests
         if (!_projectionsRepositories.ContainsKey(typeof(T)))
         {
             _projectionsRepositories[typeof(T)] = new ElasticSearchProjectionRepository<T>(
-                "uri",
-                "username",
-                "password",
+                "http://127.0.0.1:9200",
+                "",
+                "",
                 new LoggerFactory()
             );
         }
@@ -60,9 +60,9 @@ public class OrderTestsElasticSearch : OrderTests
     protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
     {
         return new ElasticSearchProjectionRepository<ProjectionRebuildState>(
-            "uri",
-            "username",
-            "password",
+            "http://127.0.0.1:9200",
+            "",
+            "",
             new LoggerFactory()
         );
     }

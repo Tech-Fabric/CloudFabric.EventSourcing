@@ -9,6 +9,6 @@ public class OrderListProjectionItem : ProjectionDocument
     [ProjectionDocumentProperty(IsSearchable = true)]
     public string Name { get; set; } = string.Empty;
 
-    [ProjectionDocumentProperty(IsSearchable = true)]
+    [ProjectionDocumentProperty(IsFilterable = true)]
     public long ItemsCount { get; set; } = 0;
 }

@@ -83,7 +83,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         connectionSettings.DefaultIndex(IndexName);
         connectionSettings.ThrowExceptions();
 
-        _client = new ElasticClient(new Uri(uri));
+        _client = new ElasticClient(connectionSettings);
     }
 
     public string IndexName
@@ -95,7 +95,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                 _indexName = _projectionDocumentSchema.SchemaName;
             }
 
-            return _indexName;
+            return _indexName.ToLower();
         }
     }
 
@@ -117,6 +117,12 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         try
         {
             var item = await _client.GetAsync<Dictionary<string, object?>>(id, ct: cancellationToken);
+
+            if (item?.Source == null)
+            {
+                return null;
+            }
+
             return DeserializeDictionary(item.Source);
         }
         catch (Exception ex)
@@ -164,8 +170,8 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     {
         try
         {
-            var jsonDocument = JsonSerializer.SerializeToDocument(document);
-            await _client.IndexDocumentAsync(document, cancellationToken);
+            document.TryGetValue("Id", out object? id);
+            await _client.IndexAsync(new IndexRequest<Dictionary<string, object?>>(document, id: id?.ToString()), cancellationToken);
         }
         catch (Exception ex)
         {
@@ -267,7 +273,6 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
 
         // construct filters
-        QueryContainer result;
         var filterStrings = new List<string>();
 
         foreach (var f in projectionQuery.Filters)
@@ -282,15 +287,13 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
             new QueryStringQuery() { Query = string.Join(" AND ", filterStrings) }
         };
 
-        result = searchDescriptor.Bool(q =>
+        return searchDescriptor.Bool(q =>
             new BoolQuery()
             {
                 Must = new List<QueryContainer>() { textQuery },
                 Filter = filter
             }
         );
-
-        return result;
     }
 
     private string ConstructOneConditionFilter(Queries.Filter filter)
