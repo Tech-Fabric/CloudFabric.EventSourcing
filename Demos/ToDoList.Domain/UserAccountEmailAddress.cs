@@ -24,6 +24,8 @@ public class UserAccountEmailAddress : AggregateBase
         Apply(new UserAccountEmailRegistered(emailAddress));
     }
 
+    public override string PartitionKey => PartitionKeys.GetUserAccountEmailAddressPartitionKey();
+
     public void ChangeEmailAddress(string newEmail)
     {
         Apply(new UserAccountEmailAddressChanged(newEmail));

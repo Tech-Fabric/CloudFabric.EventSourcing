@@ -18,6 +18,8 @@ public class Order : AggregateBase
         Apply(new OrderPlaced(id, orderName, items));
     }
 
+    public override string PartitionKey => PartitionKeys.GetOrderPartitionKey();
+
     public Guid Id { get; private set; }
     public string OrderName { get; private set; }
     public List<OrderItem> Items { get; private set; }

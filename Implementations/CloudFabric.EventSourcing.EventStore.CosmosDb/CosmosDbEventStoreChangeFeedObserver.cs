@@ -27,7 +27,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
     protected readonly string _leaseContainerId;
     protected readonly string _leaseDatabaseId;
     private ChangeFeedProcessor _changeFeedProcessor;
-    private Func<IEvent, Task> _eventHandler;
+    private Func<IEvent, string, Task> _eventHandler;
 
     private string _processorName;
 
@@ -52,7 +52,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         _processorName = processorName;
     }
 
-    public void SetEventHandler(Func<IEvent, Task> eventHandler)
+    public void SetEventHandler(Func<IEvent, string, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }
@@ -83,9 +83,10 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
 
     public async Task LoadAndHandleEventsAsync(
         string instanceName,
+        string partitionKey,
         DateTime? dateFrom,
-        Func<string, Task> onCompleted,
-        Func<string, string, Task> onError
+        Func<string, string, Task> onCompleted,
+        Func<string, string, string, Task> onError
     )
     {
         try
@@ -96,7 +97,9 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
 
             using var feedIterator = eventContainer
                 .GetChangeFeedIterator<Change>(
-                    dateFrom.HasValue ? ChangeFeedStartFrom.Time(dateFrom.Value) : ChangeFeedStartFrom.Beginning(),
+                    dateFrom.HasValue 
+                        ? ChangeFeedStartFrom.Time(dateFrom.Value, FeedRange.FromPartitionKey(new PartitionKey(partitionKey))) 
+                        : ChangeFeedStartFrom.Beginning(FeedRange.FromPartitionKey(new PartitionKey(partitionKey))),
                     ChangeFeedMode.Incremental,
                     new ChangeFeedRequestOptions
                     {
@@ -121,14 +124,14 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         }
         catch (Exception ex)
         {
-            await onError(instanceName, ex.InnerException?.Message ?? ex.Message);
+            await onError(instanceName, partitionKey, ex.InnerException?.Message ?? ex.Message);
             throw;
         }
 
-        await onCompleted(instanceName);
+        await onCompleted(instanceName, partitionKey);
     }
 
-    public async Task LoadAndHandleEventsForDocumentAsync(string documentId)
+    public async Task LoadAndHandleEventsForDocumentAsync(string documentId, string partitionKey)
     {
         Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
 
@@ -139,14 +142,17 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
             .WithParameter("@streamId", documentId);
 
-        FeedIterator<EventWrapper> feedIterator = eventContainer.GetItemQueryIterator<EventWrapper>(queryDefinition);
+        FeedIterator<EventWrapper> feedIterator = eventContainer.GetItemQueryIterator<EventWrapper>(
+            queryDefinition,
+            requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(partitionKey) }
+        );
         while (feedIterator.HasMoreResults)
         {
             FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
             foreach (var eventWrapper in response)
             {
                 var @event = eventWrapper.GetEvent();
-                await _eventHandler(@event);
+                await _eventHandler(@event, partitionKey);
             }
         }
     }
@@ -157,7 +163,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         {
             var @event = change.GetEvent();
 
-            await _eventHandler(@event);
+            await _eventHandler(@event, change.StreamInfo.PartitionKey);
         }
     }
 }

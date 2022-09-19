@@ -45,7 +45,7 @@ public class UserAccountsService : IUserAccountsService
             return ServiceResult<UserAccountPersonalViewModel>.Failed(validationProblemDetails);
         }
 
-        var emailAlreadyExists = await _userAccountEmailAddressesRepository.LoadAsync(request.Email, ct);
+        var emailAlreadyExists = await _userAccountEmailAddressesRepository.LoadAsync(request.Email, PartitionKeys.GetUserAccountEmailAddressPartitionKey(), ct);
 
         // it may happen that email record was created but then something went wrong and email was left unatached.
         if (emailAlreadyExists != null && emailAlreadyExists?.UserAccountId != null)
@@ -64,14 +64,14 @@ public class UserAccountsService : IUserAccountsService
 
         var userAccountEmail = emailAlreadyExists ?? new UserAccountEmailAddress(request.Email);
 
-        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(), userAccountEmail, ct);
+        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(), userAccountEmail, userAccountEmail.PartitionKey, ct);
 
         var userAccount = new UserAccount(Guid.NewGuid().ToString(), request.FirstName, PasswordHelper.HashPassword(request.Password));
 
-        await _userAccountsRepository.SaveAsync(new EventUserInfo(), userAccount, ct);
+        await _userAccountsRepository.SaveAsync(new EventUserInfo(), userAccount, userAccount.PartitionKey, ct);
 
         userAccountEmail.AssignUserAccount(userAccount.Id.ToString());
-        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(userAccount.Id), userAccountEmail, ct);
+        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(userAccount.Id), userAccountEmail, userAccountEmail.PartitionKey, ct);
 
         return ServiceResult<UserAccountPersonalViewModel>.Success(_mapper.Map<UserAccountPersonalViewModel>(userAccount));
     }
@@ -85,7 +85,7 @@ public class UserAccountsService : IUserAccountsService
             return ServiceResult.Failed(validationProblemDetails);
         }
 
-        var userAccount = await _userAccountsRepository.LoadAsync(request.UserAccountId, cancellationToken);
+        var userAccount = await _userAccountsRepository.LoadAsync(request.UserAccountId, PartitionKeys.GetUserAccountPartitionKey(), cancellationToken);
 
         if(userAccount == null) {
             return ServiceResult.Failed("user_not_found", "User was not found");
@@ -97,7 +97,7 @@ public class UserAccountsService : IUserAccountsService
 
         userAccount.UpdatePassword(PasswordHelper.HashPassword(request.NewPassword));
 
-        await _userAccountsRepository.SaveAsync(_userInfo, userAccount, cancellationToken);
+        await _userAccountsRepository.SaveAsync(_userInfo, userAccount, userAccount.PartitionKey, cancellationToken);
 
         return ServiceResult.Success();
     }
@@ -112,13 +112,21 @@ public class UserAccountsService : IUserAccountsService
             return ServiceResult<UserAccessTokenViewModel>.Failed(validationProblemDetails);
         }
 
-        var userAccountEmailAddress = await _userAccountEmailAddressesRepository.LoadAsync(request.Email, cancellationToken);
+        var userAccountEmailAddress = await _userAccountEmailAddressesRepository.LoadAsync(
+            request.Email,
+            PartitionKeys.GetUserAccountEmailAddressPartitionKey(),
+            cancellationToken
+        );
 
         if(userAccountEmailAddress == null) {
             return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");
         }
 
-        var userAccount = await _userAccountsRepository.LoadAsync(userAccountEmailAddress.UserAccountId, cancellationToken);
+        var userAccount = await _userAccountsRepository.LoadAsync(
+            userAccountEmailAddress.UserAccountId,
+            PartitionKeys.GetUserAccountPartitionKey(),
+            cancellationToken
+        );
 
         if(userAccount == null) {
             return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");

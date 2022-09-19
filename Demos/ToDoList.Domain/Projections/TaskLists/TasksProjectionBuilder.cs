@@ -13,7 +13,7 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
     {
     }
 
-    public async System.Threading.Tasks.Task On(TaskCreated @event)
+    public async System.Threading.Tasks.Task On(TaskCreated @event, string partitionKey)
     {
         await UpsertDocument(new TaskProjectionItem() {
             Id = @event.Id,
@@ -22,20 +22,29 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
             UserAccountId = @event.UserAccountId,
             TaskListId = @event.TaskListId,
             IsCompleted = false
-        });
+        }, partitionKey);
     }
 
-    public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated @event)
+    public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated @event, string partitionKey)
     {
-        await UpdateDocument(@event.TaskId, (projectionDocument) => {
-            projectionDocument.IsCompleted = @event.IsCompleted;
-        });
+        await UpdateDocument(
+            @event.TaskId,
+            partitionKey,
+            (projectionDocument) =>
+            {
+                projectionDocument.IsCompleted = @event.IsCompleted;
+            }
+        );
     }
 
-    public async System.Threading.Tasks.Task On(TaskTitleUpdated @event)
+    public async System.Threading.Tasks.Task On(TaskTitleUpdated @event, string partitionKey)
     {
-        await UpdateDocument(@event.Id, (projectionDocument) => {
-            projectionDocument.Title = @event.NewTitle;
-        });
+        await UpdateDocument(@event.Id,
+            partitionKey,
+            (projectionDocument) => 
+            {
+                projectionDocument.Title = @event.NewTitle;
+            }
+        );
     }
 }

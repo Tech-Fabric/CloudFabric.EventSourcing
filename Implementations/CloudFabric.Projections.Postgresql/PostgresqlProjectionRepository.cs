@@ -12,27 +12,28 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(string id, CancellationToken cancellationToken = default)
+    public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        var document = await base.Single(id, cancellationToken);
+        var document = await base.Single(id, partitionKey, cancellationToken);
 
         if (document == null) return null;
 
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, CancellationToken cancellationToken = default)
+    public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
     {
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
-        return Upsert(documentDictionary, cancellationToken);
+        return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
     public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
+        string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
-        var recordsDictionary = await base.Query(projectionQuery, cancellationToken);
+        var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
         var records = new List<TProjectionDocument>();
 
@@ -92,7 +93,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<Dictionary<string, object?>?> Single(string id, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
@@ -108,12 +109,13 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         await using var cmd = new NpgsqlCommand(
             $"SELECT " +
             string.Join(',', _projectionDocumentSchema.Properties.Select(p => p.PropertyName)) +
-            $" FROM {TableName} WHERE {KeyColumnName} = @id", conn
+            $" FROM {TableName} WHERE {KeyColumnName} = @id AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey", conn
         )
         {
             Parameters =
             {
-                new(KeyColumnName, id)
+                new(KeyColumnName, id),
+                new("partitionKey", partitionKey)
             }
         };
 
@@ -153,7 +155,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             {
                 await HandleUndefinedTableException(conn, cancellationToken);
 
-                return await Single(id, cancellationToken);
+                return await Single(id, partitionKey, cancellationToken);
             }
             else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
@@ -167,39 +169,46 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         return null;
     }
 
-    public async Task Delete(string id, CancellationToken cancellationToken = default)
+    public async Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
             $"DELETE " +
-            $" FROM {TableName} WHERE {KeyColumnName} = @id", conn
+            $" FROM {TableName} WHERE {KeyColumnName} = @id AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey", conn
         )
         {
             Parameters =
             {
-                new("id", id)
+                new("id", id),
+                new("partitionKey", partitionKey)
             }
         };
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task DeleteAll(CancellationToken cancellationToken)
+    public async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
             $"DELETE " +
-            $" FROM {TableName}", conn
+            $" FROM {TableName} " +
+            (!string.IsNullOrEmpty(partitionKey) ? $" WHERE {nameof(ProjectionDocument.PartitionKey)} = @partitionKey" : ""), conn
         );
+
+        if (!string.IsNullOrEmpty(partitionKey))
+        {
+            cmd.Parameters.Add(new("partitionKey", partitionKey));
+        }
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, CancellationToken cancellationToken = default)
+    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
@@ -211,6 +220,8 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                 _projectionDocumentSchema.SchemaName
             );
         }
+
+        document[nameof(ProjectionDocument.PartitionKey)] = partitionKey;
 
         var propertyNames = _projectionDocumentSchema.Properties.Select(p => p.PropertyName)
             .ToArray();
@@ -243,7 +254,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             {
                 await HandleUndefinedTableException(conn, cancellationToken);
 
-                await Upsert(document, cancellationToken);
+                await Upsert(document, partitionKey, cancellationToken);
             }
             else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
@@ -257,6 +268,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
     public async Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
+        string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -270,6 +282,13 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         sb.Append(" WHERE ");
 
         var (whereClause, parameters) = ConstructConditionFilters(projectionQuery.Filters);
+
+        if (!string.IsNullOrEmpty(partitionKey))
+        {
+            whereClause += $" AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey";
+            parameters.Add(new("partitionKey", partitionKey));
+        }
+
         sb.Append(whereClause);
 
         sb.Append(" LIMIT @limit");
@@ -322,7 +341,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             {
                 await HandleUndefinedTableException(conn, cancellationToken);
 
-                await Query(projectionQuery, cancellationToken);
+                await Query(projectionQuery, partitionKey, cancellationToken);
             }
             else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {

@@ -6,9 +6,9 @@ public interface IProjectionsEngine
 
     Task StopAsync();
 
-    Task RebuildAsync(string instanceName, DateTime? dateFrom = null);
+    Task RebuildAsync(string instanceName, string partitionKey, DateTime? dateFrom = null);
 
-    Task RebuildOneAsync(string documentId);
+    Task RebuildOneAsync(string documentId, string partitionKey);
 
-    Task<ProjectionRebuildState> GetRebuildState(string instanceName);
+    Task<ProjectionRebuildState> GetRebuildState(string instanceName, string partitionKey);
 }

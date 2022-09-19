@@ -12,14 +12,14 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         _eventStore = eventStore;
     }
 
-    public async Task<T?> LoadAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<T?> LoadAsync(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
         if(string.IsNullOrEmpty(id))
         {
             throw new ArgumentNullException(nameof(id));
         }
 
-        var eventStream = await _eventStore.LoadStreamAsync(id);
+        var eventStream = await _eventStore.LoadStreamAsync(id, partitionKey);
 
         if (eventStream.Events.Any())
         {
@@ -29,19 +29,19 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         return null;
     }
 
-    public async Task<T> LoadAsyncOrThrowNotFound(string id, CancellationToken cancellationToken = default)
+    public async Task<T> LoadAsyncOrThrowNotFound(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
         if(string.IsNullOrEmpty(id))
         {
             throw new ArgumentNullException(nameof(id));
         }
 
-        var eventStream = await _eventStore.LoadStreamAsyncOrThrowNotFound(id);
+        var eventStream = await _eventStore.LoadStreamAsyncOrThrowNotFound(id, partitionKey);
 
         return (T)Activator.CreateInstance(typeof(T), new object[] { eventStream.Events });
     }
 
-    public async Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, CancellationToken cancellationToken = default)
+    public async Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, string partitionKey, CancellationToken cancellationToken = default)
     {
         if (aggregate.UncommittedEvents.Any())
         {
@@ -50,6 +50,7 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
             var eventsSavedSuccessfully = await _eventStore.AppendToStreamAsync(
                 eventUserInfo,
                 streamId,
+                partitionKey,
                 aggregate.Version,
                 aggregate.UncommittedEvents
             );

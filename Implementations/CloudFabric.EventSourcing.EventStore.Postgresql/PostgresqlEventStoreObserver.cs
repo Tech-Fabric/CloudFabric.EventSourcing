@@ -5,14 +5,14 @@ namespace CloudFabric.EventSourcing.EventStore.Postgresql;
 public class PostgresqlEventStoreEventObserver : IEventsObserver
 {
     private readonly PostgresqlEventStore _eventStore;
-    private Func<IEvent, Task>? _eventHandler;
+    private Func<IEvent, string, Task>? _eventHandler;
 
     public PostgresqlEventStoreEventObserver(PostgresqlEventStore eventStore)
     {
         _eventStore = eventStore;
     }
 
-    public void SetEventHandler(Func<IEvent, Task> eventHandler)
+    public void SetEventHandler(Func<IEvent, string, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }
@@ -30,31 +30,32 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         return Task.CompletedTask;
     }
 
-    public async Task LoadAndHandleEventsForDocumentAsync(string documentId)
+    public async Task LoadAndHandleEventsForDocumentAsync(string documentId, string partitionKey)
     {
-        var stream = await _eventStore.LoadStreamAsync(documentId);
+        var stream = await _eventStore.LoadStreamAsync(documentId, partitionKey);
 
         foreach (var @event in stream.Events)
         {
-            await EventStoreOnEventAdded(@event);
+            await EventStoreOnEventAdded(@event, partitionKey);
         }
     }
 
     public async Task LoadAndHandleEventsAsync(
         string instanceName,
+        string partitionKey,
         DateTime? dateFrom,
-        Func<string, Task> onCompleted,
-        Func<string, string, Task> onError
+        Func<string, string, Task> onCompleted,
+        Func<string, string, string, Task> onError
     )
     {
         Func<DateTime?, DateTime?, Task> handleEvents = 
             async (dateFrom, dateTo) =>
             {
-                var events = await _eventStore.LoadEventsAsync(dateFrom, dateTo);
+                var events = await _eventStore.LoadEventsAsync(partitionKey, dateFrom, dateTo);
 
                 foreach (var @event in events)
                 {
-                    await EventStoreOnEventAdded(@event);
+                    await EventStoreOnEventAdded(@event, partitionKey);
                 }
             };
         
@@ -78,14 +79,14 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         }
         catch (Exception ex)
         {
-            await onError(instanceName, ex.InnerException?.Message ?? ex.Message);
+            await onError(instanceName, partitionKey, ex.InnerException?.Message ?? ex.Message);
             throw;
         }
 
-        await onCompleted(instanceName);
+        await onCompleted(instanceName, partitionKey);
     }
 
-    private async Task EventStoreOnEventAdded(IEvent e)
+    private async Task EventStoreOnEventAdded(IEvent e, string partitionKey)
     {
         if (_eventHandler == null)
         {
@@ -93,6 +94,6 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
                 "Can't process an event: no eventHandler was set. Please call SetEventHandler before calling StartAsync.");
         }
 
-        await _eventHandler(e);
+        await _eventHandler(e, partitionKey);
     }
 }

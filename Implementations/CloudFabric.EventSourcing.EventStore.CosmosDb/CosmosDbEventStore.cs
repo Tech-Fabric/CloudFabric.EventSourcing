@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using Microsoft.Azure.Cosmos;
 
@@ -44,11 +44,11 @@ public class CosmosDbEventStore : IEventStore
         await container.DeleteContainerAsync();
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId)
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId, string partitionKey)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
-        var sqlQueryText = $"SELECT * FROM {_containerId} e" + " WHERE e.stream.id = @streamId" + " ORDER BY e.stream.version";
+        var sqlQueryText = $"SELECT * FROM {_containerId} e" + " WHERE e.stream.id = @streamId " + " ORDER BY e.stream.version";
 
         QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
             .WithParameter("@streamId", streamId);
@@ -56,7 +56,10 @@ public class CosmosDbEventStore : IEventStore
         int version = 0;
         var events = new List<IEvent>();
 
-        FeedIterator<EventWrapper> feedIterator = container.GetItemQueryIterator<EventWrapper>(queryDefinition);
+        FeedIterator<EventWrapper> feedIterator = container.GetItemQueryIterator<EventWrapper>(
+            queryDefinition,
+            requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(partitionKey) }
+        );
         while (feedIterator.HasMoreResults)
         {
             FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
@@ -76,11 +79,11 @@ public class CosmosDbEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId)
+    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
-        var sqlQueryText = $"SELECT * FROM {_containerId} e" + " WHERE e.stream.id = @streamId" + " ORDER BY e.stream.version";
+        var sqlQueryText = $"SELECT * FROM {_containerId} e" + " WHERE e.stream.id = @streamId " + " ORDER BY e.stream.version";
 
         QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
             .WithParameter("@streamId", streamId);
@@ -88,7 +91,10 @@ public class CosmosDbEventStore : IEventStore
         int version = 0;
         var events = new List<IEvent>();
 
-        FeedIterator<EventWrapper> feedIterator = container.GetItemQueryIterator<EventWrapper>(queryDefinition);
+        FeedIterator<EventWrapper> feedIterator = container.GetItemQueryIterator<EventWrapper>(
+            queryDefinition,
+            requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(partitionKey) }
+        );
         while (feedIterator.HasMoreResults)
         {
             FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
@@ -103,7 +109,7 @@ public class CosmosDbEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey, int fromVersion)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -118,7 +124,10 @@ public class CosmosDbEventStore : IEventStore
         int version = 0;
         var events = new List<IEvent>();
 
-        FeedIterator<EventWrapper> feedIterator = container.GetItemQueryIterator<EventWrapper>(queryDefinition);
+        FeedIterator<EventWrapper> feedIterator = container.GetItemQueryIterator<EventWrapper>(
+            queryDefinition,
+            requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(partitionKey) }
+        );
         while (feedIterator.HasMoreResults)
         {
             FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
@@ -133,26 +142,32 @@ public class CosmosDbEventStore : IEventStore
     }
 
     public async Task<bool> AppendToStreamAsync(
-        EventUserInfo eventUserInfo, string streamId, int expectedVersion,
+        EventUserInfo eventUserInfo,
+        string streamId,
+        string partitionKey,
+        int expectedVersion,
         IEnumerable<IEvent> events
     )
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
-        PartitionKey partitionKey = new PartitionKey(streamId);
+        PartitionKey cosmosPartitionKey = new PartitionKey(partitionKey);
 
         dynamic[] parameters = new dynamic[]
         {
             streamId,
             expectedVersion,
-            SerializeEvents(eventUserInfo, streamId, expectedVersion, events)
+            SerializeEvents(eventUserInfo, streamId, partitionKey, expectedVersion, events)
         };
 
-        return await container.Scripts.ExecuteStoredProcedureAsync<bool>("spAppendToStream", partitionKey, parameters);
+        return await container.Scripts.ExecuteStoredProcedureAsync<bool>("spAppendToStream", cosmosPartitionKey, parameters);
     }
 
     private static string SerializeEvents(
-        EventUserInfo eventUserInfo, string streamId, int expectedVersion,
+        EventUserInfo eventUserInfo,
+        string streamId,
+        string partitionKey,
+        int expectedVersion,
         IEnumerable<IEvent> events
     )
     {
@@ -166,7 +181,8 @@ public class CosmosDbEventStore : IEventStore
                 StreamInfo = new StreamInfo
                 {
                     Id = streamId,
-                    Version = expectedVersion
+                    Version = expectedVersion,
+                    PartitionKey = partitionKey
                 },
                 EventType = e.GetType().AssemblyQualifiedName,
                 EventData = JsonSerializer.SerializeToElement(e, e.GetType()),

@@ -5,14 +5,14 @@ namespace CloudFabric.EventSourcing.EventStore.InMemory;
 public class InMemoryEventStoreEventObserver : IEventsObserver
 {
     private readonly InMemoryEventStore _eventStore;
-    private Func<IEvent, Task> _eventHandler;
+    private Func<IEvent, string, Task> _eventHandler;
 
     public InMemoryEventStoreEventObserver(InMemoryEventStore eventStore)
     {
         _eventStore = eventStore;
     }
 
-    public void SetEventHandler(Func<IEvent, Task> eventHandler)
+    public void SetEventHandler(Func<IEvent, string, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }
@@ -32,47 +32,48 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
 
     public async Task LoadAndHandleEventsAsync(
         string instanceName,
+        string partitionKey,
         DateTime? dateFrom,
-        Func<string, Task> onCompleted,
-        Func<string, string, Task> onError
+        Func<string, string, Task> onCompleted,
+        Func<string, string, string, Task> onError
     )
     {
         try
         {
-            var events = await _eventStore.LoadEventsAsync(dateFrom);
+            var events = await _eventStore.LoadEventsAsync(partitionKey, dateFrom);
 
             foreach (var @event in events)
             {
                 await EventStoreOnEventAdded(
                     this,
-                    new EventAddedEventArgs { Event = @event }
+                    new EventAddedEventArgs { Event = @event, PartitionKey = partitionKey }
                 );
             }
         }
         catch (Exception ex)
         {
-            await onError(instanceName, ex.InnerException?.Message ?? ex.Message);
+            await onError(instanceName, partitionKey, ex.InnerException?.Message ?? ex.Message);
             throw;
         }
 
-        await onCompleted(instanceName);
+        await onCompleted(instanceName, partitionKey);
     }
 
-    public async Task LoadAndHandleEventsForDocumentAsync(string documentId)
+    public async Task LoadAndHandleEventsForDocumentAsync(string documentId, string partitionKey)
     {
-        var stream = await _eventStore.LoadStreamAsync(documentId);
+        var stream = await _eventStore.LoadStreamAsync(documentId, partitionKey);
 
         foreach (var @event in stream.Events)
         {
             await EventStoreOnEventAdded(
                 this,
-                new EventAddedEventArgs { Event = @event }
+                new EventAddedEventArgs { Event = @event, PartitionKey = partitionKey }
             );
         }
     }
 
     private async Task EventStoreOnEventAdded(object? sender, EventAddedEventArgs e)
     {
-        await _eventHandler(e.Event);
+        await _eventHandler(e.Event, e.PartitionKey);
     }
 }

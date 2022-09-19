@@ -23,44 +23,52 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
     public IProjectionRepository<TDocument> Repository { get; }
     public HashSet<Type> HandledEventTypes { get; }
 
-    public async Task ApplyEvent(IEvent @event)
+    public async Task ApplyEvent(IEvent @event, string partitionKey)
     {
-        await (this as dynamic).On((dynamic)@event);
+        await (this as dynamic).On((dynamic)@event, partitionKey);
     }
 
-    public async Task ApplyEvents(List<IEvent> events)
+    public async Task ApplyEvents(List<IEvent> events, string partitionKey)
     {
         foreach (var e in events)
         {
-            await ApplyEvent(e);
+            await ApplyEvent(e, partitionKey);
         }
     }
 
-    protected Task UpsertDocument(TDocument document)
+    protected Task UpsertDocument(TDocument document, string partitionKey)
     {
-        return Repository.Upsert(document);
+        return Repository.Upsert(document, partitionKey);
     }
 
-    protected Task UpdateDocument(Guid id, Action<TDocument> callback, Action? documentNotFound = null)
+    protected Task UpdateDocument(Guid id, string partitionKey, Action<TDocument> callback, Action? documentNotFound = null)
     {
-        return UpdateDocument(id.ToString(), callback, documentNotFound);
+        return UpdateDocument(id.ToString(), partitionKey, callback, documentNotFound);
     }
 
-    protected Task UpdateDocument(string id, Action<TDocument> callback, Action? documentNotFound = null)
+    protected Task UpdateDocument(string id, string partitionKey, Action<TDocument> callback, Action? documentNotFound = null)
     {
-        return UpdateDocument(id, document =>
-        {
-            callback(document);
-            return Task.CompletedTask;
-        }, documentNotFound);
+        return UpdateDocument(
+            id,
+            partitionKey,
+            document =>
+            {
+                callback(document);
+                return Task.CompletedTask;
+            },
+            documentNotFound
+        );
     }
 
-    protected Task UpdateDocument(Guid id, Func<TDocument, Task> callback, Action? documentNotFound = null)
+    protected Task UpdateDocument(Guid id, string partitionKey, Func<TDocument, Task> callback, Action? documentNotFound = null)
     {
-        return UpdateDocument(id.ToString(), callback, documentNotFound);
+        return UpdateDocument(id.ToString(), partitionKey, callback, documentNotFound);
     }
 
-    private async Task UpdateDocument(string documentId, Func<TDocument, Task> callback,
+    private async Task UpdateDocument(
+        string documentId,
+        string partitionKey,
+        Func<TDocument, Task> callback,
         Action? documentNotFound = null)
     {
         if (documentId == null)
@@ -68,7 +76,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
             throw new ArgumentException("documentId should not be null", nameof(documentId));
         }
 
-        TDocument? document = await Repository.Single(documentId);
+        TDocument? document = await Repository.Single(documentId, partitionKey);
 
         if (document == null)
         {
@@ -78,11 +86,11 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         {
             await callback(document);
 
-            await Repository.Upsert(document);
+            await Repository.Upsert(document, partitionKey);
         }
     }
 
-    protected async Task UpdateDocuments(ProjectionQuery projectionQuery, Action<TDocument> callback)
+    protected async Task UpdateDocuments(ProjectionQuery projectionQuery, string partitionKey, Action<TDocument> callback)
     {
         var documents = await Repository.Query(projectionQuery);
 
@@ -90,14 +98,14 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         {
             callback(document);
 
-            return Repository.Upsert(document);
+            return Repository.Upsert(document, partitionKey);
         });
 
         await Task.WhenAll(updateTasks);
     }
 
-    protected Task DeleteDocument(Guid id)
+    protected Task DeleteDocument(Guid id, string partitionKey)
     {
-        return Repository.Delete(id.ToString());
+        return Repository.Delete(id.ToString(), partitionKey);
     }
 }

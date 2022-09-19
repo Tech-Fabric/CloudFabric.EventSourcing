@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using CloudFabric.Projections.Queries;
 
 namespace CloudFabric.Projections.InMemory;
@@ -11,27 +12,31 @@ public class InMemoryProjectionRepository<TProjectionDocument>
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(string id, CancellationToken cancellationToken = default)
+    public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        var document = await base.Single(id, cancellationToken);
+        var document = await base.Single(id, partitionKey, cancellationToken);
 
-        if (document == null) return null;
+        if (document == null)
+        {
+            return null;
+        }
 
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, CancellationToken cancellationToken = default)
+    public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
     {
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
-        return Upsert(documentDictionary, cancellationToken);
+        return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
     public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
+        string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
-        var recordsDictionary = await base.Query(projectionQuery, cancellationToken);
+        var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
         var records = new List<TProjectionDocument>();
 
@@ -49,21 +54,30 @@ public class InMemoryProjectionRepository<TProjectionDocument>
 public class InMemoryProjectionRepository : IProjectionRepository
 {
     private readonly ProjectionDocumentSchema _projectionDocumentSchema;
-    private readonly Dictionary<string, Dictionary<string, object?>> _storage = new();
+    private readonly Dictionary<(string Id, string PartitionKey), Dictionary<string, object?>> _storage = new();
 
     public InMemoryProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
         _projectionDocumentSchema = projectionDocumentSchema;
     }
 
-    public Task<Dictionary<string, object?>?> Single(string id, CancellationToken cancellationToken = default)
+    public Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(_storage.GetValueOrDefault(id) ?? null);
+        return Task.FromResult(_storage.GetValueOrDefault((id, partitionKey)) ?? null);
     }
 
-    public Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(ProjectionQuery projectionQuery,
+    public Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
+        ProjectionQuery projectionQuery,
+        string? partitionKey = null,
         CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrEmpty(partitionKey))
+        {
+            projectionQuery.Filters.Add(
+                Filter.Where<Dictionary<(string Id, string PartitionKey), object?>>(x => x.Select(x => x.Key.PartitionKey).Contains(partitionKey))
+            );
+        }
+
         var expression = projectionQuery.FiltersToExpression<Dictionary<string, object?>>();
 
         if (expression == null)
@@ -78,7 +92,7 @@ public class InMemoryProjectionRepository : IProjectionRepository
         return Task.FromResult((IReadOnlyCollection<Dictionary<string, object?>>)result);
     }
 
-    public Task Upsert(Dictionary<string, object?> document, CancellationToken cancellationToken = default)
+    public Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
     {
         var keyValue = document[_projectionDocumentSchema.KeyColumnName];
         if (keyValue == null)
@@ -86,20 +100,34 @@ public class InMemoryProjectionRepository : IProjectionRepository
             throw new ArgumentException("document.Id could not be null", _projectionDocumentSchema.KeyColumnName);
         }
 
-        _storage[keyValue.ToString()] = document;
+        _storage[(keyValue.ToString(), partitionKey)] = document;
 
         return Task.CompletedTask;
     }
 
-    public Task Delete(string id, CancellationToken cancellationToken = default)
+    public Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        _storage.Remove(id);
+        _storage.Remove((id, partitionKey));
         return Task.CompletedTask;
     }
 
-    public Task DeleteAll(CancellationToken cancellationToken = default)
+    public Task DeleteAll(string partitionKey, CancellationToken cancellationToken = default)
     {
-        _storage.Clear();
+        if (string.IsNullOrEmpty(partitionKey))
+        {
+            _storage.Clear();
+        }
+        else
+        {
+            var objectsToRemove = _storage.Where(x => x.Key.PartitionKey == partitionKey)
+                .Select(x => x.Key);
+
+            foreach (var objectToRemove in objectsToRemove)
+            {
+                _storage.Remove(objectToRemove);
+            }
+        }
+
         return Task.CompletedTask;
     }
 }

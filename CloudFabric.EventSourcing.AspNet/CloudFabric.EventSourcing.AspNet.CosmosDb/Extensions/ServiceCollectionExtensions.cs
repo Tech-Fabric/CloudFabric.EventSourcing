@@ -73,8 +73,7 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
                 projectionsConnectionInfo.ConnectionString,
                 projectionsConnectionInfo.CosmosClientOptions,
                 projectionsConnectionInfo.DatabaseId,
-                projectionsConnectionInfo.ContainerId,
-                projectionsConnectionInfo.PartitionKey
+                projectionsConnectionInfo.ContainerId
             );
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
@@ -84,8 +83,7 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
                 projectionsConnectionInfo.ConnectionString,
                 projectionsConnectionInfo.CosmosClientOptions,
                 projectionsConnectionInfo.DatabaseId,
-                projectionsConnectionInfo.ContainerId,
-                partitionKey: "ProjectionRebuildState"
+                projectionsConnectionInfo.ContainerId
             );
 
             var projectionsEngine = new ProjectionsEngine(projectionStateRepository);

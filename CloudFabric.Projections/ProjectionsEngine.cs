@@ -45,42 +45,44 @@ public class ProjectionsEngine : IProjectionsEngine
         _projectionBuilders.Add(projectionBuilder);
     }
 
-    public async Task RebuildAsync(string instanceName, DateTime? dateFrom = null)
+    public async Task RebuildAsync(string instanceName, string partitionKey, DateTime? dateFrom = null)
     {
         await _projectionsStateRepository.Upsert(new ProjectionRebuildState
         {
             Id = Guid.NewGuid().ToString(),
+            PartitionKey = partitionKey,
             InstanceName = instanceName,
             Status = RebuildStatus.Running
-        });
+        }, partitionKey);
 
         // run in background
-        _observer.LoadAndHandleEventsAsync(instanceName, dateFrom, OnRebuildCompleted, OnRebuildFailed);
+        _observer.LoadAndHandleEventsAsync(instanceName, partitionKey, dateFrom, OnRebuildCompleted, OnRebuildFailed);
     }
 
-    public async Task RebuildOneAsync(string documentId)
+    public async Task RebuildOneAsync(string documentId, string partitionKey)
     {
-        await _observer.LoadAndHandleEventsForDocumentAsync(documentId);
+        await _observer.LoadAndHandleEventsForDocumentAsync(documentId, partitionKey);
     }
 
-    public async Task<ProjectionRebuildState> GetRebuildState(string instanceName)
+    public async Task<ProjectionRebuildState> GetRebuildState(string instanceName, string partitionKey)
     {
         var rebuildState = (await _projectionsStateRepository.Query(
-            ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
+            ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName),
+            partitionKey: partitionKey
         ))
         .LastOrDefault();
 
         return rebuildState;
     }
 
-    private async Task HandleEvent(IEvent @event)
+    private async Task HandleEvent(IEvent @event, string partitionKey)
     {
         foreach (var projectionBuilder in
                  _projectionBuilders.Where(p => p.HandledEventTypes.Contains(@event.GetType())))
         {
             try
             {
-                await projectionBuilder.ApplyEvent(@event);
+                await projectionBuilder.ApplyEvent(@event, partitionKey);
             }
             catch (Exception ex)
             {
@@ -89,7 +91,7 @@ public class ProjectionsEngine : IProjectionsEngine
         }
     }
 
-    private async Task OnRebuildCompleted(string instanceName)
+    private async Task OnRebuildCompleted(string instanceName, string partitionKey)
     {
         var rebuildState = (await _projectionsStateRepository.Query(
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
@@ -107,10 +109,10 @@ public class ProjectionsEngine : IProjectionsEngine
         
         rebuildState.Status = RebuildStatus.Completed;
 
-        await _projectionsStateRepository.Upsert(rebuildState);
+        await _projectionsStateRepository.Upsert(rebuildState, partitionKey);
     }
 
-    private async Task OnRebuildFailed(string instanceName, string errorMessage)
+    private async Task OnRebuildFailed(string instanceName, string partitionKey, string errorMessage)
     {
         var rebuildState = (await _projectionsStateRepository.Query(
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
@@ -129,6 +131,6 @@ public class ProjectionsEngine : IProjectionsEngine
         rebuildState.Status = RebuildStatus.Failed;
         rebuildState.ErrorMessage = errorMessage;
 
-        await _projectionsStateRepository.Upsert(rebuildState);
+        await _projectionsStateRepository.Upsert(rebuildState, partitionKey);
     }
 }

@@ -9,7 +9,7 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
     {
         public static IEventSourcingBuilder AddInMemoryEventStore(
             this IServiceCollection services,
-            Dictionary<string, List<string>> eventsContainer
+            Dictionary<(string, string), List<string>> eventsContainer
         )
         {
             var eventStore = new InMemoryEventStore(eventsContainer);

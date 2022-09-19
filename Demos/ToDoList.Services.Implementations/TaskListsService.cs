@@ -53,14 +53,14 @@ public class TaskListsService : ITaskListsService
 
         var taskList = new TaskList(_userInfo.UserId, Guid.NewGuid().ToString(), request.Name);
 
-        await _taskListsRepository.SaveAsync(_userInfo, taskList, cancellationToken);
+        await _taskListsRepository.SaveAsync(_userInfo, taskList, taskList.PartitionKey, cancellationToken);
 
         return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
     }
 
     public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> GetTaskListById(string taskListId, CancellationToken cancellationToken)
     {
-        var taskList = await _taskListsRepository.LoadAsync(taskListId, cancellationToken);
+        var taskList = await _taskListsRepository.LoadAsync(taskListId, PartitionKeys.GetTaskListPartitionKey(), cancellationToken);
 
         if (taskList == null)
         {
@@ -79,7 +79,7 @@ public class TaskListsService : ITaskListsService
             return ServiceResult<TaskListViewModel>.Failed(validationProblemDetails);
         }
 
-        var taskList = await _taskListsRepository.LoadAsync(taskListId, cancellationToken);
+        var taskList = await _taskListsRepository.LoadAsync(taskListId, PartitionKeys.GetTaskListPartitionKey(), cancellationToken);
 
         if (taskList == null)
         {
@@ -88,7 +88,7 @@ public class TaskListsService : ITaskListsService
 
         taskList.UpdateName(request.Name);
 
-        await _taskListsRepository.SaveAsync(_userInfo, taskList, cancellationToken);
+        await _taskListsRepository.SaveAsync(_userInfo, taskList, taskList.PartitionKey, cancellationToken);
 
         return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
     }
@@ -104,7 +104,7 @@ public class TaskListsService : ITaskListsService
 
         var task = new Domain.Task(_userInfo.UserId, request.TaskListId, Guid.NewGuid().ToString(), request.Name, request.Description);
 
-        await _tasksRepository.SaveAsync(_userInfo, task, cancellationToken);
+        await _tasksRepository.SaveAsync(_userInfo, task, task.PartitionKey, cancellationToken);
 
         return ServiceResult<TaskViewModel>.Success(_mapper.Map<TaskViewModel>(task));
     }
@@ -126,6 +126,7 @@ public class TaskListsService : ITaskListsService
 
         var tasks = await _tasksProjectionRepository.Query(
             projectionQuery,
+            PartitionKeys.GetTaskPartitionKey(),
             cancellationToken
         );
 
@@ -146,6 +147,7 @@ public class TaskListsService : ITaskListsService
 
         var taskLists = await _taskListsProjectionRepository.Query(
             projectionQuery,
+            PartitionKeys.GetTaskListPartitionKey(),
             cancellationToken
         );
 

@@ -22,6 +22,8 @@ public class UserAccount : AggregateBase
         Apply(new UserAccountRegistered(id, firstName, hashedPassword));
     }
 
+    public override string PartitionKey => PartitionKeys.GetUserAccountPartitionKey();
+
     public void UpdatePassword(string newHashedPassword)
     {
         Apply(new UserAccountPasswordUpdated(newHashedPassword));

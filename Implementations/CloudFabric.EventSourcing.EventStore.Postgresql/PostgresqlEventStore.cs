@@ -9,7 +9,7 @@ public class PostgresqlEventStore : IEventStore
 {
     private const int EVENTSTORE_TABLE_SCHEMA_VERSION = 1;
     private readonly string _connectionString;
-    private readonly List<Func<IEvent, Task>> _eventAddedEventHandlers = new();
+    private readonly List<Func<IEvent, string, Task>> _eventAddedEventHandlers = new();
     private readonly string _tableName;
 
     public PostgresqlEventStore(string connectionString, string tableName)
@@ -33,9 +33,9 @@ public class PostgresqlEventStore : IEventStore
         await cmd.ExecuteScalarAsync();
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId)
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId, string partitionKey)
     {
-        var eventStream = await LoadStreamAsync(streamId);
+        var eventStream = await LoadStreamAsync(streamId, partitionKey);
 
         if (!eventStream.Events.Any())
         {
@@ -45,19 +45,20 @@ public class PostgresqlEventStore : IEventStore
         return eventStream;
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId)
+    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand(
-            $"SELECT id, stream_id, stream_version, event_type, event_data, user_info " +
+            $"SELECT id, stream_id, partition_key, stream_version, event_type, event_data, user_info " +
             $"FROM {_tableName} " +
-            $"WHERE stream_id = @streamId ORDER BY stream_version ASC", conn)
+            $"WHERE stream_id = @streamId AND partition_key = @partitionKey ORDER BY stream_version ASC", conn)
         {
             Parameters =
             {
-                new("streamId", streamId)
+                new("streamId", streamId),
+                new("partitionKey", partitionKey)
             }
         };
 
@@ -76,7 +77,8 @@ public class PostgresqlEventStore : IEventStore
                     StreamInfo = new StreamInfo
                     {
                         Id = reader.GetString("stream_id"),
-                        Version = reader.GetInt16("stream_version")
+                        Version = reader.GetInt16("stream_version"),
+                        PartitionKey = reader.GetString("partition_key")
                     },
                     EventType = reader.GetString("event_type"),
                     EventData = JsonDocument.Parse(reader.GetString("event_data")).RootElement,
@@ -103,18 +105,19 @@ public class PostgresqlEventStore : IEventStore
         }
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey, int fromVersion)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand(
-            $"SELECT id, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version " +
-            $"FROM {_tableName} WHERE stream_id = @streamId AND stream_version >= @fromVersion", conn)
+            $"SELECT id, stream_id, partition_key, stream_version, event_type, event_data, user_info, eventstore_schema_version " +
+            $"FROM {_tableName} WHERE stream_id = @streamId AND partition_key = @partitionKey AND stream_version >= @fromVersion", conn)
         {
             Parameters =
             {
-                new("streamId", streamId)
+                new("streamId", streamId),
+                new("partition_key", partitionKey)
             }
         };
 
@@ -145,24 +148,26 @@ public class PostgresqlEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<List<IEvent>> LoadEventsAsync(DateTime? dateFrom = null, DateTime? dateTo = null)
+    public async Task<List<IEvent>> LoadEventsAsync(string partitionKey, DateTime? dateFrom = null, DateTime? dateTo = null)
     {        
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
 
-        string whereClause = dateFrom.HasValue
-            ? $"(event_data ->>'timestamp')::timestamp without time zone >= '{dateFrom.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone && "
+        string whereClause = $"partition_key = '{partitionKey}'";
+
+        whereClause += dateFrom.HasValue
+            ? $" && (event_data ->>'timestamp')::timestamp without time zone >= '{dateFrom.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone "
             : "";
             
         whereClause += dateTo.HasValue
-            ? $"(event_data ->>'timestamp')::timestamp without time zone <= '{dateTo.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone "
+            ? $" && (event_data ->>'timestamp')::timestamp without time zone <= '{dateTo.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone "
             : "";
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, event_type, event_data " +
             $"FROM {_tableName} " +
             (!string.IsNullOrEmpty(whereClause) 
-                ? $"WHERE {whereClause}" 
+                ? $"WHERE {whereClause} " 
                 : "") +
             $"ORDER BY stream_version ASC", conn);
 
@@ -198,7 +203,7 @@ public class PostgresqlEventStore : IEventStore
         }
     }
 
-    public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, string streamId, int expectedVersion, IEnumerable<IEvent> events)
+    public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, string streamId, string partitionKey, int expectedVersion, IEnumerable<IEvent> events)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
@@ -245,14 +250,15 @@ public class PostgresqlEventStore : IEventStore
         {
             batchInsert.BatchCommands.Add(new NpgsqlBatchCommand($"" +
                 $"INSERT INTO {_tableName} " +
-                $"(id, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version) " +
+                $"(id, stream_id, partition_key, stream_version, event_type, event_data, user_info, eventstore_schema_version) " +
                 $"VALUES " +
-                $"(@id, @stream_id, @stream_version, @event_type, @event_data, @user_info, @eventstore_schema_version)")
+                $"(@id, @stream_id, @partition_key, @stream_version, @event_type, @event_data, @user_info, @eventstore_schema_version)")
             {
                 Parameters =
                 {
                     new("id", $"{streamId}:{++expectedVersion}"),
                     new("stream_id", streamId),
+                    new("partition_key", partitionKey),
                     new("stream_version", expectedVersion),
                     new("event_type", evt.GetType().AssemblyQualifiedName),
                     new NpgsqlParameter()
@@ -280,19 +286,19 @@ public class PostgresqlEventStore : IEventStore
         {
             foreach (var h in _eventAddedEventHandlers)
             {
-                await h(e);
+                await h(e, partitionKey);
             }
         }
 
         return true;
     }
 
-    public void SubscribeToEventAdded(Func<IEvent, Task> handler)
+    public void SubscribeToEventAdded(Func<IEvent, string, Task> handler)
     {
         _eventAddedEventHandlers.Add(handler);
     }
 
-    public void UnsubscribeFromEventAdded(Func<IEvent, Task> handler)
+    public void UnsubscribeFromEventAdded(Func<IEvent, string, Task> handler)
     {
         _eventAddedEventHandlers.Remove(handler);
     }
@@ -319,6 +325,7 @@ public class PostgresqlEventStore : IEventStore
                     $"CREATE TABLE {_tableName} (" +
                     $"id varchar(40), " +
                     $"stream_id varchar(40), " +
+                    $"partition_key varchar(100), " +
                     $"stream_version integer, " +
                     $"event_type varchar(200), " +
                     $"event_data jsonb, " +

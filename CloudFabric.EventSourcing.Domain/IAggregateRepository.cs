@@ -8,9 +8,9 @@ namespace CloudFabric.EventSourcing.Domain;
 /// <typeparam name="T">Domain entity derived from AggregateBase</typeparam>
 public interface IAggregateRepository<T> where T : AggregateBase
 {
-    Task<T?> LoadAsync(string id, CancellationToken cancellationToken = default);
+    Task<T?> LoadAsync(string id, string partitionKey, CancellationToken cancellationToken = default);
 
-    Task<T> LoadAsyncOrThrowNotFound(string id, CancellationToken cancellationToken = default);
+    Task<T> LoadAsyncOrThrowNotFound(string id, string partitionKey, CancellationToken cancellationToken = default);
 
-    Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, CancellationToken cancellationToken = default);
+    Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, string partitionKey, CancellationToken cancellationToken = default);
 }

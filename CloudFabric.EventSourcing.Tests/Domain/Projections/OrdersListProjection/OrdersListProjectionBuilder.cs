@@ -12,23 +12,24 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
     {
     }
 
-    public async Task On(OrderItemAdded @event)
+    public async Task On(OrderItemAdded @event, string partitionKey)
     {
-        await UpdateDocument(@event.Id, (orderProjection) => { orderProjection.ItemsCount++; });
+        await UpdateDocument(@event.Id, partitionKey, (orderProjection) => { orderProjection.ItemsCount++; });
     }
 
-    public async Task On(OrderItemRemoved @event)
+    public async Task On(OrderItemRemoved @event, string partitionKey)
     {
-        await UpdateDocument(@event.Id, (orderProjection) => { orderProjection.ItemsCount--; });
+        await UpdateDocument(@event.Id, partitionKey, (orderProjection) => { orderProjection.ItemsCount--; });
     }
 
-    public async Task On(OrderPlaced @event)
+    public async Task On(OrderPlaced @event, string partitionKey)
     {
         await UpsertDocument(new OrderListProjectionItem()
         {
             Id = @event.Id.ToString(),
             Name = @event.OrderName,
             ItemsCount = @event.Items.Count
-        });
+        },
+        partitionKey);
     }
 }
