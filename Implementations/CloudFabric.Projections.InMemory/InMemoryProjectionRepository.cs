@@ -71,13 +71,6 @@ public class InMemoryProjectionRepository : IProjectionRepository
         string? partitionKey = null,
         CancellationToken cancellationToken = default)
     {
-        if (!string.IsNullOrEmpty(partitionKey))
-        {
-            projectionQuery.Filters.Add(
-                Filter.Where<Dictionary<(string Id, string PartitionKey), object?>>(x => x.Select(x => x.Key.PartitionKey).Contains(partitionKey))
-            );
-        }
-
         var expression = projectionQuery.FiltersToExpression<Dictionary<string, object?>>();
 
         if (expression == null)
@@ -87,7 +80,13 @@ public class InMemoryProjectionRepository : IProjectionRepository
         }
 
         var lambda = expression.Compile();
-        var result = _storage.Values.Where(lambda).ToList().AsReadOnly();
+        var result = _storage
+            .Where(x => string.IsNullOrEmpty(partitionKey) || x.Key.PartitionKey == partitionKey)
+            .ToDictionary(k => k.Key, v => v.Value)
+            .Values
+            .Where(lambda)
+            .ToList()
+            .AsReadOnly();
 
         return Task.FromResult((IReadOnlyCollection<Dictionary<string, object?>>)result);
     }
