@@ -6,8 +6,6 @@ namespace CloudFabric.EventSourcing.EventStore.InMemory;
 public class EventAddedEventArgs : EventArgs
 {
     public IEvent Event { get; set; }
-
-    public string PartitionKey { get; set; }
 }
 
 public class InMemoryEventStore : IEventStore
@@ -96,7 +94,7 @@ public class InMemoryEventStore : IEventStore
         var events = _eventsContainer
             .Where(x => x.Key.PartitionKey == partitionKey)
             .SelectMany(x => x.Value)
-            .Select(x => JsonSerializer.Deserialize<EventWrapper>(x).GetEvent())
+            .Select(x => JsonSerializer.Deserialize<EventWrapper>(x, EventSerializerOptions.Options).GetEvent())
             .Where(x => !dateFrom.HasValue || x.Timestamp >= dateFrom)
             .OrderBy(x => x.Timestamp)
             .ToList();
@@ -107,14 +105,20 @@ public class InMemoryEventStore : IEventStore
     public async Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo,
         string streamId,
-        string partitionKey,
         int expectedVersion,
         IEnumerable<IEvent> events
     )
     {
+        if (events.GroupBy(x => x.PartitionKey).Count() != 1)
+        {
+            throw new ArgumentException("Partition keys for all events in the stream must be the same");
+        }
+
         var lockObject = new object();
         lock (lockObject)
         {
+            var partitionKey = events.First().PartitionKey;
+
             // Load stream and verify version hasn't been changed yet.
             var eventStream = LoadStreamAsync(streamId, partitionKey).GetAwaiter().GetResult();
 
@@ -123,19 +127,19 @@ public class InMemoryEventStore : IEventStore
                 return false;
             }
 
-            var wrappers = PrepareEvents(eventUserInfo, streamId, partitionKey, expectedVersion, events);
+            var wrappers = PrepareEvents(eventUserInfo, streamId, expectedVersion, events);
             var stream = _eventsContainer.ContainsKey((streamId, partitionKey))
                 ? _eventsContainer[(streamId, partitionKey)]
                 : new List<string>();
 
             foreach (var wrapper in wrappers)
             {
-                stream.Add(JsonSerializer.Serialize(wrapper));
+                stream.Add(JsonSerializer.Serialize(wrapper, EventSerializerOptions.Options));
 
                 EventHandler<EventAddedEventArgs> handler = EventAdded;
                 if (handler != null)
                 {
-                    handler(this, new EventAddedEventArgs() { Event = wrapper.GetEvent(), PartitionKey = partitionKey });
+                    handler(this, new EventAddedEventArgs() { Event = wrapper.GetEvent() });
                 }
             }
 
@@ -164,7 +168,7 @@ public class InMemoryEventStore : IEventStore
 
         foreach (var data in eventData)
         {
-            var eventWrapper = JsonSerializer.Deserialize<EventWrapper>(data);
+            var eventWrapper = JsonSerializer.Deserialize<EventWrapper>(data, EventSerializerOptions.Options);
             eventWrappers.Add(eventWrapper);
         }
 
@@ -182,7 +186,7 @@ public class InMemoryEventStore : IEventStore
 
         foreach (var data in eventData)
         {
-            var eventWrapper = JsonSerializer.Deserialize<EventWrapper>(data);
+            var eventWrapper = JsonSerializer.Deserialize<EventWrapper>(data, EventSerializerOptions.Options);
             if (eventWrapper.StreamInfo.Version >= version)
             {
                 eventWrappers.Add(eventWrapper);
@@ -194,7 +198,7 @@ public class InMemoryEventStore : IEventStore
     }
 
     private static List<EventWrapper> PrepareEvents(
-        EventUserInfo eventUserInfo, string streamId, string partitionKey, int expectedVersion, IEnumerable<IEvent> events
+        EventUserInfo eventUserInfo, string streamId, int expectedVersion, IEnumerable<IEvent> events
     )
     {
         if (string.IsNullOrEmpty(eventUserInfo.UserId))
@@ -205,10 +209,10 @@ public class InMemoryEventStore : IEventStore
             {
                 // Id = $"{streamId}:{++expectedVersion}:{e.GetType().Name}",
                 Id = $"{streamId}:{++expectedVersion}", //:{e.GetType().Name}",
-                StreamInfo = new StreamInfo { Id = streamId, Version = expectedVersion, PartitionKey = partitionKey },
+                StreamInfo = new StreamInfo { Id = streamId, Version = expectedVersion },
                 EventType = e.GetType().AssemblyQualifiedName,
-                EventData = JsonSerializer.SerializeToElement(e, e.GetType()),
-                UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType())
+                EventData = JsonSerializer.SerializeToElement(e, e.GetType(), EventSerializerOptions.Options),
+                UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType(), EventSerializerOptions.Options)
             }
         );
 

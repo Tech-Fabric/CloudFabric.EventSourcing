@@ -75,14 +75,14 @@ public class ProjectionsEngine : IProjectionsEngine
         return rebuildState;
     }
 
-    private async Task HandleEvent(IEvent @event, string partitionKey)
+    private async Task HandleEvent(IEvent @event)
     {
         foreach (var projectionBuilder in
                  _projectionBuilders.Where(p => p.HandledEventTypes.Contains(@event.GetType())))
         {
             try
             {
-                await projectionBuilder.ApplyEvent(@event, partitionKey);
+                await projectionBuilder.ApplyEvent(@event);
             }
             catch (Exception ex)
             {

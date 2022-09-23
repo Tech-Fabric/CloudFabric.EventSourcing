@@ -144,20 +144,24 @@ public class CosmosDbEventStore : IEventStore
     public async Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo,
         string streamId,
-        string partitionKey,
         int expectedVersion,
         IEnumerable<IEvent> events
     )
     {
+        if (events.GroupBy(x => x.PartitionKey).Count() != 1)
+        {
+            throw new ArgumentException("Partition keys for all events in the stream must be the same");
+        }
+
         Container container = _client.GetContainer(_databaseId, _containerId);
 
-        PartitionKey cosmosPartitionKey = new PartitionKey(partitionKey);
+        PartitionKey cosmosPartitionKey = new PartitionKey(events.First().PartitionKey);
 
         dynamic[] parameters = new dynamic[]
         {
             streamId,
             expectedVersion,
-            SerializeEvents(eventUserInfo, streamId, partitionKey, expectedVersion, events)
+            SerializeEvents(eventUserInfo, streamId, expectedVersion, events)
         };
 
         return await container.Scripts.ExecuteStoredProcedureAsync<bool>("spAppendToStream", cosmosPartitionKey, parameters);
@@ -166,7 +170,6 @@ public class CosmosDbEventStore : IEventStore
     private static string SerializeEvents(
         EventUserInfo eventUserInfo,
         string streamId,
-        string partitionKey,
         int expectedVersion,
         IEnumerable<IEvent> events
     )
@@ -181,15 +184,14 @@ public class CosmosDbEventStore : IEventStore
                 StreamInfo = new StreamInfo
                 {
                     Id = streamId,
-                    Version = expectedVersion,
-                    PartitionKey = partitionKey
+                    Version = expectedVersion
                 },
                 EventType = e.GetType().AssemblyQualifiedName,
-                EventData = JsonSerializer.SerializeToElement(e, e.GetType()),
-                UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType())
+                EventData = JsonSerializer.SerializeToElement(e, e.GetType(), EventSerializerOptions.Options),
+                UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType(), EventSerializerOptions.Options)
             }
         );
 
-        return JsonSerializer.Serialize(items);
+        return JsonSerializer.Serialize(items, EventSerializerOptions.Options);
     }
 }

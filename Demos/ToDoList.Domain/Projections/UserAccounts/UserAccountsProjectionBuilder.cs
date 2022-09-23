@@ -16,30 +16,30 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
     {
     }
 
-    public async System.Threading.Tasks.Task On(UserAccountRegistered @event, string partitionKey)
+    public async System.Threading.Tasks.Task On(UserAccountRegistered @event)
     {
         await UpsertDocument(new UserAccountsProjectionItem()
         {
             Id = @event.Id,
             FirstName = @event.FirstName,
-        }, partitionKey);
+        }, @event.PartitionKey);
     }
 
-    public System.Threading.Tasks.Task On(UserAccountEmailAddressChanged @event, string partitionKey)
+    public System.Threading.Tasks.Task On(UserAccountEmailAddressChanged @event)
     {
         throw new NotImplementedException();
     }
 
-    public System.Threading.Tasks.Task On(UserAccountEmailAddressConfirmed @event, string partitionKey)
+    public System.Threading.Tasks.Task On(UserAccountEmailAddressConfirmed @event)
     {
         throw new NotImplementedException();
     }
 
-    public async System.Threading.Tasks.Task On(UserAccountEmailAssigned @event, string partitionKey)
+    public async System.Threading.Tasks.Task On(UserAccountEmailAssigned @event)
     {
         await UpdateDocument(
             @event.UserAccountId,
-            partitionKey,
+            @event.PartitionKey,
             (projectionDocument) =>
             {
                 projectionDocument.EmailAddress = @event.EmailAddress;
@@ -47,12 +47,12 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
         );
     }
 
-    public async System.Threading.Tasks.Task On(UserAccountEmailRegistered @event, string partitionKey)
+    public async System.Threading.Tasks.Task On(UserAccountEmailRegistered @event)
     {
         throw new NotImplementedException();
     }
 
-    public async System.Threading.Tasks.Task On(UserAccountPasswordUpdated @event, string partitionKey)
+    public async System.Threading.Tasks.Task On(UserAccountPasswordUpdated @event)
     {
         throw new NotImplementedException();
     }

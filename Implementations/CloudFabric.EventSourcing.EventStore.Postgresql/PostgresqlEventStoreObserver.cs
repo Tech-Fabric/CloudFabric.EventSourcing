@@ -5,14 +5,14 @@ namespace CloudFabric.EventSourcing.EventStore.Postgresql;
 public class PostgresqlEventStoreEventObserver : IEventsObserver
 {
     private readonly PostgresqlEventStore _eventStore;
-    private Func<IEvent, string, Task>? _eventHandler;
+    private Func<IEvent, Task>? _eventHandler;
 
     public PostgresqlEventStoreEventObserver(PostgresqlEventStore eventStore)
     {
         _eventStore = eventStore;
     }
 
-    public void SetEventHandler(Func<IEvent, string, Task> eventHandler)
+    public void SetEventHandler(Func<IEvent, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }
@@ -36,7 +36,7 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
 
         foreach (var @event in stream.Events)
         {
-            await EventStoreOnEventAdded(@event, partitionKey);
+            await EventStoreOnEventAdded(@event);
         }
     }
 
@@ -55,7 +55,7 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
 
                 foreach (var @event in events)
                 {
-                    await EventStoreOnEventAdded(@event, partitionKey);
+                    await EventStoreOnEventAdded(@event);
                 }
             };
         
@@ -86,7 +86,7 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         await onCompleted(instanceName, partitionKey);
     }
 
-    private async Task EventStoreOnEventAdded(IEvent e, string partitionKey)
+    private async Task EventStoreOnEventAdded(IEvent e)
     {
         if (_eventHandler == null)
         {
@@ -94,6 +94,6 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
                 "Can't process an event: no eventHandler was set. Please call SetEventHandler before calling StartAsync.");
         }
 
-        await _eventHandler(e, partitionKey);
+        await _eventHandler(e);
     }
 }

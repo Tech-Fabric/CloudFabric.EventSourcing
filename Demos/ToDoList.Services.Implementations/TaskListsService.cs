@@ -53,7 +53,7 @@ public class TaskListsService : ITaskListsService
 
         var taskList = new TaskList(_userInfo.UserId, Guid.NewGuid().ToString(), request.Name);
 
-        await _taskListsRepository.SaveAsync(_userInfo, taskList, taskList.PartitionKey, cancellationToken);
+        await _taskListsRepository.SaveAsync(_userInfo, taskList, cancellationToken);
 
         return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
     }
@@ -88,7 +88,7 @@ public class TaskListsService : ITaskListsService
 
         taskList.UpdateName(request.Name);
 
-        await _taskListsRepository.SaveAsync(_userInfo, taskList, taskList.PartitionKey, cancellationToken);
+        await _taskListsRepository.SaveAsync(_userInfo, taskList, cancellationToken);
 
         return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
     }
@@ -104,7 +104,7 @@ public class TaskListsService : ITaskListsService
 
         var task = new Domain.Task(_userInfo.UserId, request.TaskListId, Guid.NewGuid().ToString(), request.Name, request.Description);
 
-        await _tasksRepository.SaveAsync(_userInfo, task, task.PartitionKey, cancellationToken);
+        await _tasksRepository.SaveAsync(_userInfo, task, cancellationToken);
 
         return ServiceResult<TaskViewModel>.Success(_mapper.Map<TaskViewModel>(task));
     }

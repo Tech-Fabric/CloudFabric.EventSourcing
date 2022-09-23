@@ -77,7 +77,7 @@ public class OrderTestsCosmosDb : OrderTests
 
 
         var database = await ReCreateDatabase(_cosmosClient, DatabaseName);
-        await database.CreateContainerIfNotExistsAsync(new ContainerProperties(ContainerName, "/stream/partitionKey"));
+        await database.CreateContainerIfNotExistsAsync(new ContainerProperties(ContainerName, "/eventData/partitionKey"));
         await database.CreateContainerIfNotExistsAsync(
             new ContainerProperties(
                 ProjectionsContainerName,

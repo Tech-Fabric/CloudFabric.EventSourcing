@@ -64,14 +64,14 @@ public class UserAccountsService : IUserAccountsService
 
         var userAccountEmail = emailAlreadyExists ?? new UserAccountEmailAddress(request.Email);
 
-        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(), userAccountEmail, userAccountEmail.PartitionKey, ct);
+        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(), userAccountEmail, ct);
 
         var userAccount = new UserAccount(Guid.NewGuid().ToString(), request.FirstName, PasswordHelper.HashPassword(request.Password));
 
-        await _userAccountsRepository.SaveAsync(new EventUserInfo(), userAccount, userAccount.PartitionKey, ct);
+        await _userAccountsRepository.SaveAsync(new EventUserInfo(), userAccount, ct);
 
         userAccountEmail.AssignUserAccount(userAccount.Id.ToString());
-        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(userAccount.Id), userAccountEmail, userAccountEmail.PartitionKey, ct);
+        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(userAccount.Id), userAccountEmail, ct);
 
         return ServiceResult<UserAccountPersonalViewModel>.Success(_mapper.Map<UserAccountPersonalViewModel>(userAccount));
     }
@@ -97,7 +97,7 @@ public class UserAccountsService : IUserAccountsService
 
         userAccount.UpdatePassword(PasswordHelper.HashPassword(request.NewPassword));
 
-        await _userAccountsRepository.SaveAsync(_userInfo, userAccount, userAccount.PartitionKey, cancellationToken);
+        await _userAccountsRepository.SaveAsync(_userInfo, userAccount, cancellationToken);
 
         return ServiceResult.Success();
     }

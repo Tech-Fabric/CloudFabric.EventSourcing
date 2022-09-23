@@ -6,7 +6,7 @@ public interface IProjectionBuilder<TProjectionDocument> where TProjectionDocume
 {
     public HashSet<Type> HandledEventTypes { get; }
 
-    Task ApplyEvent(IEvent @event, string partitionKey);
+    Task ApplyEvent(IEvent @event);
 
-    Task ApplyEvents(List<IEvent> events, string partitionKey);
+    Task ApplyEvents(List<IEvent> events);
 }

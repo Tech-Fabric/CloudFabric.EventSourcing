@@ -68,7 +68,7 @@ public abstract class OrderTests
         };
         var order = new Order(id, orderName, items);
 
-        await orderRepository.SaveOrder(userInfo, order, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, order);
         var order2 = await orderRepository.LoadOrder(id, PartitionKeys.GetOrderPartitionKey());
         order2.Id.Should().Be(id);
         order2.OrderName.Should().Be(orderName);
@@ -108,7 +108,7 @@ public abstract class OrderTests
         // add another item:
         var addItem = new OrderItem(DateTime.UtcNow, "Eclipse", 6.95m);
         order.AddItem(addItem);
-        await orderRepository.SaveOrder(userInfo, order, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, order);
 
         // update items so we can use it for comparison
         items.Add(addItem);
@@ -128,7 +128,7 @@ public abstract class OrderTests
             items.Add(addItemLoop);
         }
 
-        await orderRepository.SaveOrder(userInfo, order2, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, order2);
 
         var order3 = await orderRepository.LoadOrder(id, PartitionKeys.GetOrderPartitionKey());
         order3.Id.Should().Be(id);
@@ -186,7 +186,7 @@ public abstract class OrderTests
 
         var order = new Order(id, orderName, items);
 
-        await orderRepository.SaveOrder(userInfo, order, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, order);
 
         await Task.Delay(ProjectionsUpdateDelay);
 
@@ -199,7 +199,7 @@ public abstract class OrderTests
         var addItem = new OrderItem(DateTime.UtcNow, "Twilight Struggle", 6.95m);
         order.AddItem(addItem);
 
-        await orderRepository.SaveOrder(userInfo, order, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, order);
 
         await Task.Delay(ProjectionsUpdateDelay);
 
@@ -259,10 +259,10 @@ public abstract class OrderTests
         };
 
         var firstOrder = new Order(Guid.NewGuid(), "Rebuild product first order", items);
-        await orderRepository.SaveOrder(userInfo, firstOrder, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, firstOrder);
 
         var secondOrder = new Order(Guid.NewGuid(), "Rebuild product second order", items);
-        await orderRepository.SaveOrder(userInfo, secondOrder, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
 
@@ -328,10 +328,10 @@ public abstract class OrderTests
         };
 
         var firstOrder = new Order(Guid.NewGuid(), "Rebuild orders first order", items);
-        await orderRepository.SaveOrder(userInfo, firstOrder, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, firstOrder);
 
         var secondOrder = new Order(Guid.NewGuid(), "Rebuild orders second order", items);
-        await orderRepository.SaveOrder(userInfo, secondOrder, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
 

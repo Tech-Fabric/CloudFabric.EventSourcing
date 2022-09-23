@@ -23,16 +23,16 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
     public IProjectionRepository<TDocument> Repository { get; }
     public HashSet<Type> HandledEventTypes { get; }
 
-    public async Task ApplyEvent(IEvent @event, string partitionKey)
+    public async Task ApplyEvent(IEvent @event)
     {
-        await (this as dynamic).On((dynamic)@event, partitionKey);
+        await (this as dynamic).On((dynamic)@event);
     }
 
-    public async Task ApplyEvents(List<IEvent> events, string partitionKey)
+    public async Task ApplyEvents(List<IEvent> events)
     {
         foreach (var e in events)
         {
-            await ApplyEvent(e, partitionKey);
+            await ApplyEvent(e);
         }
     }
 

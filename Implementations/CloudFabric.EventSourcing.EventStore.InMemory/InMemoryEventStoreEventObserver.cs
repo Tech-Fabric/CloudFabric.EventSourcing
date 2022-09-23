@@ -5,14 +5,14 @@ namespace CloudFabric.EventSourcing.EventStore.InMemory;
 public class InMemoryEventStoreEventObserver : IEventsObserver
 {
     private readonly InMemoryEventStore _eventStore;
-    private Func<IEvent, string, Task> _eventHandler;
+    private Func<IEvent, Task> _eventHandler;
 
     public InMemoryEventStoreEventObserver(InMemoryEventStore eventStore)
     {
         _eventStore = eventStore;
     }
 
-    public void SetEventHandler(Func<IEvent, string, Task> eventHandler)
+    public void SetEventHandler(Func<IEvent, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }
@@ -46,7 +46,7 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
             {
                 await EventStoreOnEventAdded(
                     this,
-                    new EventAddedEventArgs { Event = @event, PartitionKey = partitionKey }
+                    new EventAddedEventArgs { Event = @event }
                 );
             }
         }
@@ -67,13 +67,13 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
         {
             await EventStoreOnEventAdded(
                 this,
-                new EventAddedEventArgs { Event = @event, PartitionKey = partitionKey }
+                new EventAddedEventArgs { Event = @event }
             );
         }
     }
 
     private async Task EventStoreOnEventAdded(object? sender, EventAddedEventArgs e)
     {
-        await _eventHandler(e.Event, e.PartitionKey);
+        await _eventHandler(e.Event);
     }
 }

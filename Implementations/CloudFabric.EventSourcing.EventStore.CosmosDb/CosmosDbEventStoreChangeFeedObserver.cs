@@ -27,7 +27,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
     protected readonly string _leaseContainerId;
     protected readonly string _leaseDatabaseId;
     private ChangeFeedProcessor _changeFeedProcessor;
-    private Func<IEvent, string, Task> _eventHandler;
+    private Func<IEvent, Task> _eventHandler;
 
     private string _processorName;
 
@@ -52,7 +52,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         _processorName = processorName;
     }
 
-    public void SetEventHandler(Func<IEvent, string, Task> eventHandler)
+    public void SetEventHandler(Func<IEvent, Task> eventHandler)
     {
         _eventHandler = eventHandler;
     }
@@ -152,7 +152,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
             foreach (var eventWrapper in response)
             {
                 var @event = eventWrapper.GetEvent();
-                await _eventHandler(@event, partitionKey);
+                await _eventHandler(@event);
             }
         }
     }
@@ -163,7 +163,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         {
             var @event = change.GetEvent();
 
-            await _eventHandler(@event, change.StreamInfo.PartitionKey);
+            await _eventHandler(@event);
         }
     }
 }

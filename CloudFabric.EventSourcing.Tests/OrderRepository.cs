@@ -7,7 +7,7 @@ namespace CloudFabric.EventSourcing.Tests;
 public interface IOrderRepository
 {
     Task<Order> LoadOrder(Guid id, string partitionKey);
-    Task<bool> SaveOrder(EventUserInfo eventUserInfo, Order aggregate, string partitionKey);
+    Task<bool> SaveOrder(EventUserInfo eventUserInfo, Order aggregate);
 }
 
 public class OrderRepository : IOrderRepository
@@ -29,8 +29,7 @@ public class OrderRepository : IOrderRepository
 
     public async Task<bool> SaveOrder(
         EventUserInfo eventUserInfo,
-        Order aggregate,
-        string partitionKey
+        Order aggregate
     )
     {
         if (aggregate.UncommittedEvents.Any())
@@ -39,7 +38,6 @@ public class OrderRepository : IOrderRepository
 
             var savedEvents = await _eventStore.AppendToStreamAsync(eventUserInfo,
                 streamId,
-                partitionKey,
                 aggregate.Version,
                 aggregate.UncommittedEvents);
 

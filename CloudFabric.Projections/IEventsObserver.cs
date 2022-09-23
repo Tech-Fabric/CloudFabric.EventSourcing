@@ -8,7 +8,7 @@ public interface IEventsObserver
 
     public Task StopAsync();
 
-    public void SetEventHandler(Func<IEvent, string, Task> eventHandler);
+    public void SetEventHandler(Func<IEvent, Task> eventHandler);
 
     public Task LoadAndHandleEventsForDocumentAsync(string documentId, string partitionKey);
 

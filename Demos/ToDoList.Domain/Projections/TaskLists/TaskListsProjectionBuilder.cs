@@ -14,7 +14,7 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
     {
     }
 
-    public async System.Threading.Tasks.Task On(TaskListCreated @event, string partitionKey)
+    public async System.Threading.Tasks.Task On(TaskListCreated @event)
     {
         await UpsertDocument(new TaskListProjectionItem() {
             Id = @event.Id,
@@ -24,14 +24,14 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
             TasksCount = 0,
             ClosedTasksCount = 0,
             OpenTasksCount = 0
-        }, partitionKey);
+        }, @event.PartitionKey);
     }
 
-    public async System.Threading.Tasks.Task On(TaskListNameUpdated @event, string partitionKey)
+    public async System.Threading.Tasks.Task On(TaskListNameUpdated @event)
     {
         await UpdateDocument(
             @event.Id,
-            partitionKey,
+            @event.PartitionKey,
             (projectionDocument) => 
             {
                 projectionDocument.Name = @event.NewName;
@@ -40,11 +40,11 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
         );
     }
 
-    public async System.Threading.Tasks.Task On(TaskCreated @event, string partitionKey)
+    public async System.Threading.Tasks.Task On(TaskCreated @event)
     {
         await UpdateDocument(
             @event.TaskListId,
-            partitionKey,
+            @event.PartitionKey,
             (projectionDocument) =>
             {
                 projectionDocument.TasksCount += 1;
@@ -52,11 +52,11 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
         );
     }
 
-    public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated @event, string partitionKey)
+    public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated @event)
     {
         await UpdateDocument(
             @event.TaskListId,
-            partitionKey,
+            @event.PartitionKey,
             (projectionDocument) => 
             {
                 projectionDocument.OpenTasksCount += @event.IsCompleted ? -1 : 1;

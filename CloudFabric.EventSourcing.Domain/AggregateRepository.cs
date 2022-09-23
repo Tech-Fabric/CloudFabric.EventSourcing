@@ -41,7 +41,7 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         return (T)Activator.CreateInstance(typeof(T), new object[] { eventStream.Events });
     }
 
-    public async Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, CancellationToken cancellationToken = default)
     {
         if (aggregate.UncommittedEvents.Any())
         {
@@ -50,7 +50,6 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
             var eventsSavedSuccessfully = await _eventStore.AppendToStreamAsync(
                 eventUserInfo,
                 streamId,
-                partitionKey,
                 aggregate.Version,
                 aggregate.UncommittedEvents
             );

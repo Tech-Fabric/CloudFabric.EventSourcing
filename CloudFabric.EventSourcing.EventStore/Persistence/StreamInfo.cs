@@ -9,7 +9,4 @@ public record StreamInfo
 
     [JsonPropertyName("version")] 
     public int Version { get; set; }
-
-    [JsonPropertyName("partitionKey")]
-    public string PartitionKey { get; init; }
 }

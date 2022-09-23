@@ -13,7 +13,6 @@ public interface IEventStore
     Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo,
         string streamId,
-        string partitionKey,
         int expectedVersion,
         IEnumerable<IEvent> events
     );
