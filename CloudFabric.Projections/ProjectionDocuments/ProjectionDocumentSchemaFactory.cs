@@ -9,7 +9,7 @@ public class ProjectionDocumentSchemaFactory
         var schema = new ProjectionDocumentSchema();
 
         schema.SchemaName = ProjectionDocumentAttribute.GetIndexName<T>();
-        schema.Properties = ProjectionDocumentAttribute.GetQueryableProperties<T>().Select(p =>
+        schema.Properties = ProjectionDocumentAttribute.GetProperties<T>().Select(p =>
             new ProjectionDocumentPropertySchema()
             {
                 PropertyName = p.Key.Name,

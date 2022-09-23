@@ -45,7 +45,7 @@ public class UserAccountsService : IUserAccountsService
             return ServiceResult<UserAccountPersonalViewModel>.Failed(validationProblemDetails);
         }
 
-        var emailAlreadyExists = await _userAccountEmailAddressesRepository.LoadAsync(request.Email, ct);
+        var emailAlreadyExists = await _userAccountEmailAddressesRepository.LoadAsync(request.Email, PartitionKeys.GetUserAccountEmailAddressPartitionKey(), ct);
 
         // it may happen that email record was created but then something went wrong and email was left unatached.
         if (emailAlreadyExists != null && emailAlreadyExists?.UserAccountId != null)
@@ -85,7 +85,7 @@ public class UserAccountsService : IUserAccountsService
             return ServiceResult.Failed(validationProblemDetails);
         }
 
-        var userAccount = await _userAccountsRepository.LoadAsync(request.UserAccountId, cancellationToken);
+        var userAccount = await _userAccountsRepository.LoadAsync(request.UserAccountId, PartitionKeys.GetUserAccountPartitionKey(), cancellationToken);
 
         if(userAccount == null) {
             return ServiceResult.Failed("user_not_found", "User was not found");
@@ -112,13 +112,21 @@ public class UserAccountsService : IUserAccountsService
             return ServiceResult<UserAccessTokenViewModel>.Failed(validationProblemDetails);
         }
 
-        var userAccountEmailAddress = await _userAccountEmailAddressesRepository.LoadAsync(request.Email, cancellationToken);
+        var userAccountEmailAddress = await _userAccountEmailAddressesRepository.LoadAsync(
+            request.Email,
+            PartitionKeys.GetUserAccountEmailAddressPartitionKey(),
+            cancellationToken
+        );
 
         if(userAccountEmailAddress == null) {
             return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");
         }
 
-        var userAccount = await _userAccountsRepository.LoadAsync(userAccountEmailAddress.UserAccountId, cancellationToken);
+        var userAccount = await _userAccountsRepository.LoadAsync(
+            userAccountEmailAddress.UserAccountId,
+            PartitionKeys.GetUserAccountPartitionKey(),
+            cancellationToken
+        );
 
         if(userAccount == null) {
             return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");

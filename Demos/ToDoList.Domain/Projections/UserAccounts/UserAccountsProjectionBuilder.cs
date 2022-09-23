@@ -18,10 +18,11 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
 
     public async System.Threading.Tasks.Task On(UserAccountRegistered @event)
     {
-        await UpsertDocument(new UserAccountsProjectionItem() {
+        await UpsertDocument(new UserAccountsProjectionItem()
+        {
             Id = @event.Id,
             FirstName = @event.FirstName,
-        });
+        }, @event.PartitionKey);
     }
 
     public System.Threading.Tasks.Task On(UserAccountEmailAddressChanged @event)
@@ -36,9 +37,14 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
 
     public async System.Threading.Tasks.Task On(UserAccountEmailAssigned @event)
     {
-        await UpdateDocument(@event.UserAccountId, (projectionDocument) => {
-            projectionDocument.EmailAddress = @event.EmailAddress;
-        });
+        await UpdateDocument(
+            @event.UserAccountId,
+            @event.PartitionKey,
+            (projectionDocument) =>
+            {
+                projectionDocument.EmailAddress = @event.EmailAddress;
+            }
+        );
     }
 
     public async System.Threading.Tasks.Task On(UserAccountEmailRegistered @event)

@@ -57,6 +57,8 @@ public abstract class AggregateBase
         UncommittedEvents.Clear();
     }
 
+    public abstract string PartitionKey { get; }
+
     protected void Apply(IEvent @event)
     {
         UncommittedEvents.Add(@event);

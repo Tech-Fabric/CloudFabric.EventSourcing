@@ -30,73 +30,51 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
         string connectionString,
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
-        string containerId,
-        string partitionKey
+        string containerId
     ) : base(
         loggerFactory,
         connectionString,
         cosmosClientOptions,
         databaseId,
         containerId,
-        partitionKey,
         ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>()
     )
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(string id, CancellationToken cancellationToken = default)
+    public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        var document = await base.Single(id, cancellationToken);
+        var document = await base.Single(id, partitionKey, cancellationToken);
 
         if (document == null) return null;
 
-        return Deserialize(document);
+        return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, CancellationToken cancellationToken = default)
+    public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
     {
-        var documentDictionary = new Dictionary<string, object?>();
-
-        var propertyInfos = typeof(TProjectionDocument).GetProperties();
-        foreach (var propertyInfo in propertyInfos)
-        {
-            documentDictionary[propertyInfo.Name] = propertyInfo.GetValue(document);
-        }
-
-        return Upsert(documentDictionary, cancellationToken);
+        var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
+        return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
     public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
+        string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
-        var recordsDictionary = await base.Query(projectionQuery, cancellationToken);
+        var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
         var records = new List<TProjectionDocument>();
 
         foreach (var dict in recordsDictionary)
         {
-            records.Add(Deserialize(dict));
+            records.Add(
+                ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
+            );
         }
 
         return records;
-    }
-
-    private TProjectionDocument Deserialize(Dictionary<string, object?> document)
-    {
-        var documentTypedInstance = Activator.CreateInstance<TProjectionDocument>();
-
-        foreach (var propertyName in document.Keys)
-        {
-            var propertyInfo = typeof(TProjectionDocument).GetProperty(propertyName);
-            if (propertyInfo != null)
-            {
-                propertyInfo.SetValue(documentTypedInstance, document[propertyName]);
-            }
-        }
-
-        return documentTypedInstance;
     }
 }
 
@@ -106,8 +84,6 @@ public class CosmosDbProjectionRepository : IProjectionRepository
     private readonly string _containerId;
     private readonly string _databaseId;
     private readonly ILogger<CosmosDbProjectionRepository> _logger;
-
-    private readonly string _partitionKey;
 
     private readonly ProjectionDocumentSchema _projectionDocumentSchema;
 
@@ -123,7 +99,6 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
         string containerId,
-        string partitionKey,
         ProjectionDocumentSchema projectionDocumentSchema
     )
     {
@@ -131,7 +106,6 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         _client = new CosmosClient(connectionString, cosmosClientOptions);
         _databaseId = databaseId;
         _containerId = containerId;
-        _partitionKey = partitionKey;
         _projectionDocumentSchema = projectionDocumentSchema;
     }
 
@@ -139,18 +113,16 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         LoggerFactory loggerFactory,
         CosmosClient client,
         string databaseId,
-        string containerId,
-        string partitionKey
+        string containerId
     )
     {
         _logger = loggerFactory.CreateLogger<CosmosDbProjectionRepository>();
         _client = client;
         _databaseId = databaseId;
         _containerId = containerId;
-        _partitionKey = partitionKey;
     }
 
-    public async Task<Dictionary<string, object?>?> Single(string id, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
         var sw = Stopwatch.StartNew();
@@ -159,7 +131,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             var result = await ExecuteWithRetries(
                 c => container.ReadItemAsync<Dictionary<string, object?>>(
-                    id, new PartitionKey(_partitionKey),
+                    id, new PartitionKey(partitionKey),
                     cancellationToken: c
                 ),
                 cancellationToken
@@ -174,7 +146,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         catch (Exception ex)
         {
             _logger.LogError(
-                ex, "Failed to retrieve {@Id} ({@Partition}/{@Container})", id, _partitionKey,
+                ex, "Failed to retrieve {@Id} ({@Partition}/{@Container})", id, partitionKey,
                 container.Id
             );
             throw;
@@ -183,12 +155,12 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             _logger.LogDebug(
                 "CosmosDB Get Document with {@Id} ({@Partition}/{@Container}) executed in {@ExecutionTime} ms",
-                id, _partitionKey, container.Id, sw.ElapsedMilliseconds
+                id, partitionKey, container.Id, sw.ElapsedMilliseconds
             );
         }
     }
 
-    public async Task Delete(string id, CancellationToken cancellationToken = default)
+    public async Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
 
@@ -197,7 +169,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         try
         {
             await ExecuteWithRetries(
-                c => container.DeleteItemAsync<dynamic>(id, new PartitionKey(_partitionKey), cancellationToken: c),
+                c => container.DeleteItemAsync<dynamic>(id, new PartitionKey(partitionKey), cancellationToken: c),
                 cancellationToken
             );
         }
@@ -208,7 +180,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         catch (Exception ex)
         {
             _logger.LogError(
-                ex, "Error deleting Document with {@Id} ({@Partition}/{@Container})", id, _partitionKey,
+                ex, "Error deleting Document with {@Id} ({@Partition}/{@Container})", id, partitionKey,
                 container.Id
             );
             throw;
@@ -217,25 +189,33 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             _logger.LogDebug(
                 "CosmosDB Delete Document with {@Id} ({@Partition}/{@Container}) executed in {@ExecutionTime} ms", id,
-                _partitionKey, container.Id, sw.ElapsedMilliseconds
+                partitionKey, container.Id, sw.ElapsedMilliseconds
             );
         }
     }
 
-    public async Task DeleteAll(CancellationToken cancellationToken = default)
+    public async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
-        await container.DeleteContainerAsync(null, cancellationToken);
+
+        if (string.IsNullOrEmpty(partitionKey))
+        {
+            await container.DeleteContainerAsync(null, cancellationToken);
+        }
+        else
+        {
+            throw new NotImplementedException("Bulk delete is not supported for now");
+        }
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, CancellationToken cancellationToken = default)
+    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
     {
         if (document[_projectionDocumentSchema.KeyColumnName] == null)
         {
             throw new ArgumentException("document primary key cannot be null", _projectionDocumentSchema.KeyColumnName);
         }
 
-        document["PartitionKey"] = _partitionKey;
+        document["PartitionKey"] = partitionKey;
 
         var sw = Stopwatch.StartNew();
 
@@ -245,7 +225,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             var json = JsonSerializer.SerializeToDocument(SerializeDictionary(document));
             await ExecuteWithRetries(
-                c => container.UpsertItemAsync(json, new PartitionKey(_partitionKey), cancellationToken: c),
+                c => container.UpsertItemAsync(json, new PartitionKey(partitionKey), cancellationToken: c),
                 cancellationToken
             );
         }
@@ -253,7 +233,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             _logger.LogError(
                 ex, "Failed to upsert Document with {@Id} ({@Partition}/{@Container}) is not found",
-                document[_projectionDocumentSchema.KeyColumnName], _partitionKey, container.Id
+                document[_projectionDocumentSchema.KeyColumnName], partitionKey, container.Id
             );
             throw;
         }
@@ -261,13 +241,14 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             _logger.LogDebug(
                 "CosmosDB Upsert Document with {@Id} ({@Partition}/{@Container}) executed in {@ExecutionTime} ms",
-                document[_projectionDocumentSchema.KeyColumnName], _partitionKey, container.Id, sw.ElapsedMilliseconds
+                document[_projectionDocumentSchema.KeyColumnName], partitionKey, container.Id, sw.ElapsedMilliseconds
             );
         }
     }
 
     public async Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
+        string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -310,7 +291,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
 
         try
         {
-            var requestOptions = GetQueryOptions(_partitionKey);
+            var requestOptions = GetQueryOptions(partitionKey);
 
             var iterator = container.GetItemQueryIterator<Dictionary<string, object?>>(queryDefinition, null, requestOptions);
 

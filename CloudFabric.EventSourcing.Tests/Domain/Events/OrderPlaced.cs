@@ -5,10 +5,11 @@ namespace CloudFabric.EventSourcing.Tests.Domain.Events;
 
 public record OrderPlaced : Event
 {
-    public OrderPlaced(Guid id, string orderName, List<OrderItem> items)
+    public OrderPlaced(Guid id, string orderName, string partitionKey, List<OrderItem> items)
     {
         Id = id;
         OrderName = orderName;
+        PartitionKey = partitionKey;
         Items = items;
     }
 

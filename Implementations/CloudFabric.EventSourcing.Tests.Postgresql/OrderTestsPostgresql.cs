@@ -50,6 +50,13 @@ public class OrderTestsPostgresql : OrderTests
         return (IProjectionRepository<T>)_projectionsRepositories[typeof(T)];
     }
 
+    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
+    {
+        return new PostgresqlProjectionRepository<ProjectionRebuildState>(
+            "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000"
+        );
+    }
+
     public async Task LoadTest()
     {
         var watch = Stopwatch.StartNew();

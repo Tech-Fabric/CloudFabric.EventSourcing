@@ -8,6 +8,17 @@ RUN apt-get update
 RUN dotnet tool install --global dotnet-ef
 RUN dotnet tool install --global coverlet.console
 RUN dotnet tool install --global dotnet-reportgenerator-globaltool
+
+# sonarcloud
+ARG SONAR_PROJECT_KEY=Tech-Fabric_CloudFabric.EventSourcing
+ARG SONAR_OGRANIZAION_KEY=tech-fabric
+ARG SONAR_HOST_URL=https://sonarcloud.io
+ARG SONAR_TOKEN
+ARG GITHUB_TOKEN
+RUN dotnet tool install --global dotnet-sonarscanner
+RUN apt-get update && apt-get install -y openjdk-11-jdk
+#sonarcloud
+
 ENV PATH="/root/.dotnet/tools:${PATH}" 
 
 RUN curl -L https://raw.githubusercontent.com/Microsoft/artifacts-credprovider/master/helpers/installcredprovider.sh | sh
@@ -84,8 +95,16 @@ COPY CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj /s
 #---------------------------------------------------------------------
 COPY /. /src
 
+# Start Sonar Scanner
+RUN dotnet sonarscanner begin \
+  /k:"$SONAR_PROJECT_KEY" \
+  /o:"$SONAR_OGRANIZAION_KEY" \
+  /d:sonar.host.url="$SONAR_HOST_URL" \
+  /d:sonar.login="$SONAR_TOKEN" \
+  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml
+
 RUN service postgresql start && \
-    dotnet test /src/Implementations/CloudFabric.EventSourcing.Tests.Postgresql/CloudFabric.EventSourcing.Tests.Postgresql.csproj --logger trx --results-directory /artifacts/tests --configuration Release --collect:"XPlat Code Coverage"
+    dotnet test /src/Implementations/CloudFabric.EventSourcing.Tests.Postgresql/CloudFabric.EventSourcing.Tests.Postgresql.csproj --logger trx --results-directory /artifacts/tests --configuration Release --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura,lcov,teamcity,opencover
 
 RUN dotnet test /src/Implementations/CloudFabric.EventSourcing.Tests.InMemory/CloudFabric.EventSourcing.Tests.InMemory.csproj --logger trx --results-directory /artifacts/tests --configuration Release --collect:"XPlat Code Coverage"
 
@@ -95,6 +114,9 @@ ARG COVERAGE_REPORT_TAG
 ARG COVERAGE_REPORT_GENERATOR_HISTORY_DIRECTORY
 
 RUN reportgenerator "-reports:/artifacts/tests/*/coverage.cobertura.xml" -targetdir:/artifacts/code-coverage "-reporttypes:HtmlInline_AzurePipelines_Light;SonarQube;TextSummary" "-title:$COVERAGE_REPORT_TITLE" "-tag:$COVERAGE_REPORT_TAG" "-license:$COVERAGE_REPORT_GENERATOR_LICENSE" "-historydir:$COVERAGE_REPORT_GENERATOR_HISTORY_DIRECTORY"
+
+# End Sonar Scanner
+RUN dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN"
 
 RUN dotnet pack /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/CloudFabric.EventSourcing.EventStore/CloudFabric.EventSourcing.EventStore.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \

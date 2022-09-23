@@ -9,6 +9,8 @@ public class TaskList : AggregateBase
     public string Name { get; protected set; }
     public string UserAccountId { get; protected set; }
 
+    public override string PartitionKey => PartitionKeys.GetTaskListPartitionKey();
+
     public TaskList(IEnumerable<IEvent> events) : base(events)
     {
     }

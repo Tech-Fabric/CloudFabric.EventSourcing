@@ -1,4 +1,4 @@
-﻿using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using CloudFabric.EventSourcing.Tests.Domain;
 
@@ -6,7 +6,7 @@ namespace CloudFabric.EventSourcing.Tests;
 
 public interface IOrderRepository
 {
-    Task<Order> LoadOrder(Guid id);
+    Task<Order> LoadOrder(Guid id, string partitionKey);
     Task<bool> SaveOrder(EventUserInfo eventUserInfo, Order aggregate);
 }
 
@@ -21,9 +21,9 @@ public class OrderRepository : IOrderRepository
         _eventStore = eventStore;
     }
 
-    public async Task<Order> LoadOrder(Guid id)
+    public async Task<Order> LoadOrder(Guid id, string partitionKey)
     {
-        var stream = await _eventStore.LoadStreamAsyncOrThrowNotFound(id.ToString());
+        var stream = await _eventStore.LoadStreamAsyncOrThrowNotFound(id.ToString(), partitionKey);
         return new Order(stream.Events);
     }
 
@@ -36,7 +36,8 @@ public class OrderRepository : IOrderRepository
         {
             var streamId = aggregate.Id.ToString();
 
-            var savedEvents = await _eventStore.AppendToStreamAsync(eventUserInfo, streamId,
+            var savedEvents = await _eventStore.AppendToStreamAsync(eventUserInfo,
+                streamId,
                 aggregate.Version,
                 aggregate.UncommittedEvents);
 

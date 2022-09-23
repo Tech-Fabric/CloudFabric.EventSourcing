@@ -5,10 +5,11 @@ namespace CloudFabric.EventSourcing.Tests.Domain.Events;
 
 public record OrderItemAdded : Event
 {
-    public OrderItemAdded(Guid id, OrderItem item)
+    public OrderItemAdded(Guid id, OrderItem item, string partitionKey)
     {
         Id = id;
         Item = item;
+        PartitionKey = partitionKey;
     }
 
     public Guid Id { get; init;}

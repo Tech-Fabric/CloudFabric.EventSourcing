@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CloudFabric.EventSourcing.EventStore;
@@ -29,8 +29,7 @@ public class OrderTestsCosmosDb : OrderTests
     private const string LeaseContainerName = "TestContainerLease";
 
     private const string CosmosDbConnectionString =
-        "AccountEndpoint=https://fiber-eventsourcing-test.documents.azure.com:443/;AccountKey=Lf26olS0XqskqAoOpPaWDrc5me1e3W3hwxXfi3WmWWVk39z5s6JzdAmzLfQHvAq7TGntgxmen233PS9tK3J4vA==;";
-
+        "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
     private readonly Dictionary<Type, object> _projectionsRepositories = new();
 
     CosmosClient _cosmosClient = null;
@@ -78,7 +77,7 @@ public class OrderTestsCosmosDb : OrderTests
 
 
         var database = await ReCreateDatabase(_cosmosClient, DatabaseName);
-        await database.CreateContainerIfNotExistsAsync(new ContainerProperties(ContainerName, "/stream/id"));
+        await database.CreateContainerIfNotExistsAsync(new ContainerProperties(ContainerName, "/eventData/partitionKey"));
         await database.CreateContainerIfNotExistsAsync(
             new ContainerProperties(
                 ProjectionsContainerName,
@@ -160,12 +159,22 @@ public class OrderTestsCosmosDb : OrderTests
                 CosmosDbConnectionString,
                 _cosmosClientOptions,
                 DatabaseName,
-                ProjectionsContainerName,
-                $"projection-{typeof(T).Name}"
+                ProjectionsContainerName
             );
         }
 
         return (IProjectionRepository<T>)_projectionsRepositories[typeof(T)];
+    }
+
+    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
+    {
+        return new CosmosDbProjectionRepository<ProjectionRebuildState>(
+            new LoggerFactory(),
+            CosmosDbConnectionString,
+            _cosmosClientOptions,
+            DatabaseName,
+            ProjectionsContainerName
+        );
     }
 
     public async Task LoadTest()

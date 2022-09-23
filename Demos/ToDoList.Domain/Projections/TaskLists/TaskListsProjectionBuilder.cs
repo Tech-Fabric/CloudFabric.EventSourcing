@@ -24,29 +24,44 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
             TasksCount = 0,
             ClosedTasksCount = 0,
             OpenTasksCount = 0
-        });
+        }, @event.PartitionKey);
     }
 
     public async System.Threading.Tasks.Task On(TaskListNameUpdated @event)
     {
-        await UpdateDocument(@event.Id, (projectionDocument) => {
-            projectionDocument.Name = @event.NewName;
-            projectionDocument.UpdatedAt = @event.Timestamp;
-        });
+        await UpdateDocument(
+            @event.Id,
+            @event.PartitionKey,
+            (projectionDocument) => 
+            {
+                projectionDocument.Name = @event.NewName;
+                projectionDocument.UpdatedAt = @event.Timestamp;
+            }
+        );
     }
 
     public async System.Threading.Tasks.Task On(TaskCreated @event)
     {
-        await UpdateDocument(@event.TaskListId, (projectionDocument) => {
-            projectionDocument.TasksCount += 1;
-        });
+        await UpdateDocument(
+            @event.TaskListId,
+            @event.PartitionKey,
+            (projectionDocument) =>
+            {
+                projectionDocument.TasksCount += 1;
+            }
+        );
     }
 
     public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated @event)
     {
-        await UpdateDocument(@event.TaskListId, (projectionDocument) => {
-            projectionDocument.OpenTasksCount += @event.IsCompleted ? -1 : 1;
-            projectionDocument.ClosedTasksCount += @event.IsCompleted ? 1 : -1;
-        });
+        await UpdateDocument(
+            @event.TaskListId,
+            @event.PartitionKey,
+            (projectionDocument) => 
+            {
+                projectionDocument.OpenTasksCount += @event.IsCompleted ? -1 : 1;
+                projectionDocument.ClosedTasksCount += @event.IsCompleted ? 1 : -1;
+            }
+        );
     }
 }

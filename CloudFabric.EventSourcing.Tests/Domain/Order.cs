@@ -15,8 +15,10 @@ public class Order : AggregateBase
 
     public Order(Guid id, string orderName, List<OrderItem> items)
     {
-        Apply(new OrderPlaced(id, orderName, items));
+        Apply(new OrderPlaced(id, orderName, PartitionKey, items));
     }
+
+    public override string PartitionKey => PartitionKeys.GetOrderPartitionKey();
 
     public Guid Id { get; private set; }
     public string OrderName { get; private set; }
@@ -24,14 +26,14 @@ public class Order : AggregateBase
 
     public void AddItem(OrderItem item)
     {
-        Apply(new OrderItemAdded(this.Id, item));
+        Apply(new OrderItemAdded(this.Id, item, PartitionKey));
     }
 
     public void RemoveItem(string name)
     {
         if (Items.Any(x => x.Name == name))
         {
-            Apply(new OrderItemRemoved(this.Id, name));
+            Apply(new OrderItemRemoved(this.Id, name, PartitionKey));
         }
     }
 

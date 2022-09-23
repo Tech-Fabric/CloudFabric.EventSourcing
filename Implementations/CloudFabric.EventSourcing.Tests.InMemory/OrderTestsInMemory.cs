@@ -1,4 +1,4 @@
-﻿using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
@@ -17,7 +17,7 @@ public class OrderTestsInMemory : OrderTests
     {
         if (_eventStore == null)
         {
-            _eventStore = new InMemoryEventStore(new Dictionary<string, List<string>>());
+            _eventStore = new InMemoryEventStore(new Dictionary<(string, string), List<string>>());
             await _eventStore.Initialize();
         }
 
@@ -42,5 +42,10 @@ public class OrderTestsInMemory : OrderTests
         }
 
         return (IProjectionRepository<T>)_projectionsRepositories[typeof(T)];
+    }
+
+    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
+    {
+        return new InMemoryProjectionRepository<ProjectionRebuildState>();
     }
 }

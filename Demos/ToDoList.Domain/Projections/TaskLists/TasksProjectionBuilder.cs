@@ -22,20 +22,29 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
             UserAccountId = @event.UserAccountId,
             TaskListId = @event.TaskListId,
             IsCompleted = false
-        });
+        }, @event.PartitionKey);
     }
 
     public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated @event)
     {
-        await UpdateDocument(@event.TaskId, (projectionDocument) => {
-            projectionDocument.IsCompleted = @event.IsCompleted;
-        });
+        await UpdateDocument(
+            @event.TaskId,
+            @event.PartitionKey,
+            (projectionDocument) =>
+            {
+                projectionDocument.IsCompleted = @event.IsCompleted;
+            }
+        );
     }
 
     public async System.Threading.Tasks.Task On(TaskTitleUpdated @event)
     {
-        await UpdateDocument(@event.Id, (projectionDocument) => {
-            projectionDocument.Title = @event.NewTitle;
-        });
+        await UpdateDocument(@event.Id,
+            @event.PartitionKey,
+            (projectionDocument) => 
+            {
+                projectionDocument.Title = @event.NewTitle;
+            }
+        );
     }
 }

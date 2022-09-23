@@ -60,7 +60,7 @@ public class TaskListsService : ITaskListsService
 
     public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> GetTaskListById(string taskListId, CancellationToken cancellationToken)
     {
-        var taskList = await _taskListsRepository.LoadAsync(taskListId, cancellationToken);
+        var taskList = await _taskListsRepository.LoadAsync(taskListId, PartitionKeys.GetTaskListPartitionKey(), cancellationToken);
 
         if (taskList == null)
         {
@@ -79,7 +79,7 @@ public class TaskListsService : ITaskListsService
             return ServiceResult<TaskListViewModel>.Failed(validationProblemDetails);
         }
 
-        var taskList = await _taskListsRepository.LoadAsync(taskListId, cancellationToken);
+        var taskList = await _taskListsRepository.LoadAsync(taskListId, PartitionKeys.GetTaskListPartitionKey(), cancellationToken);
 
         if (taskList == null)
         {
@@ -126,6 +126,7 @@ public class TaskListsService : ITaskListsService
 
         var tasks = await _tasksProjectionRepository.Query(
             projectionQuery,
+            PartitionKeys.GetTaskPartitionKey(),
             cancellationToken
         );
 
@@ -146,6 +147,7 @@ public class TaskListsService : ITaskListsService
 
         var taskLists = await _taskListsProjectionRepository.Query(
             projectionQuery,
+            PartitionKeys.GetTaskListPartitionKey(),
             cancellationToken
         );
 

@@ -33,9 +33,9 @@ public class PostgresqlEventStore : IEventStore
         await cmd.ExecuteScalarAsync();
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId)
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId, string partitionKey)
     {
-        var eventStream = await LoadStreamAsync(streamId);
+        var eventStream = await LoadStreamAsync(streamId, partitionKey);
 
         if (!eventStream.Events.Any())
         {
@@ -45,7 +45,7 @@ public class PostgresqlEventStore : IEventStore
         return eventStream;
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId)
+    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
@@ -53,11 +53,12 @@ public class PostgresqlEventStore : IEventStore
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, stream_id, stream_version, event_type, event_data, user_info " +
             $"FROM {_tableName} " +
-            $"WHERE stream_id = @streamId ORDER BY stream_version ASC", conn)
+            $"WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey ORDER BY stream_version ASC", conn)
         {
             Parameters =
             {
-                new("streamId", streamId)
+                new("streamId", streamId),
+                new("partitionKey", partitionKey)
             }
         };
 
@@ -103,18 +104,19 @@ public class PostgresqlEventStore : IEventStore
         }
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey, int fromVersion)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version " +
-            $"FROM {_tableName} WHERE stream_id = @streamId AND stream_version >= @fromVersion", conn)
+            $"FROM {_tableName} WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey AND stream_version >= @fromVersion", conn)
         {
             Parameters =
             {
-                new("streamId", streamId)
+                new("streamId", streamId),
+                new("partitionKey", partitionKey)
             }
         };
 
@@ -125,7 +127,7 @@ public class PostgresqlEventStore : IEventStore
 
         while (await reader.ReadAsync())
         {
-            var streamInfo = JsonSerializer.Deserialize<StreamInfo>(reader.GetString(1));
+            var streamInfo = JsonSerializer.Deserialize<StreamInfo>(reader.GetString(1), EventSerializerOptions.Options);
 
             if(streamInfo == null) {
                 throw new Exception("Failed to deserialize stream info");
@@ -145,8 +147,68 @@ public class PostgresqlEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
+    public async Task<List<IEvent>> LoadEventsAsync(string partitionKey, DateTime? dateFrom = null, DateTime? dateTo = null)
+    {        
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        string whereClause = $"event_data->>'partitionKey' = '{partitionKey}'";
+
+        whereClause += dateFrom.HasValue
+            ? $" && (event_data->>'timestamp')::timestamp without time zone >= '{dateFrom.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone "
+            : "";
+            
+        whereClause += dateTo.HasValue
+            ? $" && (event_data->>'timestamp')::timestamp without time zone <= '{dateTo.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone "
+            : "";
+
+        await using var cmd = new NpgsqlCommand(
+            $"SELECT id, event_type, event_data " +
+            $"FROM {_tableName} " +
+            (!string.IsNullOrEmpty(whereClause) 
+                ? $"WHERE {whereClause} " 
+                : "") +
+            $"ORDER BY stream_version ASC", conn);
+
+        try
+        {
+            await using var reader = await cmd.ExecuteReaderAsync();
+            var events = new List<IEvent>();
+
+            while (await reader.ReadAsync())
+            {
+                var eventWrapper = new EventWrapper()
+                {
+                    Id = reader.GetString("id"),
+                    EventType = reader.GetString("event_type"),
+                    EventData = JsonDocument.Parse(reader.GetString("event_data")).RootElement
+                };
+
+                events.Add(eventWrapper.GetEvent());
+            }
+
+            return events;
+        }
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            {
+                throw new Exception(
+                    "EventStore table not found, please make sure to call Initialize() on event store first.",
+                    ex);
+            }
+
+            throw;
+        }
+    }
+
     public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, string streamId, int expectedVersion, IEnumerable<IEvent> events)
     {
+        if (events.GroupBy(x => x.PartitionKey).Count() != 1)
+        {
+            throw new ArgumentException("Partition keys for all events in the stream must be the same");
+        }
+
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
 
@@ -205,13 +267,13 @@ public class PostgresqlEventStore : IEventStore
                     new NpgsqlParameter()
                     {
                         ParameterName = "event_data",
-                        Value = JsonSerializer.Serialize(evt, evt.GetType()),
+                        Value = JsonSerializer.Serialize(evt, evt.GetType(), EventSerializerOptions.Options),
                         DataTypeName = "jsonb"
                     },
                     new NpgsqlParameter()
                     {
                         ParameterName = "user_info",
-                        Value = JsonSerializer.Serialize(eventUserInfo, eventUserInfo.GetType()),
+                        Value = JsonSerializer.Serialize(eventUserInfo, eventUserInfo.GetType(), EventSerializerOptions.Options),
                         DataTypeName = "jsonb"
                     },
                     new NpgsqlParameter("eventstore_schema_version", EVENTSTORE_TABLE_SCHEMA_VERSION)

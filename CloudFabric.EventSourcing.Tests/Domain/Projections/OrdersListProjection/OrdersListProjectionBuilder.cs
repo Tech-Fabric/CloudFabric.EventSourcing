@@ -14,12 +14,12 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
 
     public async Task On(OrderItemAdded @event)
     {
-        await UpdateDocument(@event.Id, (orderProjection) => { orderProjection.ItemsCount++; });
+        await UpdateDocument(@event.Id, @event.PartitionKey, (orderProjection) => { orderProjection.ItemsCount++; });
     }
 
     public async Task On(OrderItemRemoved @event)
     {
-        await UpdateDocument(@event.Id, (orderProjection) => { orderProjection.ItemsCount--; });
+        await UpdateDocument(@event.Id, @event.PartitionKey, (orderProjection) => { orderProjection.ItemsCount--; });
     }
 
     public async Task On(OrderPlaced @event)
@@ -29,6 +29,7 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
             Id = @event.Id.ToString(),
             Name = @event.OrderName,
             ItemsCount = @event.Items.Count
-        });
+        },
+        @event.PartitionKey);
     }
 }

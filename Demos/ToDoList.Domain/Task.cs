@@ -25,6 +25,8 @@ public class Task : AggregateBase
         Apply(new TaskCreated(userAccountId, taskListId, taskId, title, description));
     }
 
+    public override string PartitionKey => PartitionKeys.GetTaskPartitionKey();
+
     public void UpdateTitle(string newTitle)
     {
         Apply(new TaskTitleUpdated(TaskListId, Id, newTitle));
