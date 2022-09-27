@@ -99,16 +99,16 @@ public class Filter
 
         var thisExpression = Operator switch
         {
-            FilterOperator.Equal => Expression.Equal(Expression.TypeAs(property, Value.GetType()), value),
-            FilterOperator.NotEqual => Expression.NotEqual(Expression.TypeAs(property, Value.GetType()), value),
-            FilterOperator.Greater => Expression.GreaterThan(Expression.TypeAs(property, Value.GetType()), value),
+            FilterOperator.Equal => Expression.Equal(Expression.Convert(property, Value.GetType()), value),
+            FilterOperator.NotEqual => Expression.NotEqual(Expression.Convert(property, Value.GetType()), value),
+            FilterOperator.Greater => Expression.GreaterThan(Expression.Convert(property, Value.GetType()), value),
             FilterOperator.GreaterOrEqual => Expression.GreaterThanOrEqual(
-                Expression.TypeAs(property, Value.GetType()),
+                Expression.Convert(property, Value.GetType()),
                 value
             ),
-            FilterOperator.Lower => Expression.LessThan(Expression.TypeAs(property, Value.GetType()), value),
+            FilterOperator.Lower => Expression.LessThan(Expression.Convert(property, Value.GetType()), value),
             FilterOperator.LowerOrEqual => Expression.LessThanOrEqual(
-                Expression.TypeAs(property, Value.GetType()),
+                Expression.Convert(property, Value.GetType()),
                 value
             ),
             _ => throw new Exception(

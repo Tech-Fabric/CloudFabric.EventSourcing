@@ -16,7 +16,7 @@ public abstract class OrderTests
 {
     // Some projection engines take time to catch events and update projection records
     // (like cosmosdb with changefeed event observer)
-    protected TimeSpan ProjectionsUpdateDelay { get; set; } = TimeSpan.FromMilliseconds(700);
+    protected TimeSpan ProjectionsUpdateDelay { get; set; } = TimeSpan.FromMilliseconds(1000);
     protected abstract Task<IEventStore> GetEventStore();
     protected abstract IProjectionRepository<T> GetProjectionRepository<T>() where T : ProjectionDocument;
     
@@ -32,6 +32,9 @@ public abstract class OrderTests
         try
         {
             var projectionRepository = GetProjectionRepository<OrderListProjectionItem>();
+            await projectionRepository.DeleteAll();
+
+            var rebuildStateRepository = GetProjectionRebuildStateRepository();
             await projectionRepository.DeleteAll();
         }
         catch

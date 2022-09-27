@@ -265,6 +265,13 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         var (whereClause, parameters) = ConstructConditionFilters(projectionQuery.Filters);
         sb.Append(whereClause);
 
+        if (projectionQuery.SearchText != "*")
+        {
+            (string searchQuery, CosmosDbSqlParameter param) = ConstructSearchQuery(projectionQuery.SearchText);
+            sb.Append(string.IsNullOrWhiteSpace(whereClause) ? $" {searchQuery}" : $" AND {searchQuery}");
+            parameters.Add(param);
+        }
+
         sb.Append(" OFFSET @offset");
         parameters.Add(new CosmosDbSqlParameter("offset", projectionQuery.Offset));
         sb.Append(" LIMIT @limit");
@@ -400,6 +407,23 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
 
         return (string.Join(" AND ", whereClauses), allParameters);
+    }
+
+    private (string, CosmosDbSqlParameter) ConstructSearchQuery(string searchText)
+    {
+        var searchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable);
+
+        List<string> query = new List<string>();
+
+        foreach (var property in searchableProperties)
+        {
+            query.Add($"LOWER(t.{SerializePropertyName(property.PropertyName)}) LIKE LOWER(@searchText)");
+        }
+
+        return (
+            $"({string.Join(" OR ", query)})",
+            new CosmosDbSqlParameter("searchText", $"%{searchText}%")
+        );
     }
 
     private Task<T> ExecuteWithRetries<T>(

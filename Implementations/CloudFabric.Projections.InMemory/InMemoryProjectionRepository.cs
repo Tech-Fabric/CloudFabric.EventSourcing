@@ -71,24 +71,35 @@ public class InMemoryProjectionRepository : IProjectionRepository
         string? partitionKey = null,
         CancellationToken cancellationToken = default)
     {
-        var expression = projectionQuery.FiltersToExpression<Dictionary<string, object?>>();
-
-        if (expression == null)
-        {
-            return Task.FromResult(
-                (IReadOnlyCollection<Dictionary<string, object?>>)_storage.Values.ToList().AsReadOnly());
-        }
-
-        var lambda = expression.Compile();
         var result = _storage
             .Where(x => string.IsNullOrEmpty(partitionKey) || x.Key.PartitionKey == partitionKey)
             .ToDictionary(k => k.Key, v => v.Value)
             .Values
-            .Where(lambda)
-            .ToList()
-            .AsReadOnly();
+            .AsEnumerable();
 
-        return Task.FromResult((IReadOnlyCollection<Dictionary<string, object?>>)result);
+        var expression = projectionQuery.FiltersToExpression<Dictionary<string, object?>>();
+        if (expression != null)
+        {
+            var lambda = expression.Compile();
+            result = result.Where(lambda);
+        }
+
+        if (projectionQuery.SearchText != "*")
+        {
+            var searchableProperties = _projectionDocumentSchema.Properties
+                .Where(x => x.IsSearchable)
+                .Select(x => x.PropertyName);
+
+            result = result.Where(x => 
+                x.Any(
+                    w => searchableProperties.Contains(w.Key) 
+                        && w.Value is string 
+                        && ((string)w.Value).ToLower().Contains(projectionQuery.SearchText.ToLower())
+                )
+            );
+        }
+
+        return Task.FromResult((IReadOnlyCollection<Dictionary<string, object?>>)result.ToList().AsReadOnly());
     }
 
     public Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)

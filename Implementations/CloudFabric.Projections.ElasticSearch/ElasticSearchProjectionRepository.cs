@@ -24,9 +24,9 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(string id, CancellationToken cancellationToken)
+    public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken)
     {
-        var document = await base.Single(id, cancellationToken);
+        var document = await base.Single(id, partitionKey, cancellationToken);
 
         if (document == null)
         {
@@ -36,15 +36,15 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, CancellationToken cancellationToken = default)
+    public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
     {
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
-        return Upsert(documentDictionary, cancellationToken);
+        return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(ProjectionQuery projectionQuery, CancellationToken cancellationToken)
+    public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
     {
-        var recordsDictionary = await base.Query(projectionQuery, cancellationToken);
+        var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
         var records = new List<TProjectionDocument>();
 
@@ -112,11 +112,15 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<Dictionary<string, object?>?> Single(string id, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
         try
         {
-            var item = await _client.GetAsync<Dictionary<string, object?>>(id, ct: cancellationToken);
+            var item = await _client.GetAsync<Dictionary<string, object?>>(
+                id,
+                x => x.Routing(partitionKey),
+                ct: cancellationToken
+            );
 
             if (item?.Source == null)
             {
@@ -136,11 +140,17 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Delete(string id, CancellationToken cancellationToken = default)
+    public async Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
         try
         {
-            await _client.DeleteAsync(new DeleteRequest(Indices.Index(IndexName), id), cancellationToken);
+            await _client.DeleteAsync(
+                new DeleteRequest(Indices.Index(IndexName), id)
+                {
+                    Routing = new Routing(partitionKey)
+                },
+                cancellationToken
+            );
         }
         catch (Exception ex)
         {
@@ -153,11 +163,32 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task DeleteAll(CancellationToken cancellationToken)
+    public async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            await _client.Indices.DeleteAsync(new DeleteIndexRequest(IndexName), cancellationToken);
+            if (partitionKey == null)
+            {
+                await _client.Indices.DeleteAsync(new DeleteIndexRequest(IndexName), cancellationToken);
+            }
+            else
+            {
+                await _client.DeleteByQueryAsync<Dictionary<string, object?>>(
+                    x => x.Query(
+                        q => q.Bool(
+                            b => new BoolQuery
+                            {
+                                Filter = new List<QueryContainer>
+                                {
+                                    new QueryStringQuery() { Query = $"{nameof(partitionKey)}:{partitionKey}" }
+                                }
+                            }
+                        )
+                    )
+                    .Routing(partitionKey),
+                    cancellationToken
+                );
+            }
         }
         catch (Exception ex)
         {
@@ -166,12 +197,20 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, CancellationToken cancellationToken = default)
+    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
     {
         try
         {
             document.TryGetValue("Id", out object? id);
-            await _client.IndexAsync(new IndexRequest<Dictionary<string, object?>>(document, id: id?.ToString()), cancellationToken);
+            document[nameof(ProjectionDocument.PartitionKey)] = partitionKey;
+
+            await _client.IndexAsync(
+                new IndexRequest<Dictionary<string, object?>>(document, id: id?.ToString())
+                {
+                    Routing = new Routing(partitionKey)
+                },
+                cancellationToken
+            );
         }
         catch (Exception ex)
         {
@@ -186,6 +225,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
     public async Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
+        string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -198,6 +238,12 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                 request = request.Sort(s => ConstructSort(s, projectionQuery));
                 request = request.Skip(projectionQuery.Offset);
                 request = request.Take(projectionQuery.Limit);
+
+                if (!string.IsNullOrEmpty(partitionKey))
+                {
+                    request = request.Routing(partitionKey);
+                }
+
                 return request;
             });
 
