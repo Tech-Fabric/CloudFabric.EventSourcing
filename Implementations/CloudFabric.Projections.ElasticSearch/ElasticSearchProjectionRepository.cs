@@ -302,7 +302,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         // construct search query
         QueryBase textQuery = new MatchAllQuery();
 
-        if (projectionQuery.SearchText != "*")
+        if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
             var searchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable);
 

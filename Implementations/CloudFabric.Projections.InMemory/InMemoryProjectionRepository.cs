@@ -84,7 +84,7 @@ public class InMemoryProjectionRepository : IProjectionRepository
             result = result.Where(lambda);
         }
 
-        if (projectionQuery.SearchText != "*")
+        if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
             var searchableProperties = _projectionDocumentSchema.Properties
                 .Where(x => x.IsSearchable)

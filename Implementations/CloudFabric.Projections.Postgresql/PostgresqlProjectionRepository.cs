@@ -289,7 +289,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             parameters.Add(new("partitionKey", partitionKey));
         }
 
-        if (projectionQuery.SearchText != "*")
+        if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
             (string searchQuery, NpgsqlParameter param) = ConstructSearchQuery(projectionQuery.SearchText);
             whereClause += (string.IsNullOrWhiteSpace(whereClause) ? $" {searchQuery}" : $" AND {searchQuery}");

@@ -265,7 +265,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         var (whereClause, parameters) = ConstructConditionFilters(projectionQuery.Filters);
         sb.Append(whereClause);
 
-        if (projectionQuery.SearchText != "*")
+        if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
             (string searchQuery, CosmosDbSqlParameter param) = ConstructSearchQuery(projectionQuery.SearchText);
             sb.Append(string.IsNullOrWhiteSpace(whereClause) ? $" {searchQuery}" : $" AND {searchQuery}");
