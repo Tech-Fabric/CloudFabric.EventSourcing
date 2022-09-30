@@ -16,7 +16,7 @@ public abstract class OrderTests
 {
     // Some projection engines take time to catch events and update projection records
     // (like cosmosdb with changefeed event observer)
-    protected TimeSpan ProjectionsUpdateDelay { get; set; } = TimeSpan.FromSeconds(0);
+    protected TimeSpan ProjectionsUpdateDelay { get; set; } = TimeSpan.FromMilliseconds(1000);
     protected abstract Task<IEventStore> GetEventStore();
     protected abstract IProjectionRepository<T> GetProjectionRepository<T>() where T : ProjectionDocument;
     
@@ -32,6 +32,9 @@ public abstract class OrderTests
         try
         {
             var projectionRepository = GetProjectionRepository<OrderListProjectionItem>();
+            await projectionRepository.DeleteAll();
+
+            var rebuildStateRepository = GetProjectionRebuildStateRepository();
             await projectionRepository.DeleteAll();
         }
         catch
@@ -371,6 +374,81 @@ public abstract class OrderTests
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().NotBeNull();
+
+        await projectionsEngine.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task TestProjectionsQuery()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
+        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
+
+        // Projections engine - takes events from events observer and passes them to multiple projection builders
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
+        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
+
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
+        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
+
+        string instanceName = "ProjectionsQueryInstance";
+
+        await projectionsEngine.StartAsync(instanceName);
+
+
+        var userId = new Guid().ToString();
+        var userInfo = new EventUserInfo(userId);
+        var items = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            )
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "First test order", items);
+        await orderRepository.SaveOrder(userInfo, firstOrder);
+
+        // second order will contain only one item
+        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1));
+        await orderRepository.SaveOrder(userInfo, secondOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        var query = new ProjectionQuery
+        {
+            SearchText = "ORDER"
+        };
+
+        // query by name
+        var orders = await ordersListProjectionsRepository.Query(query);
+        orders.Count.Should().Be(2);
+
+        query.SearchText = "queryable";
+
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.Count.Should().Be(1);
+
+        // add filter by count
+        orders = await ordersListProjectionsRepository.Query(
+            ProjectionQuery.Where<OrderListProjectionItem>(x => x.ItemsCount > 1)
+        );
+        orders.Count.Should().Be(1);
 
         await projectionsEngine.StopAsync();
     }

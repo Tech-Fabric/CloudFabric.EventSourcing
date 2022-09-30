@@ -289,6 +289,13 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             parameters.Add(new("partitionKey", partitionKey));
         }
 
+        if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
+        {
+            (string searchQuery, NpgsqlParameter param) = ConstructSearchQuery(projectionQuery.SearchText);
+            whereClause += (string.IsNullOrWhiteSpace(whereClause) ? $" {searchQuery}" : $" AND {searchQuery}");
+            parameters.Add(param);
+        }
+
         sb.Append(whereClause);
 
         sb.Append(" LIMIT @limit");
@@ -438,6 +445,23 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
 
         return (string.Join(" AND ", whereClauses), allParameters);
+    }
+
+    private (string, NpgsqlParameter) ConstructSearchQuery(string searchText)
+    {
+        var searchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable);
+
+        List<string> query = new List<string>();
+
+        foreach (var property in searchableProperties)
+        {
+            query.Add($"{property.PropertyName} ILIKE @searchText");
+        }
+
+        return (
+            $"({string.Join(" OR ", query)})",
+            new NpgsqlParameter("searchText", $"%{searchText}%")
+        );
     }
 
     private async Task HandleUndefinedTableException(NpgsqlConnection? conn, CancellationToken cancellationToken)

@@ -14,16 +14,33 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             string connectionString,
             CosmosClientOptions cosmosClientOptions,
             string databaseId,
-            string containerId
+            string containerId,
+            CosmosClient leaseClient,
+            string leaseDatabaseId,
+            string leaseContainerId,
+            string processorName
         )
         {
-            var eventStore = new CosmosDbEventStore(connectionString, cosmosClientOptions, databaseId, containerId);
+            var cosmosClient = new CosmosClient(connectionString, cosmosClientOptions);
+
+            var eventStore = new CosmosDbEventStore(cosmosClient, databaseId, containerId);
             eventStore.Initialize().Wait();
+
+            var eventStoreObserver = new CosmosDbEventStoreChangeFeedObserver(
+                cosmosClient,
+                databaseId,
+                containerId,
+                leaseClient,
+                leaseDatabaseId,
+                leaseContainerId,
+                processorName
+            );
 
             return new EventSourcingBuilder
             {
                 EventStore = eventStore,
-                Services = services
+                Services = services,
+                ProjectionEventsObserver = eventStoreObserver
             };
         }
 
@@ -53,21 +70,10 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
 
         public static IEventSourcingBuilder AddCosmosDbProjections<TDocument>(
             this IEventSourcingBuilder builder,
-            CosmosChangeFeedObserverConnectionInfo changeFeedConnectionInfo,
             CosmosProjectionRepositoryConnectionInfo projectionsConnectionInfo,
             params Type[] projectionBuildersTypes
         ) where TDocument : ProjectionDocument
         {
-            var eventStoreObserver = new CosmosDbEventStoreChangeFeedObserver(
-                changeFeedConnectionInfo.EventsClient,
-                changeFeedConnectionInfo.EventsDatabaseId,
-                changeFeedConnectionInfo.EventsContainerId,
-                changeFeedConnectionInfo.LeaseClient,
-                changeFeedConnectionInfo.LeaseDatabaseId,
-                changeFeedConnectionInfo.LeaseContainerId,
-                changeFeedConnectionInfo.ProcessorName
-            );
-
             var projectionRepository = new CosmosDbProjectionRepository<TDocument>(
                 projectionsConnectionInfo.LoggerFactory,
                 projectionsConnectionInfo.ConnectionString,
@@ -87,7 +93,13 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             );
 
             var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
-            projectionsEngine.SetEventsObserver(eventStoreObserver);
+
+            if (builder.ProjectionEventsObserver == null)
+            {
+                throw new ArgumentException("Projection events observer is missing");
+            }
+
+            projectionsEngine.SetEventsObserver(builder.ProjectionEventsObserver);
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
