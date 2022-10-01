@@ -61,8 +61,9 @@ public abstract class AggregateBase
 
     protected void Apply(IEvent @event)
     {
-        UncommittedEvents.Add(@event);
         RaiseEvent(@event);
+        @event.PartitionKey = PartitionKey;
+        UncommittedEvents.Add(@event);
     }
 
     protected virtual void RaiseEvent(IEvent @event)

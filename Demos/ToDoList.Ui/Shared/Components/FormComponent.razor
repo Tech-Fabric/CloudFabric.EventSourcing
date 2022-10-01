@@ -75,15 +75,15 @@
     {
         submitInProgress = true;
         errorMessage = string.Empty;
-
+        
         if (editContext != null && editContext.Validate())
         {
             displayErrors = false;
-
+        
             try
             {
                 var serviceResult = await OnSubmit(Model);
-
+        
                 if(serviceResult.Succeed == false) {
                     errorMessage = $"{serviceResult.ProblemDetails?.Title}.";
                     displayErrors = true;

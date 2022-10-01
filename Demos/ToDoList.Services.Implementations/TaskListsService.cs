@@ -133,7 +133,7 @@ public class TaskListsService : ITaskListsService
         return ServiceResult<List<TaskViewModel>>.Success(_mapper.Map<List<TaskViewModel>>(tasks));
     }
 
-    public async System.Threading.Tasks.Task<ServiceResult<List<TaskViewModel>>> GetTaskLists(
+    public async System.Threading.Tasks.Task<ServiceResult<List<TaskListViewModel>>> GetTaskLists(
         string search,
         int limit, 
         int offset,
@@ -151,6 +151,6 @@ public class TaskListsService : ITaskListsService
             cancellationToken
         );
 
-        return ServiceResult<List<TaskViewModel>>.Success(_mapper.Map<List<TaskViewModel>>(taskLists));
+        return ServiceResult<List<TaskListViewModel>>.Success(_mapper.Map<List<TaskListViewModel>>(taskLists));
     }
 }

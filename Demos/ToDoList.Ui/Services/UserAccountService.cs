@@ -9,20 +9,17 @@ namespace ToDoList.Ui.Services;
 
 public class UserAccountService
 {
-    private readonly ProtectedSessionStorage _protectedSessionStore;
-    private readonly ILocalStorageService _localStorageService;
+    private readonly ProtectedSessionStorage _protectedSessionStorage;
     private readonly IServiceCommunicationProvider _serviceCommunicationProvider;
     private readonly TokenAuthenticationStateProvider _authenticationStateProvider;
 
     public UserAccountService(
-        ILocalStorageService localStorageService,
-        ProtectedSessionStorage protectedSessionStore,
+        ProtectedSessionStorage protectedSessionStorage,
         IServiceCommunicationProvider serviceCommunicationProvider,
         AuthenticationStateProvider authenticationStateProvider
     )
     {
-        _localStorageService = localStorageService;
-        _protectedSessionStore = protectedSessionStore;
+        _protectedSessionStorage = protectedSessionStorage;
         _serviceCommunicationProvider = serviceCommunicationProvider;
         _authenticationStateProvider = (TokenAuthenticationStateProvider)authenticationStateProvider;
     }
@@ -30,20 +27,24 @@ public class UserAccountService
     public async Task<ServiceResult<UserAccountPersonalViewModel>> Register(RegisterNewUserAccountRequest request)
     {
         return await _serviceCommunicationProvider.SendCommand<UserAccountPersonalViewModel>(
-            "user_account/register", 
+            "user_account/register",
             request
         );
     }
 
     public async Task<ServiceResult> Login(GenerateNewAccessTokenRequest request)
     {
-        var serviceResult = await _serviceCommunicationProvider.SendCommand<TokenResponse>("user_account/token", 
+        var serviceResult = await _serviceCommunicationProvider.SendCommand<TokenResponse>(
+            "user_account/token",
             request
         );
 
-        await _protectedSessionStore.SetAsync("AccessToken", serviceResult.Result?.AccessToken);
+        if (serviceResult.Succeed == true && serviceResult.Result?.AccessToken != null)
+        {
+            await _protectedSessionStorage.SetAsync("AccessToken", serviceResult.Result?.AccessToken!);
 
-        _authenticationStateProvider.StateChanged();
+            _authenticationStateProvider.StateChanged();
+        }
 
         return serviceResult;
     }

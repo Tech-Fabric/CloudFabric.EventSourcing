@@ -8,9 +8,7 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
     IHandleEvent<UserAccountRegistered>,
     IHandleEvent<UserAccountEmailAddressChanged>,
     IHandleEvent<UserAccountEmailAddressConfirmed>,
-    IHandleEvent<UserAccountEmailAssigned>,
-    IHandleEvent<UserAccountEmailRegistered>,
-    IHandleEvent<UserAccountPasswordUpdated>
+    IHandleEvent<UserAccountEmailAssigned>
 {
     public UserAccountsProjectionBuilder(IProjectionRepository<UserAccountsProjectionItem> repository) : base(repository)
     {
@@ -45,15 +43,5 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
                 projectionDocument.EmailAddress = @event.EmailAddress;
             }
         );
-    }
-
-    public async System.Threading.Tasks.Task On(UserAccountEmailRegistered @event)
-    {
-        throw new NotImplementedException();
-    }
-
-    public async System.Threading.Tasks.Task On(UserAccountPasswordUpdated @event)
-    {
-        throw new NotImplementedException();
     }
 }

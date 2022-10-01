@@ -1,0 +1,14 @@
+.task-lists-container {
+    display: block;
+    height: 100%;
+    padding-bottom: 10px;
+    
+
+    .task-list {
+        margin-right: 15px;
+        overflow-y: scroll;
+        max-height: 100%;
+        width: 200px;
+        display:inline-block;
+    }
+}

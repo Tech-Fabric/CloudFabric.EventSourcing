@@ -1,5 +1,8 @@
+using System.Text;
 using CloudFabric.EventSourcing.AspNet.Postgresql.Extensions;
 using CloudFabric.EventSourcing.Domain;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using ToDoList.Api.Extensions;
 using ToDoList.Api.Middleware;
 using ToDoList.Domain;
@@ -10,6 +13,26 @@ using ToDoList.Services.Interfaces;
 using ToDoList.Services.Interfaces.Options;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(o =>
+{
+    o.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidIssuer = builder.Configuration["UserAccessTokensServiceOptions:Issuer"],
+        ValidAudience = builder.Configuration["UserAccessTokensServiceOptions:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey
+            (Encoding.UTF8.GetBytes(builder.Configuration["UserAccessTokensServiceOptions:TokenSigningKey"])),
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true
+    };
+});
 
 builder.Services.AddControllers(options => {
     options.Filters.Add<GlobalExceptionProblemDetailsFilter>();
@@ -68,11 +91,13 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// DO not enable this since we want to run the app behind a gateway or a reverse proxy
+// app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(

@@ -1,9 +1,14 @@
 @import "../Shared/UnauthorizedLayout";
 @import "../Pages/LoginPage";
+@import "../Pages/TasksPage";
 
 html, body {
     margin: 0;
     height: 100%;
+}
+
+div.content {
+    height: calc(100% - 3.5rem);
 }
 
 .login-page, .registration-page {

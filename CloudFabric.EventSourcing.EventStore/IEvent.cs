@@ -4,5 +4,5 @@ public interface IEvent
 {
     DateTime Timestamp { get; init; }
 
-    string PartitionKey { get; init; }
+    string PartitionKey { get; set; }
 }

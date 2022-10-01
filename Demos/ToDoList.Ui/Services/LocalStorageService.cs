@@ -3,7 +3,7 @@ using Microsoft.JSInterop;
 
 namespace ToDoList.Ui.Services;
 
-    public interface ILocalStorageService
+public interface ILocalStorageService
 {
     Task<T?> GetItem<T>(string key);
     Task SetItem<T>(string key, T value);
@@ -23,7 +23,7 @@ public class LocalStorageService : ILocalStorageService
     {
         var json = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", key);
 
-        if (json == null)
+        if (string.IsNullOrEmpty(json))
             return default;
 
         return JsonSerializer.Deserialize<T>(json);

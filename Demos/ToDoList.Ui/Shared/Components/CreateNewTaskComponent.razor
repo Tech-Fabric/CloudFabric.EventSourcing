@@ -1,0 +1,38 @@
+@using ToDoList.Ui.Services;
+@using ToDoList.Models;
+
+@inject TaskListsService taskListsService
+@inject NavigationManager navigationManager
+
+<FormComponent OnSubmit="@OnSubmit" Model="model">
+    <FormBody>
+        <div class="col-sm-12">
+            <label for="taskListName" class="form-label">New task:</label>
+            <InputText class="form-control" id="taskListName" @bind-Value="model.Name" />
+            <ValidationMessage For="@(() => model.Name)" />
+            <div class="invalid-feedback">
+                Looks good!
+            </div>
+        </div>
+    </FormBody>
+    <FormFooter>
+    </FormFooter>
+    <SubmitButtonText>
+        Submit
+    </SubmitButtonText>
+    <SubmitButtonTextInProgress>
+        Submitting...
+    </SubmitButtonTextInProgress>
+</FormComponent>
+
+@code {
+    public readonly CreateTaskListRequest model = new();
+
+    private async Task<ServiceResult> OnSubmit(CreateTaskListRequest model)
+    {
+        var serviceResult = await taskListsService
+            .CreateTaskList(model);
+
+        return serviceResult;
+    }
+}

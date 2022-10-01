@@ -96,12 +96,12 @@ COPY CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj /s
 COPY /. /src
 
 # Start Sonar Scanner
-RUN dotnet sonarscanner begin \
+RUN if [ -n "$SONAR_TOKEN" ] ; then dotnet sonarscanner begin \
   /k:"$SONAR_PROJECT_KEY" \
   /o:"$SONAR_OGRANIZAION_KEY" \
   /d:sonar.host.url="$SONAR_HOST_URL" \
   /d:sonar.login="$SONAR_TOKEN" \
-  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml
+  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; fi
 
 RUN service postgresql start && \
     dotnet test /src/Implementations/CloudFabric.EventSourcing.Tests.Postgresql/CloudFabric.EventSourcing.Tests.Postgresql.csproj --logger trx --results-directory /artifacts/tests --configuration Release --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura,lcov,teamcity,opencover
@@ -116,9 +116,21 @@ ARG COVERAGE_REPORT_GENERATOR_HISTORY_DIRECTORY
 RUN reportgenerator "-reports:/artifacts/tests/*/coverage.cobertura.xml" -targetdir:/artifacts/code-coverage "-reporttypes:HtmlInline_AzurePipelines_Light;SonarQube;TextSummary" "-title:$COVERAGE_REPORT_TITLE" "-tag:$COVERAGE_REPORT_TAG" "-license:$COVERAGE_REPORT_GENERATOR_LICENSE" "-historydir:$COVERAGE_REPORT_GENERATOR_HISTORY_DIRECTORY"
 
 # End Sonar Scanner
-RUN dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN"
+RUN if [ -n "$SONAR_TOKEN" ] ; then dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN" ; fi
 
-RUN dotnet pack /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
+ARG PACKAGE_VERSION
+
+RUN sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.EventSourcing.EventStore/CloudFabric.EventSourcing.EventStore.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.Projections/CloudFabric.Projections.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.Projections.Attributes/CloudFabric.Projections.Attributes.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.EventSourcing.EventStore.CosmosDb/CloudFabric.EventSourcing.EventStore.CosmosDb.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.EventSourcing.EventStore.InMemory/CloudFabric.EventSourcing.EventStore.InMemory.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.EventSourcing.EventStore.Postgresql/CloudFabric.EventSourcing.EventStore.Postgresql.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.Projections.CosmosDb/CloudFabric.Projections.CosmosDb.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.Projections.InMemory/CloudFabric.Projections.InMemory.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj && \
+    dotnet pack /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/CloudFabric.EventSourcing.EventStore/CloudFabric.EventSourcing.EventStore.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/CloudFabric.Projections/CloudFabric.Projections.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/CloudFabric.Projections.Attributes/CloudFabric.Projections.Attributes.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
@@ -127,7 +139,19 @@ RUN dotnet pack /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.
     dotnet pack /src/Implementations/CloudFabric.EventSourcing.EventStore.Postgresql/CloudFabric.EventSourcing.EventStore.Postgresql.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/Implementations/CloudFabric.Projections.CosmosDb/CloudFabric.Projections.CosmosDb.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/Implementations/CloudFabric.Projections.InMemory/CloudFabric.Projections.InMemory.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
-    dotnet pack /src/Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg 
+    dotnet pack /src/Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
+
+ARG NUGET_API_KEY
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.Domain.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.EventStore.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.Projections.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.Projections.Attributes.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.EventStore.CosmosDb.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.EventStore.InMemory.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.EventStore.Postgresql.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.Projections.CosmosDb.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.Projections.InMemory.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.Projections.Postgresql.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
 #---------------------------------------------------------------------
 # /Build artifacts
 #---------------------------------------------------------------------
