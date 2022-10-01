@@ -20,7 +20,7 @@ jobs:
     - name: Set Version Variable
       run: echo "PACKAGE_VERSION=$([ "$GITHUB_HEAD_REF" = "main" ] && echo "$PACKAGE_VERSION" || echo "PACKAGE_VERSION-$GITHUB_HEAD_REF$(date '+%Y%d%m%H%M%S')")" >> $GITHUB_ENV
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --build-arg SONAR_TOKEN=${{ secrets.SONAR_TOKEN }} --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}  --build-arg PACKAGE_VERSION=${{ PACKAGE_VERSION }} --tag artifacts:$(date +%s)
+      run: docker build . --file Dockerfile --build-arg SONAR_TOKEN=${{ secrets.SONAR_TOKEN }} --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} --build-arg PACKAGE_VERSION=$PACKAGE_VERSION --tag artifacts:$(date +%s)
     - name: Copy artifacts
       run: containerId=$(docker create $(docker images --format='{{.ID}}' | head -1)) && docker cp $containerId:/artifacts/ ./artifacts
     - name: Codecov
