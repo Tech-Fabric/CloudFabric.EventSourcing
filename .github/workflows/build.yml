@@ -1,10 +1,13 @@
-name: Docker Image CI
+name: Build, test and publish packages
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+
+env:
+  PACKAGE_VERSION: 0.0.1
 
 jobs:
 
@@ -14,6 +17,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Set Version Variable
+      run: echo "PACKAGE_VERSION=$([ "$GITHUB_HEAD_REF" = "main" ] && echo "$PACKAGE_VERSION" || echo "PACKAGE_VERSION-$GITHUB_HEAD_REF$(date '+%Y%d%m%H%M%S')")" >> $GITHUB_ENV
     - name: Build the Docker image
       run: docker build . --file Dockerfile --build-arg SONAR_TOKEN=${{ secrets.SONAR_TOKEN }} --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} --tag artifacts:$(date +%s)
     - name: Copy artifacts
