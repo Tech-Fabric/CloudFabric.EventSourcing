@@ -85,7 +85,7 @@ public class UserAccountsService : IUserAccountsService
             return ServiceResult.Failed(validationProblemDetails);
         }
 
-        var userAccount = await _userAccountsRepository.LoadAsync(request.UserAccountId, PartitionKeys.GetUserAccountPartitionKey(), cancellationToken);
+        var userAccount = await _userAccountsRepository.LoadAsync(request.UserAccountId, request.UserAccountId, cancellationToken);
 
         if(userAccount == null) {
             return ServiceResult.Failed("user_not_found", "User was not found");
@@ -124,7 +124,7 @@ public class UserAccountsService : IUserAccountsService
 
         var userAccount = await _userAccountsRepository.LoadAsync(
             userAccountEmailAddress.UserAccountId,
-            PartitionKeys.GetUserAccountPartitionKey(),
+            userAccountEmailAddress.UserAccountId,
             cancellationToken
         );
 

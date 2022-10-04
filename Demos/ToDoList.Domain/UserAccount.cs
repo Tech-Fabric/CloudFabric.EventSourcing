@@ -12,6 +12,8 @@ public class UserAccount : AggregateBase
     public string HashedPassword { get; protected set; }
 
     public string PasswordUpdatedAt { get; protected set; }
+    
+    public override string PartitionKey => Id;
 
     public UserAccount(IEnumerable<IEvent> events) : base(events)
     {
@@ -21,8 +23,6 @@ public class UserAccount : AggregateBase
     {
         Apply(new UserAccountRegistered(id, firstName, hashedPassword));
     }
-
-    public override string PartitionKey => PartitionKeys.GetUserAccountPartitionKey();
 
     public void UpdatePassword(string newHashedPassword)
     {

@@ -14,6 +14,16 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
 
     public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrEmpty(id))
+        {
+            throw new ArgumentNullException(nameof(id));
+        }
+        
+        if (string.IsNullOrEmpty(partitionKey))
+        {
+            throw new ArgumentNullException(nameof(partitionKey));
+        }
+        
         var document = await base.Single(id, partitionKey, cancellationToken);
 
         if (document == null) return null;
@@ -23,6 +33,16 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
 
     public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
     {
+        if (document == null)
+        {
+            throw new ArgumentNullException(nameof(document));
+        }
+        
+        if (string.IsNullOrEmpty(partitionKey))
+        {
+            throw new ArgumentNullException(nameof(partitionKey));
+        }
+        
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
@@ -33,6 +53,11 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
         CancellationToken cancellationToken = default
     )
     {
+        if (projectionQuery == null)
+        {
+            throw new ArgumentNullException(nameof(projectionQuery));
+        }
+        
         var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
         var records = new List<TProjectionDocument>();
@@ -95,6 +120,16 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
     public async Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrEmpty(id))
+        {
+            throw new ArgumentNullException(nameof(id));
+        }
+        
+        if (string.IsNullOrEmpty(partitionKey))
+        {
+            throw new ArgumentNullException(nameof(partitionKey));
+        }
+        
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
@@ -171,6 +206,16 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
     public async Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrEmpty(id))
+        {
+            throw new ArgumentNullException(nameof(id));
+        }
+        
+        if (string.IsNullOrEmpty(partitionKey))
+        {
+            throw new ArgumentNullException(nameof(partitionKey));
+        }
+        
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
@@ -210,6 +255,16 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
     public async Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
     {
+        if (document == null)
+        {
+            throw new ArgumentNullException(nameof(document));
+        }
+        
+        if (string.IsNullOrEmpty(partitionKey))
+        {
+            throw new ArgumentNullException(nameof(partitionKey));
+        }
+        
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
@@ -272,6 +327,11 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         CancellationToken cancellationToken = default
     )
     {
+        if (projectionQuery == null)
+        {
+            throw new ArgumentNullException(nameof(projectionQuery));
+        }
+        
         var properties = _projectionDocumentSchema.Properties;
 
         var sb = new StringBuilder();

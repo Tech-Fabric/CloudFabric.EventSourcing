@@ -30,17 +30,34 @@ public class TokenRequest
     public string Password { get; set; }
 }
 
+public class AuthState
+{
+    private static int lastId = 0;
+
+    public int Id = 0;
+        
+    public AuthState()
+    {
+        Id = lastId;
+        lastId++;
+    }
+    public string Token { get; set; }
+}
+
 public class TokenAuthenticationStateProvider : Microsoft.AspNetCore.Components.Server.ServerAuthenticationStateProvider
 {
     private readonly ProtectedSessionStorage _protectedSessionStore;
     private readonly ILocalStorageService _localStorageService;
     private AuthenticationState? _state;
+    private AuthState _authState;
 
     public TokenAuthenticationStateProvider(
+        AuthState authState,
         ILocalStorageService localStorageService,
         ProtectedSessionStorage protectedSessionStore
     )
     {
+        _authState = authState;
         _localStorageService = localStorageService;
         _protectedSessionStore = protectedSessionStore;
     }
@@ -53,6 +70,7 @@ public class TokenAuthenticationStateProvider : Microsoft.AspNetCore.Components.
         }
 
         var token = await _protectedSessionStore.GetAsync<string>("AccessToken");
+        _authState.Token = token.Value;
 
         if (string.IsNullOrEmpty(token.Value))
         {

@@ -1,5 +1,6 @@
 using System.Data;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using Npgsql;
 
@@ -28,7 +29,7 @@ public class PostgresqlEventStore : IEventStore
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
 
-        await using var cmd = new NpgsqlCommand($"DELETE FROM {_tableName}", conn);
+        await using var cmd = new NpgsqlCommand($"DELETE FROM \"{_tableName}\"", conn);
 
         await cmd.ExecuteScalarAsync();
     }
@@ -52,7 +53,7 @@ public class PostgresqlEventStore : IEventStore
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, stream_id, stream_version, event_type, event_data, user_info " +
-            $"FROM {_tableName} " +
+            $"FROM \"{_tableName}\" " +
             $"WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey ORDER BY stream_version ASC", conn)
         {
             Parameters =
@@ -111,7 +112,7 @@ public class PostgresqlEventStore : IEventStore
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version " +
-            $"FROM {_tableName} WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey AND stream_version >= @fromVersion", conn)
+            $"FROM \"{_tableName}\" WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey AND stream_version >= @fromVersion", conn)
         {
             Parameters =
             {
@@ -164,7 +165,7 @@ public class PostgresqlEventStore : IEventStore
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, event_type, event_data " +
-            $"FROM {_tableName} " +
+            $"FROM \"{_tableName}\" " +
             (!string.IsNullOrEmpty(whereClause) 
                 ? $"WHERE {whereClause} " 
                 : "") +
@@ -215,7 +216,7 @@ public class PostgresqlEventStore : IEventStore
         await using var transaction = await conn.BeginTransactionAsync(IsolationLevel.ReadCommitted);
 
         await using var cmd = new NpgsqlCommand(
-            $"SELECT MAX(stream_version) FROM {_tableName} WHERE stream_id = @streamId", conn, transaction)
+            $"SELECT MAX(stream_version) FROM \"{_tableName}\" WHERE stream_id = @streamId", conn, transaction)
         {
             Parameters =
             {
@@ -253,7 +254,7 @@ public class PostgresqlEventStore : IEventStore
         foreach (var evt in events)
         {
             batchInsert.BatchCommands.Add(new NpgsqlBatchCommand($"" +
-                $"INSERT INTO {_tableName} " +
+                $"INSERT INTO \"{_tableName}\" " +
                 $"(id, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version) " +
                 $"VALUES " +
                 $"(@id, @stream_id, @stream_version, @event_type, @event_data, @user_info, @eventstore_schema_version)")
@@ -312,7 +313,7 @@ public class PostgresqlEventStore : IEventStore
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand(
-            $"SELECT 1 FROM {_tableName}", conn)
+            $"SELECT 1 FROM \"{_tableName}\"", conn)
         {
         };
 
@@ -325,7 +326,7 @@ public class PostgresqlEventStore : IEventStore
             if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
             {
                 await using var createTableCommand = new NpgsqlCommand(
-                    $"CREATE TABLE {_tableName} (" +
+                    $"CREATE TABLE \"{_tableName}\" (" +
                     $"id varchar(40), " +
                     $"stream_id varchar(40), " +
                     $"stream_version integer, " +
@@ -333,7 +334,11 @@ public class PostgresqlEventStore : IEventStore
                     $"event_data jsonb, " +
                     $"user_info jsonb, " +
                     $"eventstore_schema_version int NOT NULL" +
-                    $")", conn);
+                    $");" +
+                    $"CREATE INDEX \"{_tableName}_stream_id_idx\" ON \"{_tableName}\" (stream_id);" +
+                    $"CREATE INDEX \"{_tableName}_stream_id_with_partition_key_idx\" ON \"{_tableName}\" (stream_id, ((event_data ->> 'partitionKey')::varchar(256)));"
+                    
+                , conn);
 
                 await createTableCommand.ExecuteNonQueryAsync();
             }

@@ -8,6 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="~/" />
+    <title>Tasks</title>
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
     <link href="css/index.css" rel="stylesheet" />
     <link href="css/site.css" rel="stylesheet" />
@@ -29,5 +30,11 @@
     </div>
 
     <script src="_framework/blazor.server.js"></script>
+    <script>
+        window.Blazor.defaultReconnectionHandler.onConnectionDown = function () {
+            console.log('reloading')
+            window.location.reload();
+        };
+    </script>
 </body>
 </html>

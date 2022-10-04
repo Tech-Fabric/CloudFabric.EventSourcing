@@ -8,7 +8,7 @@ public class ProjectionDocumentAttribute : Attribute
 {
     public static string GetIndexName<TProjectionDocument>()
     {
-        var properties = GetProperties<TProjectionDocument>();
+        var properties = GetAllProjectionProperties<TProjectionDocument>();
 
         StringBuilder sb = new StringBuilder();
 
@@ -52,27 +52,6 @@ public class ProjectionDocumentAttribute : Attribute
         return null;
     }
 
-    public static Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> GetProperties<T>()
-    {
-        Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> properties =
-            new Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute>();
-
-        PropertyInfo[] props = typeof(T).GetProperties();
-        foreach (PropertyInfo prop in props)
-        {
-            object[] attrs = prop.GetCustomAttributes(true);
-            foreach (object attr in attrs)
-            {
-                if (attr is ProjectionDocumentPropertyAttribute propertyAttribute)
-                {
-                    properties.Add(prop, propertyAttribute);
-                }
-            }
-        }
-
-        return properties;
-    }
-
     public static Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> GetFacetableProperties<T>()
     {
         Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> facetableProperties =
@@ -99,7 +78,12 @@ public class ProjectionDocumentAttribute : Attribute
         return GetFacetableProperties<T>().Keys.Select(p => p.Name).ToList();
     }
 
-    public static Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> GetQueryableProperties<T>()
+    /// <summary>
+    /// Returns all properties decorated with ProjectionDocumentPropertyAttribute regardless of their configuration
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public static Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> GetAllProjectionProperties<T>()
     {
         Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> searchableProperties =
             new Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute>();
@@ -110,7 +94,7 @@ public class ProjectionDocumentAttribute : Attribute
             object[] attrs = prop.GetCustomAttributes(true);
             foreach (object attr in attrs)
             {
-                if (attr is ProjectionDocumentPropertyAttribute { IsSearchable: true } propertyAttribute)
+                if (attr is ProjectionDocumentPropertyAttribute propertyAttribute)
                 {
                     searchableProperties.Add(prop, propertyAttribute);
                 }
@@ -122,7 +106,7 @@ public class ProjectionDocumentAttribute : Attribute
 
     public static List<string> GetQueryablePropertyNames<T>()
     {
-        return GetQueryableProperties<T>().Keys.Select(p => p.Name).ToList();
+        return GetAllProjectionProperties<T>().Keys.Select(p => p.Name).ToList();
     }
 
     public static TypeCode? GetPropertyPathTypeCode<T>(string pathName)

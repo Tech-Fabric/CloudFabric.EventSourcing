@@ -6,65 +6,67 @@
 
 <PageTitle>Tasks</PageTitle>
 
-<h1>Tasks</h1>
-
-<div class="row">
-    <div class="col-sm-2 col-xs-12">
-        <h2>Task Lists</h2>
-
-        @if (initialLoadingCompleted == true)
+<div class="task-lists-container">
+    @if (_initialLoadingCompleted == false)
+    {
+        <div class="alert alert-info" role="alert">
+            Loading...
+        </div>
+    }
+    else if (_initialLoadingCompleted && _taskLists.Count == 0)
+    {
+        <div class="alert alert-info" role="alert">
+            There are no task lists yet.
+        </div>
+    }
+    else
+    {
+        foreach (var taskList in _taskLists)
         {
-            <CreateNewTaskListComponent />
-        }
-
-        @if (initialLoadingCompleted == false)
-        {
-            <div class="alert alert-info" role="alert">
-                Loading...
-            </div>
-        }
-        else if (initialLoadingCompleted && taskLists.Count == 0)
-        {
-            <div class="alert alert-info" role="alert">
-                There are no task lists yet.
-            </div>
-        }
-        else
-        {
-            foreach (var taskList in taskLists)
-            {
-                <div class="task-list">
-                    <div class="task-list-name">
-                        @taskList.Name
-                    </div>
+            <div class="task-list card text-left">
+                <div class="card-header">
+                    @taskList.Name
                 </div>
-            }
+                <div class="card-body">
+                    @* @foreach (var task in taskList.Tasks) *@
+                    @* { *@
+                    @*     <div class="task-container"> *@
+                    @* *@
+                    @*     </div> *@
+                    @* } *@
+                </div>
+                <div class="card-footer text-muted text-left">
+                    <CreateNewTaskComponent></CreateNewTaskComponent>
+                </div>
+            </div>
         }
-    </div>
-    <div class="col-sm-2 col-xs-12">
-        <h2>Tasks</h2>
-    </div>
+    }
+
+    @if (_initialLoadingCompleted == true)
+    {
+        <CreateNewTaskListComponent/>
+    }
 </div>
 
-
 @code {
-    public bool initialLoadingCompleted = false;
+    private bool _initialLoadingCompleted = false;
 
-    public List<TaskListViewModel> taskLists;
+    private List<TaskListViewModel> _taskLists = new List<TaskListViewModel>();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            var serviceResult = await taskListsService.GetTaskLists(0, 100);
-            if (serviceResult.Succeed)
+            var serviceResult = await taskListsService.GetTaskLists(100, 0);
+            if (serviceResult.Succeed && serviceResult.Result != null)
             {
-                taskLists = serviceResult.Result;
+                _taskLists = serviceResult.Result;
             }
 
-            initialLoadingCompleted = true;
+            _initialLoadingCompleted = true;
 
             StateHasChanged();
         }
     }
+
 }

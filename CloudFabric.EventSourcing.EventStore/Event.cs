@@ -7,5 +7,5 @@ public record Event : IEvent
 {
     public DateTime Timestamp { get; init; } = DateTime.UtcNow;
 
-    public string PartitionKey { get; init; }
+    public string PartitionKey { get; set; }
 }

@@ -10,7 +10,7 @@ public interface ITaskListsService
     Task<ServiceResult<TaskListViewModel>> CreateTaskList(CreateTaskListRequest request, CancellationToken cancellationToken);
     Task<ServiceResult<TaskListViewModel>> GetTaskListById(string taskListId, CancellationToken cancellationToken);
 
-    Task<ServiceResult<List<TaskViewModel>>> GetTaskLists(
+    Task<ServiceResult<List<TaskListViewModel>>> GetTaskLists(
         string search,
         int limit, 
         int offset,
