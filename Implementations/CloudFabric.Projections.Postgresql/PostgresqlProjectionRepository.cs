@@ -90,6 +90,17 @@ public class PostgresqlProjectionRepository : IProjectionRepository
     {
         _connectionString = connectionString;
         _projectionDocumentSchema = projectionDocumentSchema;
+        
+        // for dynamic projection document schemas we need to ensure 'partitionKey' column is always there
+        if (_projectionDocumentSchema.Properties.All(p => p.PropertyName != "PartitionKey"))
+        {
+            _projectionDocumentSchema.Properties.Add(new ProjectionDocumentPropertySchema()
+            {
+                PropertyName = "PartitionKey",
+                PropertyType = TypeCode.String,
+                IsFilterable = true
+            });
+        }
     }
 
     public string TableName
@@ -144,7 +155,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         await using var cmd = new NpgsqlCommand(
             $"SELECT " +
             string.Join(',', _projectionDocumentSchema.Properties.Select(p => p.PropertyName)) +
-            $" FROM {TableName} WHERE {KeyColumnName} = @id AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey", conn
+            $" FROM \"{TableName}\" WHERE {KeyColumnName} = @id AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey", conn
         )
         {
             Parameters =
@@ -195,7 +206,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
                 throw new Exception(
-                    $"Something went terribly wrong and table for index {TableName} does not have one of the columns. Please delete that table and wait, it will be created automatically.",
+                    $"Something went terribly wrong and table for index \"{TableName}\" does not have one of the columns. Please delete that table and wait, it will be created automatically.",
                     ex
                 );
             }
@@ -221,7 +232,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         await using var cmd = new NpgsqlCommand(
             $"DELETE " +
-            $" FROM {TableName} WHERE {KeyColumnName} = @id AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey", conn
+            $" FROM \"{TableName}\" WHERE {KeyColumnName} = @id AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey", conn
         )
         {
             Parameters =
@@ -241,7 +252,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         await using var cmd = new NpgsqlCommand(
             $"DELETE " +
-            $" FROM {TableName} " +
+            $" FROM \"{TableName}\" " +
             (!string.IsNullOrEmpty(partitionKey) ? $" WHERE {nameof(ProjectionDocument.PartitionKey)} = @partitionKey" : ""), conn
         );
 
@@ -282,7 +293,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             .ToArray();
 
         await using var cmd = new NpgsqlCommand(
-            $"INSERT INTO {TableName} ({string.Join(',', propertyNames)}) " +
+            $"INSERT INTO \"{TableName}\" ({string.Join(',', propertyNames)}) " +
             $"VALUES ({string.Join(',', propertyNames.Select(p => $"@{p}"))}) " +
             $"ON CONFLICT ({KeyColumnName}) " +
             $"DO UPDATE SET {string.Join(',', propertyNames.Select(p => $"{p} = @{p}"))} "
@@ -314,7 +325,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
                 throw new Exception(
-                    $"Something went terribly wrong and table for index {TableName} does not have one of the columns. Please delete that table and wait, it will be created automatically.",
+                    $"Something went terribly wrong and table for index \"{TableName}\" does not have one of the columns. Please delete that table and wait, it will be created automatically.",
                     ex
                 );
             }
@@ -338,7 +349,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         sb.Append("SELECT ");
         sb.AppendJoin(',', properties.Select(p => p.PropertyName));
         sb.Append(" FROM ");
-        sb.Append(TableName);
+        sb.Append("\"" + TableName + "\"");
         sb.Append(" WHERE ");
 
         var (whereClause, parameters) = ConstructConditionFilters(projectionQuery.Filters);
@@ -413,7 +424,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
                 throw new Exception(
-                    $"Something went terribly wrong while querying {TableName}.",
+                    $"Something went terribly wrong while querying \"{TableName}\".",
                     ex
                 );
             }
@@ -535,7 +546,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
         catch (Exception createTableException)
         {
-            var exception = new Exception($"Failed to create a table for projection {TableName}", createTableException);
+            var exception = new Exception($"Failed to create a table for projection \"{TableName}\"", createTableException);
             exception.Data.Add("commandText", commandText);
             throw exception;
         }
@@ -544,7 +555,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
     private string ConstructCreateTableCommandText()
     {
         var commandText = new StringBuilder();
-        commandText.AppendFormat("CREATE TABLE {0} (", TableName);
+        commandText.AppendFormat("CREATE TABLE \"{0}\" (", TableName);
 
         var columnsSql = _projectionDocumentSchema.Properties
             .Select(ConstructColumnCreateStatementForProperty);
@@ -623,7 +634,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                 // break;
                 TypeCode.DateTime => "timestamp",
                 _ => throw new Exception(
-                    $"Postgresql Projection Repository provider doesn't support {property.PropertyName} type."
+                    $"Postgresql Projection Repository provider doesn't support type {property.PropertyType} for property {property.PropertyName}."
                 ),
             };
             column = $"{property.PropertyName} {columnType}";
