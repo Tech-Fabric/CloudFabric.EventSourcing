@@ -6,6 +6,8 @@ namespace CloudFabric.Projections;
 public class ProjectionsEngine : IProjectionsEngine
 {
     private readonly List<IProjectionBuilder<ProjectionDocument>> _projectionBuilders = new();
+    private readonly List<IProjectionBuilder> _dynamicProjectionBuilders = new();
+    
     private IEventsObserver? _observer;
     private readonly IProjectionRepository<ProjectionRebuildState> _projectionsStateRepository;
 
@@ -44,6 +46,11 @@ public class ProjectionsEngine : IProjectionsEngine
     {
         _projectionBuilders.Add(projectionBuilder);
     }
+    
+    public void AddProjectionBuilder(IProjectionBuilder projectionBuilder)
+    {
+        _dynamicProjectionBuilders.Add(projectionBuilder);
+    }
 
     public async Task RebuildAsync(string instanceName, string partitionKey, DateTime? dateFrom = null)
     {
@@ -80,14 +87,13 @@ public class ProjectionsEngine : IProjectionsEngine
         foreach (var projectionBuilder in
                  _projectionBuilders.Where(p => p.HandledEventTypes.Contains(@event.GetType())))
         {
-            try
-            {
-                await projectionBuilder.ApplyEvent(@event);
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
+            await projectionBuilder.ApplyEvent(@event); 
+        }
+        
+        foreach (var projectionBuilder in
+                 _dynamicProjectionBuilders.Where(p => p.HandledEventTypes.Contains(@event.GetType())))
+        {
+            await projectionBuilder.ApplyEvent(@event); 
         }
     }
 

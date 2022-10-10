@@ -35,7 +35,7 @@ public abstract class OrderTests
             await projectionRepository.DeleteAll();
 
             var rebuildStateRepository = GetProjectionRebuildStateRepository();
-            await projectionRepository.DeleteAll();
+            await rebuildStateRepository.DeleteAll();
         }
         catch
         {
