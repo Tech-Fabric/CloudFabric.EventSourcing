@@ -61,6 +61,8 @@ public abstract class DynamicProjectionSchemaTests
     protected abstract IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository();
     protected abstract IEventsObserver GetEventStoreEventsObserver();
 
+    private const string _projectionsSchemaName = "orders-projections";
+
     [TestCleanup]
     public async Task Cleanup()
     {
@@ -69,6 +71,12 @@ public abstract class DynamicProjectionSchemaTests
 
         try
         {
+            var projectionRepository = GetProjectionRepository(new ProjectionDocumentSchema 
+            {
+                SchemaName = _projectionsSchemaName
+            });
+            await projectionRepository.DeleteAll();
+
             var rebuildStateRepository = GetProjectionRebuildStateRepository();
             await rebuildStateRepository.DeleteAll();
         }
@@ -86,7 +94,7 @@ public abstract class DynamicProjectionSchemaTests
 
         var ordersProjectionSchema = new ProjectionDocumentSchema()
         {
-            SchemaName = "orders-projections",
+            SchemaName = _projectionsSchemaName,
             Properties = new List<ProjectionDocumentPropertySchema>()
             {
                 new ProjectionDocumentPropertySchema()
@@ -113,7 +121,6 @@ public abstract class DynamicProjectionSchemaTests
 
         // Repository containing projections - `view models` of orders
         var ordersListProjectionsRepository = GetProjectionRepository(ordersProjectionSchema);
-        await ordersListProjectionsRepository.DeleteAll();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
         var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
