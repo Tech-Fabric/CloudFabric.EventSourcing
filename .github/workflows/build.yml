@@ -19,6 +19,8 @@ jobs:
     - uses: actions/checkout@v3
     - name: Set Version Variable
       run: echo "PACKAGE_VERSION=$([ "$GITHUB_HEAD_REF" = "main" ] && echo "$PACKAGE_VERSION" || echo "$PACKAGE_VERSION-$GITHUB_HEAD_REF-$(date '+%Y%d%m%H%M%S')")" >> $GITHUB_ENV
+    - name: Print Version Variable
+      run: echo "$PACKAGE_VERSION"
     - name: Build the Docker image
       run: docker build . --file Dockerfile --build-arg SONAR_TOKEN=${{ secrets.SONAR_TOKEN }} --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} --build-arg PACKAGE_VERSION=$PACKAGE_VERSION --build-arg NUGET_API_KEY=${{ secrets.NUGET_API_KEY }} --tag artifacts:$(date +%s)
     - name: Copy artifacts
