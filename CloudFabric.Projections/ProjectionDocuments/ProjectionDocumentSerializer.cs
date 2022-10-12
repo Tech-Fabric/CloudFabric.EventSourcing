@@ -54,6 +54,12 @@ public static class ProjectionDocumentSerializer
             {
                 value = Convert.ToInt32(value);
             }
+            else if (propertyInfo.PropertyType == typeof(Guid?) || propertyInfo.PropertyType == typeof(Guid))
+            {
+                value = Guid.TryParse(value?.ToString(), out var parsedValue)
+                    ? parsedValue
+                    : null;
+            }
 
             propertyInfo?.SetValue(documentTypedInstance, value);
         }

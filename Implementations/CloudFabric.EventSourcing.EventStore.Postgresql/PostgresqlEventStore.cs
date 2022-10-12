@@ -326,8 +326,8 @@ public class PostgresqlEventStore : IEventStore
             {
                 await using var createTableCommand = new NpgsqlCommand(
                     $"CREATE TABLE \"{_tableName}\" (" +
-                    $"id varchar(40), " +
-                    $"stream_id varchar(40), " +
+                    $"id uuid, " +
+                    $"stream_id uuid, " +
                     $"stream_version integer, " +
                     $"event_type varchar(200), " +
                     $"event_data jsonb, " +

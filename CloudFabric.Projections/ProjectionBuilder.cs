@@ -1,3 +1,4 @@
+using System.Reflection.Metadata;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.Projections.Queries;
 
@@ -152,6 +153,11 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         Func<TDocument, Task> callback,
         Action? documentNotFound = null)
     {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("id should not be null", nameof(id));
+        }
+
         TDocument? document = await Repository.Single(id, partitionKey);
 
         if (document == null)

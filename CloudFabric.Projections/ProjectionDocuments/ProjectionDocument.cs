@@ -6,7 +6,7 @@ namespace CloudFabric.Projections;
 public class ProjectionDocument
 {
     [JsonPropertyName("id")]
-    [ProjectionDocumentProperty(IsSearchable = true, IsKey = true)]
+    [ProjectionDocumentProperty(IsKey = true)]
     public Guid? Id { get; set; }
 
     [JsonPropertyName("partitionKey")]

@@ -20,7 +20,6 @@ public class Order : AggregateBase
 
     public override string PartitionKey => PartitionKeys.GetOrderPartitionKey();
 
-    public Guid Id { get; private set; }
     public string OrderName { get; private set; }
     public List<OrderItem> Items { get; private set; }
 

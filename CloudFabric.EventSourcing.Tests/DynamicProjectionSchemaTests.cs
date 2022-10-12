@@ -101,7 +101,7 @@ public abstract class DynamicProjectionSchemaTests
                 {
                     PropertyName = "Id",
                     IsKey = true,
-                    PropertyType = TypeCode.String
+                    PropertyType = TypeCode.Object
                 },
                 new ProjectionDocumentPropertySchema()
                 {
@@ -165,7 +165,7 @@ public abstract class DynamicProjectionSchemaTests
         var orderProjection = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjection != null, nameof(orderProjection) + " != null");
 
-        orderProjection["Id"].Should().Be(order.Id.ToString());
+        orderProjection["Id"].Should().Be(order.Id);
         orderProjection["ItemsCount"].Should().Be(items.Count);
 
         var addItem = new OrderItem(DateTime.UtcNow, "Twilight Struggle", 6.95m);
