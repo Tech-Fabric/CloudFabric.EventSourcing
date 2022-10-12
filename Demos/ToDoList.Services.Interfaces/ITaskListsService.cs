@@ -8,7 +8,7 @@ public interface ITaskListsService
 {
     Task<ServiceResult<TaskViewModel>> CreateTask(CreateTaskRequest request, CancellationToken cancellationToken);
     Task<ServiceResult<TaskListViewModel>> CreateTaskList(CreateTaskListRequest request, CancellationToken cancellationToken);
-    Task<ServiceResult<TaskListViewModel>> GetTaskListById(string taskListId, CancellationToken cancellationToken);
+    Task<ServiceResult<TaskListViewModel>> GetTaskListById(Guid taskListId, CancellationToken cancellationToken);
 
     Task<ServiceResult<List<TaskListViewModel>>> GetTaskLists(
         string search,
@@ -18,10 +18,10 @@ public interface ITaskListsService
     );
 
     Task<ServiceResult<List<TaskViewModel>>> GetTasks(
-        string taskListId,
+        Guid taskListId,
         string search,
         int limit, 
         int offset,
         CancellationToken cancellationToken);
-    Task<ServiceResult<TaskListViewModel>> UpdateTaskListName(string taskListId, UpdateTaskListNameRequest request, CancellationToken cancellationToken);
+    Task<ServiceResult<TaskListViewModel>> UpdateTaskListName(Guid taskListId, UpdateTaskListNameRequest request, CancellationToken cancellationToken);
 }

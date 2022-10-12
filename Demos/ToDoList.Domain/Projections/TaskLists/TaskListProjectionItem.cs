@@ -8,7 +8,7 @@ namespace ToDoList.Domain.Projections.TaskLists;
 public class TaskListProjectionItem : ProjectionDocument
 {
     [ProjectionDocumentProperty(IsSearchable = true, IsFilterable = true)]
-    public string UserAccountId { get; set; }
+    public Guid UserAccountId { get; set; }
 
     [ProjectionDocumentProperty(IsSearchable = true)]
     public string Name { get; set; }

@@ -5,5 +5,5 @@ namespace ToDoList.Services.Interfaces;
 
 public interface IUserAccessTokensService
 {
-    public ServiceResult<UserAccessTokenViewModel> GenerateAccessTokenForUser(string userAccountId, string userFirstName);
+    public ServiceResult<UserAccessTokenViewModel> GenerateAccessTokenForUser(Guid userAccountId, string userFirstName);
 }

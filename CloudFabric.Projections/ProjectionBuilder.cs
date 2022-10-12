@@ -42,11 +42,6 @@ public class ProjectionBuilder : IProjectionBuilder
 
     protected Task UpdateDocument(Guid id, string partitionKey, Action<Dictionary<string, object?>> callback, Action? documentNotFound = null)
     {
-        return UpdateDocument(id.ToString(), partitionKey, callback, documentNotFound);
-    }
-
-    protected Task UpdateDocument(string id, string partitionKey, Action<Dictionary<string, object?>> callback, Action? documentNotFound = null)
-    {
         return UpdateDocument(
             id,
             partitionKey,
@@ -59,23 +54,13 @@ public class ProjectionBuilder : IProjectionBuilder
         );
     }
 
-    protected Task UpdateDocument(Guid id, string partitionKey, Func<Dictionary<string, object?>, Task> callback, Action? documentNotFound = null)
-    {
-        return UpdateDocument(id.ToString(), partitionKey, callback, documentNotFound);
-    }
-
-    private async Task UpdateDocument(
-        string documentId,
+    protected async Task UpdateDocument(
+        Guid id,
         string partitionKey,
         Func<Dictionary<string, object?>, Task> callback,
         Action? documentNotFound = null)
     {
-        if (documentId == null)
-        {
-            throw new ArgumentException("documentId should not be null", nameof(documentId));
-        }
-
-        Dictionary<string, object?>? document = await Repository.Single(documentId, partitionKey);
+        Dictionary<string, object?>? document = await Repository.Single(id, partitionKey);
 
         if (document == null)
         {
@@ -105,7 +90,7 @@ public class ProjectionBuilder : IProjectionBuilder
 
     protected Task DeleteDocument(Guid id, string partitionKey)
     {
-        return Repository.Delete(id.ToString(), partitionKey);
+        return Repository.Delete(id, partitionKey);
     }
 }
 
@@ -149,11 +134,6 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
 
     protected Task UpdateDocument(Guid id, string partitionKey, Action<TDocument> callback, Action? documentNotFound = null)
     {
-        return UpdateDocument(id.ToString(), partitionKey, callback, documentNotFound);
-    }
-
-    protected Task UpdateDocument(string id, string partitionKey, Action<TDocument> callback, Action? documentNotFound = null)
-    {
         return UpdateDocument(
             id,
             partitionKey,
@@ -166,23 +146,13 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         );
     }
 
-    protected Task UpdateDocument(Guid id, string partitionKey, Func<TDocument, Task> callback, Action? documentNotFound = null)
-    {
-        return UpdateDocument(id.ToString(), partitionKey, callback, documentNotFound);
-    }
-
     private async Task UpdateDocument(
-        string documentId,
+        Guid id,
         string partitionKey,
         Func<TDocument, Task> callback,
         Action? documentNotFound = null)
     {
-        if (documentId == null)
-        {
-            throw new ArgumentException("documentId should not be null", nameof(documentId));
-        }
-
-        TDocument? document = await Repository.Single(documentId, partitionKey);
+        TDocument? document = await Repository.Single(id, partitionKey);
 
         if (document == null)
         {
@@ -212,6 +182,6 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
 
     protected Task DeleteDocument(Guid id, string partitionKey)
     {
-        return Repository.Delete(id.ToString(), partitionKey);
+        return Repository.Delete(id, partitionKey);
     }
 }

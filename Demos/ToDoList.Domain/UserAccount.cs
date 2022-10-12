@@ -13,13 +13,13 @@ public class UserAccount : AggregateBase
 
     public string PasswordUpdatedAt { get; protected set; }
     
-    public override string PartitionKey => Id;
+    public override string PartitionKey => Id.ToString();
 
     public UserAccount(IEnumerable<IEvent> events) : base(events)
     {
     }
 
-    public UserAccount(string id, string firstName, string hashedPassword)
+    public UserAccount(Guid id, string firstName, string hashedPassword)
     {
         Apply(new UserAccountRegistered(id, firstName, hashedPassword));
     }

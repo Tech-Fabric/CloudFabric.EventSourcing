@@ -26,7 +26,7 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
     {
         await UpsertDocument(new OrderListProjectionItem()
         {
-            Id = @event.Id.ToString(),
+            Id = @event.Id,
             Name = @event.OrderName,
             ItemsCount = @event.Items.Count
         },

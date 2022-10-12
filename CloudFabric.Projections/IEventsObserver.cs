@@ -10,8 +10,8 @@ public interface IEventsObserver
 
     public void SetEventHandler(Func<IEvent, Task> eventHandler);
 
-    public Task LoadAndHandleEventsForDocumentAsync(string documentId, string partitionKey);
+    public Task LoadAndHandleEventsForDocumentAsync(Guid documentId, string partitionKey);
 
-    // onCompleted has instanceName as a parameter, onError - instanceName and errorMessage
+    // onCompleted has instanceName and partitionKey as parameters, onError - instanceName, partitionKey and errorMessage
     public Task LoadAndHandleEventsAsync(string instanceName, string partitionKey, DateTime? dateFrom, Func<string, string, Task> onCompleted, Func<string, string, string, Task> onError);
 }

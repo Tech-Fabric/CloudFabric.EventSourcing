@@ -44,7 +44,7 @@ public class CosmosDbEventStore : IEventStore
         await container.DeleteContainerAsync();
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -79,7 +79,7 @@ public class CosmosDbEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -109,7 +109,7 @@ public class CosmosDbEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -143,7 +143,7 @@ public class CosmosDbEventStore : IEventStore
 
     public async Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo,
-        string streamId,
+        Guid streamId,
         int expectedVersion,
         IEnumerable<IEvent> events
     )
@@ -169,22 +169,22 @@ public class CosmosDbEventStore : IEventStore
 
     private static string SerializeEvents(
         EventUserInfo eventUserInfo,
-        string streamId,
+        Guid streamId,
         int expectedVersion,
         IEnumerable<IEvent> events
     )
     {
-        if (string.IsNullOrEmpty(eventUserInfo.UserId))
+        if (eventUserInfo.UserId == Guid.Empty)
             throw new Exception("UserInfo.Id must be set to a value.");
 
         var items = events.Select(
             e => new EventWrapper
             {
-                Id = $"{streamId}:{++expectedVersion}",
+                Id = Guid.NewGuid(),
                 StreamInfo = new StreamInfo
                 {
                     Id = streamId,
-                    Version = expectedVersion
+                    Version = ++expectedVersion
                 },
                 EventType = e.GetType().AssemblyQualifiedName,
                 EventData = JsonSerializer.SerializeToElement(e, e.GetType(), EventSerializerOptions.Options),

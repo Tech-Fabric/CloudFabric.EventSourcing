@@ -26,7 +26,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
     {
         await UpsertDocument(new Dictionary<string, object?>()
         {
-            { "Id", @event.Id.ToString() },
+            { "Id", @event.Id },
             { "Name", @event.OrderName },
             { "ItemsCount", @event.Items.Count }
         },
@@ -133,7 +133,7 @@ public abstract class DynamicProjectionSchemaTests
         await projectionsEngine.StartAsync("TestInstance");
 
 
-        var userId = new Guid().ToString();
+        var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
         var id = Guid.NewGuid();
         var orderName = "New Year's Gifts";
@@ -162,7 +162,7 @@ public abstract class DynamicProjectionSchemaTests
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        var orderProjection = await ordersListProjectionsRepository.Single(id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        var orderProjection = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjection != null, nameof(orderProjection) + " != null");
 
         orderProjection["Id"].Should().Be(order.Id.ToString());
@@ -182,7 +182,7 @@ public abstract class DynamicProjectionSchemaTests
         order2.Items.Should().BeEquivalentTo(items);
         order2.Items.Count.Should().Be(4);
 
-        var orderProjection2 = await ordersListProjectionsRepository.Single(id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        var orderProjection2 = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjection2 != null, nameof(orderProjection2) + " != null");
 
         orderProjection2["Name"].Should().Be(orderName);

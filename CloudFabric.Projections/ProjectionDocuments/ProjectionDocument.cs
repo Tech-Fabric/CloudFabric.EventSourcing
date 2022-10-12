@@ -7,7 +7,7 @@ public class ProjectionDocument
 {
     [JsonPropertyName("id")]
     [ProjectionDocumentProperty(IsSearchable = true, IsKey = true)]
-    public string? Id { get; set; }
+    public Guid? Id { get; set; }
 
     [JsonPropertyName("partitionKey")]
     [ProjectionDocumentProperty(IsSearchable = true, IsFilterable = true)]

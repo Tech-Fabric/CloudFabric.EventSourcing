@@ -10,10 +10,10 @@ public class EventAddedEventArgs : EventArgs
 
 public class InMemoryEventStore : IEventStore
 {
-    private readonly Dictionary<(string StreamId, string PartitionKey), List<string>> _eventsContainer;
+    private readonly Dictionary<(Guid StreamId, string PartitionKey), List<string>> _eventsContainer;
 
     public InMemoryEventStore(
-        Dictionary<(string StreamId, string PartitionKey), List<string>> eventsContainer
+        Dictionary<(Guid StreamId, string PartitionKey), List<string>> eventsContainer
     )
 
     {
@@ -31,7 +31,7 @@ public class InMemoryEventStore : IEventStore
         return Task.CompletedTask;
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey)
     {
         var eventWrappers = await LoadOrderedEventWrappers(streamId, partitionKey);
         if (eventWrappers.Count == 0)
@@ -49,7 +49,7 @@ public class InMemoryEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey)
     {
         var eventWrappers = await LoadOrderedEventWrappers(streamId, partitionKey);
 
@@ -65,7 +65,7 @@ public class InMemoryEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion)
     {
         var eventWrappers = await LoadOrderedEventWrappersFromVersion(streamId, partitionKey, fromVersion);
 
@@ -104,7 +104,7 @@ public class InMemoryEventStore : IEventStore
 
     public async Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo,
-        string streamId,
+        Guid streamId,
         int expectedVersion,
         IEnumerable<IEvent> events
     )
@@ -158,7 +158,7 @@ public class InMemoryEventStore : IEventStore
 
     public event EventHandler<EventAddedEventArgs> EventAdded;
 
-    private async Task<List<EventWrapper>> LoadOrderedEventWrappers(string streamId, string partitionKey)
+    private async Task<List<EventWrapper>> LoadOrderedEventWrappers(Guid streamId, string partitionKey)
     {
         List<string> eventData = _eventsContainer.ContainsKey((streamId, partitionKey))
             ? _eventsContainer[(streamId, partitionKey)]
@@ -176,7 +176,7 @@ public class InMemoryEventStore : IEventStore
         return eventWrappers;
     }
 
-    private async Task<List<EventWrapper>> LoadOrderedEventWrappersFromVersion(string streamId, string partitionKey, int version)
+    private async Task<List<EventWrapper>> LoadOrderedEventWrappersFromVersion(Guid streamId, string partitionKey, int version)
     {
         List<string> eventData =
             _eventsContainer.ContainsKey((streamId, partitionKey))
@@ -198,18 +198,18 @@ public class InMemoryEventStore : IEventStore
     }
 
     private static List<EventWrapper> PrepareEvents(
-        EventUserInfo eventUserInfo, string streamId, int expectedVersion, IEnumerable<IEvent> events
+        EventUserInfo eventUserInfo, Guid streamId, int expectedVersion, IEnumerable<IEvent> events
     )
     {
-        if (string.IsNullOrEmpty(eventUserInfo.UserId))
+        if (eventUserInfo.UserId == Guid.Empty)
             throw new Exception("UserInfo.Id must be set to a value.");
 
         var items = events.Select(
             e => new EventWrapper
             {
                 // Id = $"{streamId}:{++expectedVersion}:{e.GetType().Name}",
-                Id = $"{streamId}:{++expectedVersion}", //:{e.GetType().Name}",
-                StreamInfo = new StreamInfo { Id = streamId, Version = expectedVersion },
+                Id = Guid.NewGuid(), //:{e.GetType().Name}",
+                StreamInfo = new StreamInfo { Id = streamId, Version = ++expectedVersion },
                 EventType = e.GetType().AssemblyQualifiedName,
                 EventData = JsonSerializer.SerializeToElement(e, e.GetType(), EventSerializerOptions.Options),
                 UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType(), EventSerializerOptions.Options)

@@ -24,7 +24,7 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken)
+    public new async Task<TProjectionDocument?> Single(Guid id, string partitionKey, CancellationToken cancellationToken)
     {
         var document = await base.Single(id, partitionKey, cancellationToken);
 
@@ -112,7 +112,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -140,7 +140,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         try
         {

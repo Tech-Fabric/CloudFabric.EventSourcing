@@ -30,7 +30,7 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         return Task.CompletedTask;
     }
 
-    public async Task LoadAndHandleEventsForDocumentAsync(string documentId, string partitionKey)
+    public async Task LoadAndHandleEventsForDocumentAsync(Guid documentId, string partitionKey)
     {
         var stream = await _eventStore.LoadStreamAsync(documentId, partitionKey);
 

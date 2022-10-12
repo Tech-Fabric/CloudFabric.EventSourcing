@@ -23,7 +23,7 @@ public class OrderRepository : IOrderRepository
 
     public async Task<Order> LoadOrder(Guid id, string partitionKey)
     {
-        var stream = await _eventStore.LoadStreamAsyncOrThrowNotFound(id.ToString(), partitionKey);
+        var stream = await _eventStore.LoadStreamAsyncOrThrowNotFound(id, partitionKey);
         return new Order(stream.Events);
     }
 
@@ -34,7 +34,7 @@ public class OrderRepository : IOrderRepository
     {
         if (aggregate.UncommittedEvents.Any())
         {
-            var streamId = aggregate.Id.ToString();
+            var streamId = aggregate.Id;
 
             var savedEvents = await _eventStore.AppendToStreamAsync(eventUserInfo,
                 streamId,

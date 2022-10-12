@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using ToDoList.Api.Extensions;
 using ToDoList.Models;
@@ -21,7 +21,7 @@ public class TaskListController : ControllerBase
     }
 
     [HttpGet("task_list/{taskListId}")]
-    public async Task<IActionResult> GetTaskListById(string taskListId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetTaskListById(Guid taskListId, CancellationToken cancellationToken)
     {
         return this.ServiceResult(await _taskListsService.GetTaskListById(taskListId, cancellationToken));
     }
@@ -33,7 +33,7 @@ public class TaskListController : ControllerBase
     }
 
     [HttpPost("task_list/{taskListId}/name")]
-    public async Task<IActionResult> UpdateTaskListName(string taskListId, [FromBody] UpdateTaskListNameRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateTaskListName(Guid taskListId, [FromBody] UpdateTaskListNameRequest request, CancellationToken cancellationToken)
     {
         return this.ServiceResult(await _taskListsService.UpdateTaskListName(taskListId, request, cancellationToken));
     }
@@ -45,13 +45,13 @@ public class TaskListController : ControllerBase
     }
 
     [HttpGet("task_list/{taskListId}/tasks")]
-    public async Task<IActionResult> GetTaskListTasks(string taskListId, [FromQuery] string search, [FromQuery] int limit, [FromQuery] int offset, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetTaskListTasks(Guid taskListId, [FromQuery] string search, [FromQuery] int limit, [FromQuery] int offset, CancellationToken cancellationToken)
     {
         return this.ServiceResult(await _taskListsService.GetTasks(taskListId, search, limit, offset, cancellationToken));
     }
 
     [HttpPost("task_list/{taskListId}/tasks")]
-    public async Task<IActionResult> CreateTaskListTask([FromQuery] string taskListId, [FromBody] CreateTaskRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateTaskListTask([FromQuery] Guid taskListId, [FromBody] CreateTaskRequest request, CancellationToken cancellationToken)
     {
         request.TaskListId = taskListId;
         return this.ServiceResult(await _taskListsService.CreateTask(request, cancellationToken));

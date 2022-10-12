@@ -15,4 +15,7 @@ public class UserAccountsProjectionItem : ProjectionDocument
 
     [ProjectionDocumentProperty(IsFilterable = true)]
     public DateTime PasswordUpdatedAt { get; set; }
+
+    [ProjectionDocumentProperty(IsFilterable = true)]
+    public DateTime? EmailConfirmedAt { get; set; }
 }

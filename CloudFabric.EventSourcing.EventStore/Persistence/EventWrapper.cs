@@ -6,7 +6,7 @@ namespace CloudFabric.EventSourcing.EventStore.Persistence;
 public record EventWrapper
 {
     [JsonPropertyName("id")] 
-    public string? Id { get; set; }
+    public Guid? Id { get; set; }
 
     [JsonPropertyName("stream")] 
     public StreamInfo? StreamInfo { get; set; }

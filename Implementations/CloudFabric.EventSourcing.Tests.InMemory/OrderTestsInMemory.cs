@@ -17,7 +17,7 @@ public class OrderTestsInMemory : OrderTests
     {
         if (_eventStore == null)
         {
-            _eventStore = new InMemoryEventStore(new Dictionary<(string, string), List<string>>());
+            _eventStore = new InMemoryEventStore(new Dictionary<(Guid, string), List<string>>());
             await _eventStore.Initialize();
         }
 

@@ -21,11 +21,11 @@ public class UserAccessTokensService : IUserAccessTokensService
         _options = options;
     }
 
-    public ServiceResult<UserAccessTokenViewModel> GenerateAccessTokenForUser(string userAccountId, string userFirstName)
+    public ServiceResult<UserAccessTokenViewModel> GenerateAccessTokenForUser(Guid userAccountId, string userFirstName)
     {
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.PrimarySid, userAccountId, ClaimValueTypes.Integer),
+            new Claim(ClaimTypes.PrimarySid, userAccountId.ToString(), ClaimValueTypes.Integer),
             new Claim(ClaimTypes.Name, userFirstName, ClaimValueTypes.String)
         };
 

@@ -12,7 +12,7 @@ public class InMemoryProjectionRepository<TProjectionDocument>
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public new async Task<TProjectionDocument?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         var document = await base.Single(id, partitionKey, cancellationToken);
 
@@ -54,14 +54,14 @@ public class InMemoryProjectionRepository<TProjectionDocument>
 public class InMemoryProjectionRepository : IProjectionRepository
 {
     private readonly ProjectionDocumentSchema _projectionDocumentSchema;
-    private readonly Dictionary<(string Id, string PartitionKey), Dictionary<string, object?>> _storage = new();
+    private readonly Dictionary<(Guid Id, string PartitionKey), Dictionary<string, object?>> _storage = new();
 
     public InMemoryProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
         _projectionDocumentSchema = projectionDocumentSchema;
     }
 
-    public Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(_storage.GetValueOrDefault((id, partitionKey)) ?? null);
     }
@@ -110,18 +110,18 @@ public class InMemoryProjectionRepository : IProjectionRepository
             throw new ArgumentException("document.Id could not be null", _projectionDocumentSchema.KeyColumnName);
         }
 
-        _storage[(keyValue.ToString(), partitionKey)] = document;
+        _storage[(Guid.Parse(keyValue.ToString()), partitionKey)] = document;
 
         return Task.CompletedTask;
     }
 
-    public Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         _storage.Remove((id, partitionKey));
         return Task.CompletedTask;
     }
 
-    public Task DeleteAll(string partitionKey, CancellationToken cancellationToken = default)
+    public Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(partitionKey))
         {

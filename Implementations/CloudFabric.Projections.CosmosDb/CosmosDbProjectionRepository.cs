@@ -42,7 +42,7 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public new async Task<TProjectionDocument?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         var document = await base.Single(id, partitionKey, cancellationToken);
 
@@ -122,7 +122,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         _containerId = containerId;
     }
 
-    public async Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
         var sw = Stopwatch.StartNew();
@@ -131,7 +131,8 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             var result = await ExecuteWithRetries(
                 c => container.ReadItemAsync<Dictionary<string, object?>>(
-                    id, new PartitionKey(partitionKey),
+                    id.ToString(),
+                    new PartitionKey(partitionKey),
                     cancellationToken: c
                 ),
                 cancellationToken
@@ -160,7 +161,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
 
@@ -169,7 +170,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         try
         {
             await ExecuteWithRetries(
-                c => container.DeleteItemAsync<dynamic>(id, new PartitionKey(partitionKey), cancellationToken: c),
+                c => container.DeleteItemAsync<dynamic>(id.ToString(), new PartitionKey(partitionKey), cancellationToken: c),
                 cancellationToken
             );
         }

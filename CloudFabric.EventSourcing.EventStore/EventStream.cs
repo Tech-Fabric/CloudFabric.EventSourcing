@@ -4,14 +4,14 @@ public class EventStream
 {
     private readonly List<IEvent> _events;
 
-    public EventStream(string id, int version, IEnumerable<IEvent> events)
+    public EventStream(Guid id, int version, IEnumerable<IEvent> events)
     {
         Id = id;
         Version = version;
         _events = events.ToList();
     }
 
-    public string Id { get; private set; }
+    public Guid Id { get; private set; }
 
     public int Version { get; private set; }
 

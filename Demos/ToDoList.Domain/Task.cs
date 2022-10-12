@@ -6,9 +6,9 @@ namespace ToDoList.Domain;
 
 public class Task : AggregateBase
 {
-    public string? TaskListId { get; protected set; }
+    public Guid TaskListId { get; protected set; }
 
-    public string UserAccountId {get; protected set;}
+    public Guid UserAccountId {get; protected set;}
 
     public string? Title { get; protected set; }
 
@@ -20,7 +20,7 @@ public class Task : AggregateBase
     {
     }
 
-    public Task(string userAccountId, string taskListId, string taskId, string title, string? description)
+    public Task(Guid userAccountId, Guid taskListId, Guid taskId, string title, string? description)
     {
         Apply(new TaskCreated(userAccountId, taskListId, taskId, title, description));
     }
