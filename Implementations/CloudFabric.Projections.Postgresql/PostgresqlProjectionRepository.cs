@@ -1,6 +1,10 @@
+using System.Linq.Expressions;
 using System.Text;
+using System.Text.Json;
 using CloudFabric.Projections.Queries;
+using CloudFabric.Projections.Utils;
 using Npgsql;
+using Npgsql.PostgresTypes;
 
 namespace CloudFabric.Projections.Postgresql;
 
@@ -185,8 +189,26 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
                     for (var i = 0; i < _projectionDocumentSchema.Properties.Count; i++)
                     {
-                        result[_projectionDocumentSchema.Properties[i].PropertyName] =
-                            values[i] is DBNull ? null : values[i];
+                        if (values[i] is DBNull)
+                        {
+                            result[_projectionDocumentSchema.Properties[i].PropertyName] = null;
+                        }
+                        // try to check whether the property is a json object or array
+                        else if (values[i] is string)
+                        {
+                            try
+                            {
+                                result[_projectionDocumentSchema.Properties[i].PropertyName] = JsonToObjectConverter.Convert((string)values[i]);
+                            }
+                            catch 
+                            {
+                                result[_projectionDocumentSchema.Properties[i].PropertyName] = values[i];
+                            }
+                        }
+                        else
+                        {
+                            result[_projectionDocumentSchema.Properties[i].PropertyName] = values[i];
+                        }
                     }
                 }
 
@@ -302,6 +324,12 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         foreach (var p in propertyNames)
         {
+            var propertyType = document[p]?.GetType();
+            if (propertyType != null && propertyType.IsClass && propertyType != typeof(string) && propertyType != typeof(Guid))
+            {
+                document[p] = JsonSerializer.SerializeToDocument(document[p]);
+            }
+
             cmd.Parameters.Add(new(p, document[p] ?? DBNull.Value));
         }
 
@@ -405,7 +433,26 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
                 for (var i = 0; i < properties.Count; i++)
                 {
-                    document[properties[i].PropertyName] = values[i] is DBNull ? null : values[i];
+                    if (values[i] is DBNull)
+                    {
+                        document[_projectionDocumentSchema.Properties[i].PropertyName] = null;
+                    }
+                    // try to check whether the property is a json object or array
+                    else if (values[i] is string)
+                    {
+                        try
+                        {
+                            document[properties[i].PropertyName] = JsonToObjectConverter.Convert((string)values[i]);
+                        }
+                        catch
+                        {
+                            document[properties[i].PropertyName] = values[i];
+                        }
+                    }
+                    else
+                    {
+                        document[properties[i].PropertyName] = values[i];
+                    }
                 }
 
                 records.Add(document);
@@ -573,42 +620,43 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         if (property.IsNested)
         {
-            throw new NotImplementedException();
-            // var nestedFields = new List<PostgresCompositeType.Field>();
-            //
-            // var isList = propertyType.GetTypeInfo().IsGenericType &&
-            //              propertyType.GetGenericTypeDefinition() == typeof(List<>);
-            //
-            // if (isList)
-            // {
-            //     propertyType = propertyType.GetGenericArguments()[0];
-            // }
-            //
-            // PropertyInfo[] nestedProps = propertyType.GetProperties();
-            // foreach (PropertyInfo nestedProp in nestedProps)
-            // {
-            //     object[] attrs = nestedProp.GetCustomAttributes(true);
-            //     foreach (object attr in attrs)
-            //     {
-            //         ProjectionDocumentPropertyAttribute nestedPropertyAttribute = attr as ProjectionDocumentPropertyAttribute;
-            //
-            //         if (propertyAttribute != null)
-            //         {
-            //             var nestedField = ConstructFieldCreateStatementForProperty(nestedProp, nestedPropertyAttribute);
-            //
-            //             nestedFields.Add(nestedField);
-            //         }
-            //     }
-            // }
-            //
-            // if (isList)
-            // {
-            //     field = new PostgresCompositeType.Field(fieldName, DataType.Collection(DataType.Complex), nestedFields);
-            // }
-            // else
-            // {
-            //     field = new PostgresCompositeType.Field(fieldName, DataType.Complex, nestedFields);
-            // }
+            //var nestedFields = new List<PostgresCompositeType.Field>();
+
+            //var isList = propertyType.GetTypeInfo().IsGenericType &&
+            //             propertyType.GetGenericTypeDefinition() == typeof(List<>);
+
+            //if (isList)
+            //{
+            //    propertyType = propertyType.GetGenericArguments()[0];
+            //}
+
+            //PropertyInfo[] nestedProps = propertyType.GetProperties();
+            //foreach (PropertyInfo nestedProp in nestedProps)
+            //{
+            //    object[] attrs = nestedProp.GetCustomAttributes(true);
+            //    foreach (object attr in attrs)
+            //    {
+            //        ProjectionDocumentPropertyAttribute nestedPropertyAttribute = attr as ProjectionDocumentPropertyAttribute;
+
+            //        if (propertyAttribute != null)
+            //        {
+            //            var nestedField = ConstructFieldCreateStatementForProperty(nestedProp, nestedPropertyAttribute);
+
+            //            nestedFields.Add(nestedField);
+            //        }
+            //    }
+            //}
+
+            //if (isList)
+            //{
+            //    field = new PostgresCompositeType.Field(fieldName, DataType.Collection(DataType.Complex), nestedFields);
+            //}
+            //else
+            //{
+            //    field = new PostgresCompositeType.Field(fieldName, DataType.Complex, nestedFields);
+            //}
+
+            column = $"{property.PropertyName} jsonb";
         }
         else
         {

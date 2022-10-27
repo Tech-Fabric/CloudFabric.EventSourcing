@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using CloudFabric.Projections.Queries;
+using CloudFabric.Projections.Utils;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Polly;
@@ -526,8 +527,8 @@ public class CosmosDbProjectionRepository : IProjectionRepository
                         TypeCode.Decimal => valueAsJsonElement.GetDecimal(),
                         TypeCode.DateTime => valueAsJsonElement.GetDateTime(),
                         TypeCode.String => valueAsJsonElement.GetString(),
-                        TypeCode.Object => !propertySchema.IsNested ? valueAsJsonElement.GetGuid() : throw new Exception($"Failed to deserialize json element for property {kv.Key}"),
-                        _ => throw new Exception($"Failed to deserialize json element for property {kv.Key}")
+                        TypeCode.Object => propertySchema.IsNested ? JsonToObjectConverter.Convert(valueAsJsonElement) : valueAsJsonElement.GetGuid(),
+                        _ => throw new Exception($"Failed to deserialize json element for property {propertySchema.PropertyName}")
                     };
                 }
             }

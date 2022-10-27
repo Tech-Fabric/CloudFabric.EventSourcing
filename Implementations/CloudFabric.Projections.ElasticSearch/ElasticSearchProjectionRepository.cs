@@ -87,6 +87,9 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         connectionSettings.DefaultIndex(IndexName);
         connectionSettings.ThrowExceptions();
 
+        // means that we do not change property names when indexing (like pascal case to camel case)
+        connectionSettings.DefaultFieldNameInferrer(x => x);
+
         _client = new ElasticClient(connectionSettings);
     }
 
