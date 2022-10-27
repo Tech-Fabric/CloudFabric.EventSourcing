@@ -6,7 +6,7 @@ namespace ToDoList.Models.RequestModels.UserAccounts;
 public record UpdateUserAccountPasswordRequest
 {
     [Required]
-    public string UserAccountId { get; set; }
+    public Guid UserAccountId { get; set; }
 
     [Required]
     [PasswordPropertyText]

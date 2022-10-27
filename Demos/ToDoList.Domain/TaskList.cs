@@ -7,7 +7,7 @@ namespace ToDoList.Domain;
 public class TaskList : AggregateBase
 {
     public string Name { get; protected set; }
-    public string UserAccountId { get; protected set; }
+    public Guid UserAccountId { get; protected set; }
 
     public override string PartitionKey => PartitionKeys.GetTaskListPartitionKey();
 
@@ -15,7 +15,7 @@ public class TaskList : AggregateBase
     {
     }
 
-    public TaskList(string userAccountId, string id, string name)
+    public TaskList(Guid userAccountId, Guid id, string name)
     {
         Apply(new TaskListCreated(userAccountId, id, name));
     }

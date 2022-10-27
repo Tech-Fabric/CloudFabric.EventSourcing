@@ -59,7 +59,7 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
         await onCompleted(instanceName, partitionKey);
     }
 
-    public async Task LoadAndHandleEventsForDocumentAsync(string documentId, string partitionKey)
+    public async Task LoadAndHandleEventsForDocumentAsync(Guid documentId, string partitionKey)
     {
         var stream = await _eventStore.LoadStreamAsync(documentId, partitionKey);
 

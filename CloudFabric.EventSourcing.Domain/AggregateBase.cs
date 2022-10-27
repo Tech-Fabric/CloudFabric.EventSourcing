@@ -16,7 +16,7 @@ namespace CloudFabric.EventSourcing.Domain;
 /// <seealso cref="CloudFabric.EventSourcing.EventStore.Tests\Domain\Order.cs"/>
 public abstract class AggregateBase
 {
-    public virtual string Id { get; protected set; }
+    public virtual Guid Id { get; protected set; }
 
     public AggregateBase()
     {

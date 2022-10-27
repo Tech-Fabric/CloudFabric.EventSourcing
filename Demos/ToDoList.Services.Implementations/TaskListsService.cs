@@ -51,14 +51,14 @@ public class TaskListsService : ITaskListsService
             return ServiceResult<TaskListViewModel>.Failed(validationProblemDetails);
         }
 
-        var taskList = new TaskList(_userInfo.UserId, Guid.NewGuid().ToString(), request.Name);
+        var taskList = new TaskList(_userInfo.UserId, Guid.NewGuid(), request.Name);
 
         await _taskListsRepository.SaveAsync(_userInfo, taskList, cancellationToken);
 
         return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
     }
 
-    public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> GetTaskListById(string taskListId, CancellationToken cancellationToken)
+    public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> GetTaskListById(Guid taskListId, CancellationToken cancellationToken)
     {
         var taskList = await _taskListsRepository.LoadAsync(taskListId, PartitionKeys.GetTaskListPartitionKey(), cancellationToken);
 
@@ -70,7 +70,7 @@ public class TaskListsService : ITaskListsService
         return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
     }
 
-    public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> UpdateTaskListName(string taskListId, UpdateTaskListNameRequest request, CancellationToken cancellationToken)
+    public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> UpdateTaskListName(Guid taskListId, UpdateTaskListNameRequest request, CancellationToken cancellationToken)
     {
         var validationProblemDetails = ValidationHelper.Validate(request);
 
@@ -102,7 +102,7 @@ public class TaskListsService : ITaskListsService
             return ServiceResult<TaskViewModel>.Failed(validationProblemDetails);
         }
 
-        var task = new Domain.Task(_userInfo.UserId, request.TaskListId, Guid.NewGuid().ToString(), request.Name, request.Description);
+        var task = new Domain.Task(_userInfo.UserId, request.TaskListId, Guid.NewGuid(), request.Name, request.Description);
 
         await _tasksRepository.SaveAsync(_userInfo, task, cancellationToken);
 
@@ -110,7 +110,7 @@ public class TaskListsService : ITaskListsService
     }
 
     public async System.Threading.Tasks.Task<ServiceResult<List<TaskViewModel>>> GetTasks(
-        string taskListId,
+        Guid taskListId,
         string search,
         int limit,
         int offset,

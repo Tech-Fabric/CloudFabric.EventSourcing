@@ -13,18 +13,20 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
         string uri,
         string username,
         string password,
+        string certificateFingerprint,
         LoggerFactory loggerFactory
     ) : base(
         uri,
         username,
         password,
+        certificateFingerprint,
         ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>(),
         loggerFactory
     )
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(string id, string partitionKey, CancellationToken cancellationToken)
+    public new async Task<TProjectionDocument?> Single(Guid id, string partitionKey, CancellationToken cancellationToken)
     {
         var document = await base.Single(id, partitionKey, cancellationToken);
 
@@ -71,6 +73,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         string uri,
         string username,
         string password,
+        string certificateFingerprint,
         ProjectionDocumentSchema projectionDocumentSchema,
         LoggerFactory loggerFactory
     )
@@ -80,6 +83,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
         var connectionSettings = new ConnectionSettings(new Uri(uri));
         connectionSettings.BasicAuthentication(username, password);
+        connectionSettings.CertificateFingerprint(certificateFingerprint);
         connectionSettings.DefaultIndex(IndexName);
         connectionSettings.ThrowExceptions();
 
@@ -112,7 +116,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<Dictionary<string, object?>?> Single(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -140,7 +144,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Delete(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -288,6 +292,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                         TypeCode.Decimal => valueAsJsonElement.GetDecimal(),
                         TypeCode.DateTime => valueAsJsonElement.GetDateTime(),
                         TypeCode.String => valueAsJsonElement.GetString(),
+                        TypeCode.Object => !propertySchema.IsNested ? valueAsJsonElement.GetGuid() : throw new Exception($"Failed to deserialize json element for property {kv.Key}"),
                         _ => throw new Exception($"Failed to deserialize json element for property {kv.Key}")
                     };
                 }

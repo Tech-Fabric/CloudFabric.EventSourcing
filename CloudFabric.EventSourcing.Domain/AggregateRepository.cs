@@ -12,9 +12,9 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         _eventStore = eventStore;
     }
 
-    public async Task<T?> LoadAsync(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task<T?> LoadAsync(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        if(string.IsNullOrEmpty(id))
+        if(id == Guid.Empty)
         {
             throw new ArgumentNullException(nameof(id));
         }
@@ -29,9 +29,9 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         return null;
     }
 
-    public async Task<T> LoadAsyncOrThrowNotFound(string id, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task<T> LoadAsyncOrThrowNotFound(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        if(string.IsNullOrEmpty(id))
+        if(id == Guid.Empty)
         {
             throw new ArgumentNullException(nameof(id));
         }
@@ -45,7 +45,7 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
     {
         if (aggregate.UncommittedEvents.Any())
         {
-            var streamId = aggregate.Id.ToString();
+            var streamId = aggregate.Id;
 
             var eventsSavedSuccessfully = await _eventStore.AppendToStreamAsync(
                 eventUserInfo,

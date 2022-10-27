@@ -1,6 +1,5 @@
 using System.Data;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using Npgsql;
 
@@ -34,7 +33,7 @@ public class PostgresqlEventStore : IEventStore
         await cmd.ExecuteScalarAsync();
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey)
     {
         var eventStream = await LoadStreamAsync(streamId, partitionKey);
 
@@ -46,7 +45,7 @@ public class PostgresqlEventStore : IEventStore
         return eventStream;
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
@@ -74,10 +73,10 @@ public class PostgresqlEventStore : IEventStore
             {
                 var eventWrapper = new EventWrapper()
                 {
-                    Id = reader.GetString("id"),
+                    Id = reader.GetGuid("id"),
                     StreamInfo = new StreamInfo
                     {
-                        Id = reader.GetString("stream_id"),
+                        Id = reader.GetGuid("stream_id"),
                         Version = reader.GetInt16("stream_version")
                     },
                     EventType = reader.GetString("event_type"),
@@ -105,7 +104,7 @@ public class PostgresqlEventStore : IEventStore
         }
     }
 
-    public async Task<EventStream> LoadStreamAsync(string streamId, string partitionKey, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
@@ -136,7 +135,7 @@ public class PostgresqlEventStore : IEventStore
 
             var eventWrapper = new EventWrapper()
             {
-                Id = reader.GetString(0),
+                Id = reader.GetGuid(0),
                 StreamInfo = streamInfo
             };
 
@@ -180,7 +179,7 @@ public class PostgresqlEventStore : IEventStore
             {
                 var eventWrapper = new EventWrapper()
                 {
-                    Id = reader.GetString("id"),
+                    Id = reader.GetGuid("id"),
                     EventType = reader.GetString("event_type"),
                     EventData = JsonDocument.Parse(reader.GetString("event_data")).RootElement
                 };
@@ -203,7 +202,7 @@ public class PostgresqlEventStore : IEventStore
         }
     }
 
-    public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, string streamId, int expectedVersion, IEnumerable<IEvent> events)
+    public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, Guid streamId, int expectedVersion, IEnumerable<IEvent> events)
     {
         if (events.GroupBy(x => x.PartitionKey).Count() != 1)
         {
@@ -261,9 +260,9 @@ public class PostgresqlEventStore : IEventStore
             {
                 Parameters =
                 {
-                    new("id", $"{streamId}:{++expectedVersion}"),
+                    new("id", Guid.NewGuid()),
                     new("stream_id", streamId),
-                    new("stream_version", expectedVersion),
+                    new("stream_version", ++expectedVersion),
                     new("event_type", evt.GetType().AssemblyQualifiedName),
                     new NpgsqlParameter()
                     {
@@ -327,8 +326,8 @@ public class PostgresqlEventStore : IEventStore
             {
                 await using var createTableCommand = new NpgsqlCommand(
                     $"CREATE TABLE \"{_tableName}\" (" +
-                    $"id varchar(40), " +
-                    $"stream_id varchar(40), " +
+                    $"id uuid, " +
+                    $"stream_id uuid, " +
                     $"stream_version integer, " +
                     $"event_type varchar(200), " +
                     $"event_data jsonb, " +

@@ -47,7 +47,7 @@ public abstract class OrderTests
     {
         var orderRepository = new OrderRepository(await GetEventStore());
 
-        var userId = new Guid().ToString();
+        var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
         var id = Guid.NewGuid();
         var orderName = "Birthday Gift";
@@ -82,7 +82,7 @@ public abstract class OrderTests
     [TestMethod]
     public async Task TestPlaceOrderAndAddItem()
     {
-        var userId = new Guid().ToString();
+        var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
         var id = Guid.NewGuid();
         var orderName = "Birthday Gift";
@@ -164,7 +164,7 @@ public abstract class OrderTests
         await projectionsEngine.StartAsync("TestInstance");
 
 
-        var userId = new Guid().ToString();
+        var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
         var id = Guid.NewGuid();
         var orderName = "New Year's Gifts";
@@ -193,7 +193,7 @@ public abstract class OrderTests
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        var orderProjection = await ordersListProjectionsRepository.Single(id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        var orderProjection = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjection != null, nameof(orderProjection) + " != null");
 
         orderProjection.Name.Should().Be(orderName);
@@ -213,7 +213,7 @@ public abstract class OrderTests
         order2.Items.Should().BeEquivalentTo(items);
         order2.Items.Count.Should().Be(4);
 
-        var orderProjection2 = await ordersListProjectionsRepository.Single(id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        var orderProjection2 = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjection2 != null, nameof(orderProjection2) + " != null");
 
         orderProjection2.Name.Should().Be(orderName);
@@ -250,7 +250,7 @@ public abstract class OrderTests
         await projectionsEngine.StartAsync("RebuildDocumentTestInstance");
 
 
-        var userId = new Guid().ToString();
+        var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
         var items = new List<OrderItem>
         {
@@ -269,27 +269,27 @@ public abstract class OrderTests
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        var firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
-        var secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        var firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        var secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().NotBeNull();
         
         // remove orders
-        await ordersListProjectionsRepository.Delete(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
-        await ordersListProjectionsRepository.Delete(secondOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        await ordersListProjectionsRepository.Delete(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        await ordersListProjectionsRepository.Delete(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
         
-        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
-        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
         firstOrderProjection.Should().BeNull();
         secondOrderProjection.Should().BeNull();
 
         // rebuild the firstOrder document
-        await projectionsEngine.RebuildOneAsync(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        await projectionsEngine.RebuildOneAsync(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         // check firstOrder document is rebuild and second is not
-        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
-        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().BeNull();
@@ -319,7 +319,7 @@ public abstract class OrderTests
         await projectionsEngine.StartAsync(instanceName);
 
 
-        var userId = new Guid().ToString();
+        var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
         var items = new List<OrderItem>
         {
@@ -338,23 +338,26 @@ public abstract class OrderTests
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        var firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
-        var secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        var firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        var secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().NotBeNull();
         
         // remove orders
-        await ordersListProjectionsRepository.Delete(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
-        await ordersListProjectionsRepository.Delete(secondOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        await ordersListProjectionsRepository.Delete(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        await ordersListProjectionsRepository.Delete(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
         
-        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
-        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
         firstOrderProjection.Should().BeNull();
         secondOrderProjection.Should().BeNull();
 
         // rebuild the firstOrder document
         await projectionsEngine.RebuildAsync(instanceName, PartitionKeys.GetOrderPartitionKey());
+
+        // wait for the rebuild state to be indexed
+        await Task.Delay(ProjectionsUpdateDelay);
 
         // wait for the rebuild to finish
         ProjectionRebuildState rebuildState;
@@ -369,8 +372,8 @@ public abstract class OrderTests
         rebuildState.Status.Should().Be(RebuildStatus.Completed);
 
         // check firstOrder document is rebuild and second is not
-        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
-        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id.ToString(), PartitionKeys.GetOrderPartitionKey());
+        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().NotBeNull();
@@ -400,7 +403,7 @@ public abstract class OrderTests
         await projectionsEngine.StartAsync(instanceName);
 
 
-        var userId = new Guid().ToString();
+        var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
         var items = new List<OrderItem>
         {

@@ -56,7 +56,7 @@ public class ProjectionsEngine : IProjectionsEngine
     {
         await _projectionsStateRepository.Upsert(new ProjectionRebuildState
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = Guid.NewGuid(),
             PartitionKey = partitionKey,
             InstanceName = instanceName,
             Status = RebuildStatus.Running
@@ -66,7 +66,7 @@ public class ProjectionsEngine : IProjectionsEngine
         _observer.LoadAndHandleEventsAsync(instanceName, partitionKey, dateFrom, OnRebuildCompleted, OnRebuildFailed);
     }
 
-    public async Task RebuildOneAsync(string documentId, string partitionKey)
+    public async Task RebuildOneAsync(Guid documentId, string partitionKey)
     {
         await _observer.LoadAndHandleEventsForDocumentAsync(documentId, partitionKey);
     }
@@ -108,7 +108,7 @@ public class ProjectionsEngine : IProjectionsEngine
         {
             rebuildState = new ProjectionRebuildState
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = Guid.NewGuid(),
                 InstanceName = instanceName
             };
         }
@@ -129,7 +129,7 @@ public class ProjectionsEngine : IProjectionsEngine
         {
             rebuildState = new ProjectionRebuildState
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = Guid.NewGuid(),
                 InstanceName = instanceName
             };
         }

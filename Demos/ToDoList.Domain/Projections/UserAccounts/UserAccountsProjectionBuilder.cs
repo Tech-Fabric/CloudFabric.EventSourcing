@@ -23,14 +23,28 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
         }, @event.PartitionKey);
     }
 
-    public System.Threading.Tasks.Task On(UserAccountEmailAddressChanged @event)
+    public async System.Threading.Tasks.Task On(UserAccountEmailAddressChanged @event)
     {
-        throw new NotImplementedException();
+        await UpdateDocument(
+            @event.UserAccountId,
+            @event.PartitionKey,
+            (projectionDocument) =>
+            {
+                projectionDocument.EmailAddress = @event.NewEmail;
+            }
+        );
     }
 
-    public System.Threading.Tasks.Task On(UserAccountEmailAddressConfirmed @event)
+    public async System.Threading.Tasks.Task On(UserAccountEmailAddressConfirmed @event)
     {
-        throw new NotImplementedException();
+        await UpdateDocument(
+            @event.UserAccountId,
+            @event.PartitionKey,
+            (projectionDocument) =>
+            {
+                projectionDocument.EmailConfirmedAt = DateTime.UtcNow;
+            }
+        );
     }
 
     public async System.Threading.Tasks.Task On(UserAccountEmailAssigned @event)

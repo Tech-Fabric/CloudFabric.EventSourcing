@@ -6,14 +6,14 @@ public record EventUserInfo
 {
     public EventUserInfo()
     {
-        UserId = "unauthorized";
+        UserId = Guid.Empty;
     }
 
-    public EventUserInfo(string userId)
+    public EventUserInfo(Guid userId)
     {
         UserId = userId;
     }
 
     [JsonPropertyName("userId")]
-    public string UserId { get; }
+    public Guid UserId { get; }
 }

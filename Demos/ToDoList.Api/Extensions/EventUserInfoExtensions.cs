@@ -16,7 +16,7 @@ public static class EventUserInfoServiceCollectionExtensions
                 if (httpContext?.HttpContext?.User?.Identity?.IsAuthenticated == true)
                 {
                     var userAccountIdClaim = httpContext.HttpContext.User.Claims.First(c => c.Type == ClaimTypes.PrimarySid);
-                    return new EventUserInfo(userAccountIdClaim.Value);
+                    return new EventUserInfo(Guid.Parse(userAccountIdClaim.Value));
                 }
                 
                 return new EventUserInfo();

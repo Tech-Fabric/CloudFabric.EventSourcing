@@ -4,15 +4,15 @@ namespace CloudFabric.EventSourcing.EventStore;
 
 public interface IEventStore
 {
-    Task<EventStream> LoadStreamAsyncOrThrowNotFound(string streamId, string partitionKey);
+    Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey);
 
-    Task<EventStream> LoadStreamAsync(string streamId, string partitionKey);
+    Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey);
 
-    Task<EventStream> LoadStreamAsync(string streamId, string partitionKey, int fromVersion);
+    Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion);
 
     Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo,
-        string streamId,
+        Guid streamId,
         int expectedVersion,
         IEnumerable<IEvent> events
     );

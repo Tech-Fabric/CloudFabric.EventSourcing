@@ -50,6 +50,7 @@ public class OrderTestsElasticSearch : OrderTests
                 "http://127.0.0.1:9200",
                 "",
                 "",
+                "",
                 new LoggerFactory()
             );
         }
@@ -61,6 +62,7 @@ public class OrderTestsElasticSearch : OrderTests
     {
         return new ElasticSearchProjectionRepository<ProjectionRebuildState>(
             "http://127.0.0.1:9200",
+            "",
             "",
             "",
             new LoggerFactory()

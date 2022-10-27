@@ -5,7 +5,7 @@ namespace ToDoList.Models.RequestModels.TaskLists;
 public record CreateTaskRequest
 {
     [Required]
-    public string TaskListId { get; set; }
+    public Guid TaskListId { get; set; }
 
     [Required]
     public string Name { get; set; }

@@ -2,4 +2,4 @@ using CloudFabric.EventSourcing.EventStore;
 
 namespace ToDoList.Domain.Events.TaskLists;
 
-public record TaskTitleUpdated(string? TaskListId, string Id, string NewTitle): Event;
+public record TaskTitleUpdated(Guid? TaskListId, Guid Id, string NewTitle): Event;

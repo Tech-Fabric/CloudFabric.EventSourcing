@@ -5,7 +5,7 @@ namespace CloudFabric.EventSourcing.EventStore.Persistence;
 public record StreamInfo
 {
     [JsonPropertyName("id")] 
-    public string Id { get; set; }
+    public Guid Id { get; set; }
 
     [JsonPropertyName("version")] 
     public int Version { get; set; }
