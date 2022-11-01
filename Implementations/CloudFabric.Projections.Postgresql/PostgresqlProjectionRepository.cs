@@ -194,17 +194,13 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                             result[_projectionDocumentSchema.Properties[i].PropertyName] = null;
                         }
                         // try to check whether the property is a json object or array
-                        else if (values[i] is string)
+                        else if (
+                            (_projectionDocumentSchema.Properties[i].IsNestedObject || _projectionDocumentSchema.Properties[i].IsNestedArray)
+                            && values[i] is string
+                        )
                         {
-                            try
-                            {
-                                result[_projectionDocumentSchema.Properties[i].PropertyName] = 
-                                    JsonToObjectConverter.Convert((string)values[i], _projectionDocumentSchema.Properties[i]);
-                            }
-                            catch 
-                            {
-                                result[_projectionDocumentSchema.Properties[i].PropertyName] = values[i];
-                            }
+                            result[_projectionDocumentSchema.Properties[i].PropertyName] = 
+                                JsonToObjectConverter.Convert((string)values[i], _projectionDocumentSchema.Properties[i]);
                         }
                         else
                         {
@@ -439,16 +435,12 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                         document[_projectionDocumentSchema.Properties[i].PropertyName] = null;
                     }
                     // try to check whether the property is a json object or array
-                    else if (values[i] is string)
+                    else if (
+                        (_projectionDocumentSchema.Properties[i].IsNestedObject || _projectionDocumentSchema.Properties[i].IsNestedArray) 
+                        && values[i] is string
+                    )
                     {
-                        try
-                        {
-                            document[properties[i].PropertyName] = JsonToObjectConverter.Convert((string)values[i], properties[i]);
-                        }
-                        catch
-                        {
-                            document[properties[i].PropertyName] = values[i];
-                        }
+                        document[properties[i].PropertyName] = JsonToObjectConverter.Convert((string)values[i], properties[i]);
                     }
                     else
                     {
