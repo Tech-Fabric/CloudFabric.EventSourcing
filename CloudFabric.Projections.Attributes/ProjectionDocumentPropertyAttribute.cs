@@ -11,9 +11,6 @@ public class ProjectionDocumentPropertyAttribute : Attribute
     public virtual bool IsFilterable { get; set; } = false;
     public virtual bool IsSortable { get; set; } = false;
     public virtual bool IsFacetable { get; set; } = false;
-
-    public virtual bool IsNested { get; set; } = false;
-
     public virtual string? Analyzer { get; set; }
     public virtual string? SearchAnalyzer { get; set; }
     public virtual string? IndexAnalyzer { get; set; }
@@ -21,4 +18,7 @@ public class ProjectionDocumentPropertyAttribute : Attribute
     public virtual bool UseForSuggestions { get; set; } = false;
 
     public virtual double[] FacetableRanges { get; set; } = new double[] { };
+
+    public virtual bool IsNestedObject { get; set; } = false;
+    public virtual bool IsNestedArray { get; set; } = false;
 }

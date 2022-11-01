@@ -12,9 +12,9 @@ public class OrderListProjectionItem : ProjectionDocument
     [ProjectionDocumentProperty(IsFilterable = true)]
     public long ItemsCount { get; set; } = 0;
 
-    [ProjectionDocumentProperty(IsNested = true)]
+    [ProjectionDocumentProperty(IsNestedArray = true)]
     public List<OrderListProjectionOrderItem> Items { get; set; } = new List<OrderListProjectionOrderItem>();
 
-    [ProjectionDocumentProperty(IsNested = true)]
+    [ProjectionDocumentProperty(IsNestedObject = true)]
     public OrderListProjectionUserInfo CreatorInfo { get; set; }
 }

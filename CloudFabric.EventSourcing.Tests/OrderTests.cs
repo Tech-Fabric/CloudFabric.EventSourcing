@@ -69,7 +69,7 @@ public abstract class OrderTests
                 4.85m
             )
         };
-        var order = new Order(id, orderName, items);
+        var order = new Order(id, orderName, items, userId);
 
         await orderRepository.SaveOrder(userInfo, order);
         var order2 = await orderRepository.LoadOrder(id, PartitionKeys.GetOrderPartitionKey());
@@ -105,7 +105,7 @@ public abstract class OrderTests
             )
         };
 
-        var order = new Order(id, orderName, items);
+        var order = new Order(id, orderName, items, userId);
         var orderRepository = new OrderRepository(await GetEventStore());
 
         // add another item:
@@ -187,7 +187,7 @@ public abstract class OrderTests
             )
         };
 
-        var order = new Order(id, orderName, items);
+        var order = new Order(id, orderName, items, userId);
 
         await orderRepository.SaveOrder(userInfo, order);
 
@@ -198,6 +198,8 @@ public abstract class OrderTests
 
         orderProjection.Name.Should().Be(orderName);
         orderProjection.ItemsCount.Should().Be(items.Count);
+        orderProjection.Items.Count.Should().Be(items.Count);
+        orderProjection.CreatorInfo.UserId.Should().Be(userId);
 
         var addItem = new OrderItem(DateTime.UtcNow, "Twilight Struggle", 6.95m);
         order.AddItem(addItem);
@@ -218,6 +220,8 @@ public abstract class OrderTests
 
         orderProjection2.Name.Should().Be(orderName);
         orderProjection2.ItemsCount.Should().Be(4);
+        orderProjection2.Items.Count.Should().Be(4);
+        orderProjection2.CreatorInfo.UserId.Should().Be(userId);
 
         var orderProjectionFromQuery =
             await ordersListProjectionsRepository.Query(
@@ -261,10 +265,10 @@ public abstract class OrderTests
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "Rebuild product first order", items);
+        var firstOrder = new Order(Guid.NewGuid(), "Rebuild product first order", items, userId);
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
-        var secondOrder = new Order(Guid.NewGuid(), "Rebuild product second order", items);
+        var secondOrder = new Order(Guid.NewGuid(), "Rebuild product second order", items, userId);
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
@@ -330,10 +334,10 @@ public abstract class OrderTests
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "Rebuild orders first order", items);
+        var firstOrder = new Order(Guid.NewGuid(), "Rebuild orders first order", items, userId);
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
-        var secondOrder = new Order(Guid.NewGuid(), "Rebuild orders second order", items);
+        var secondOrder = new Order(Guid.NewGuid(), "Rebuild orders second order", items, userId);
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
@@ -424,11 +428,11 @@ public abstract class OrderTests
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "First test order", items);
+        var firstOrder = new Order(Guid.NewGuid(), "First test order", items, userId);
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
         // second order will contain only one item
-        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1));
+        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1), userId);
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);

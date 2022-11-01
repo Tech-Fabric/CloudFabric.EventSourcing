@@ -25,12 +25,6 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
                     TimeAdded = @event.Item.TimeAdded
                 });
 
-                orderProjection.CreatorInfo = new OrderListProjectionUserInfo
-                {
-                    UserName = "test-user",
-                    Email = "test@mail.com"
-                };
-
                 orderProjection.ItemsCount++;
             });
     }
@@ -73,8 +67,7 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
 
         projectionItem.CreatorInfo = new OrderListProjectionUserInfo
         {
-            UserName = "test-user",
-            Email = "test@mail.com"
+            UserId = @event.CreatedById
         };
 
         await UpsertDocument(projectionItem, @event.PartitionKey);

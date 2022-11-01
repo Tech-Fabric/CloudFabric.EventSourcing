@@ -198,7 +198,8 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                         {
                             try
                             {
-                                result[_projectionDocumentSchema.Properties[i].PropertyName] = JsonToObjectConverter.Convert((string)values[i]);
+                                result[_projectionDocumentSchema.Properties[i].PropertyName] = 
+                                    JsonToObjectConverter.Convert((string)values[i], _projectionDocumentSchema.Properties[i]);
                             }
                             catch 
                             {
@@ -322,15 +323,15 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             , conn
         );
 
-        foreach (var p in propertyNames)
+        foreach (var p in _projectionDocumentSchema.Properties)
         {
-            var propertyType = document[p]?.GetType();
-            if (propertyType != null && propertyType.IsClass && propertyType != typeof(string) && propertyType != typeof(Guid))
+            var propertyType = document[p.PropertyName]?.GetType();
+            if (p.IsNestedObject || p.IsNestedArray)
             {
-                document[p] = JsonSerializer.SerializeToDocument(document[p]);
+                document[p.PropertyName] = JsonSerializer.SerializeToDocument(document[p.PropertyName]);
             }
 
-            cmd.Parameters.Add(new(p, document[p] ?? DBNull.Value));
+            cmd.Parameters.Add(new(p.PropertyName, document[p.PropertyName] ?? DBNull.Value));
         }
 
         try
@@ -442,7 +443,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                     {
                         try
                         {
-                            document[properties[i].PropertyName] = JsonToObjectConverter.Convert((string)values[i]);
+                            document[properties[i].PropertyName] = JsonToObjectConverter.Convert((string)values[i], properties[i]);
                         }
                         catch
                         {
@@ -618,7 +619,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
     {
         string? column;
 
-        if (property.IsNested)
+        if (property.IsNestedObject || property.IsNestedArray)
         {
             //var nestedFields = new List<PostgresCompositeType.Field>();
 

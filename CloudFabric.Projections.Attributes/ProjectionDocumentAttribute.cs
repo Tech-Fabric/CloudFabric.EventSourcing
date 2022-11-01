@@ -82,11 +82,10 @@ public class ProjectionDocumentAttribute : Attribute
     /// Returns all properties decorated with ProjectionDocumentPropertyAttribute regardless of their configuration
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
-    public static Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> GetAllProjectionProperties<T>()
+    /// <returns>Dictionary with PropertyInfo and ProjectionDocumentPropertyAttribute (or another Dictionary if nested object)</returns>
+    public static Dictionary<PropertyInfo, (ProjectionDocumentPropertyAttribute DocumentPropertyAttribute, object NestedDictionary)> GetAllProjectionProperties<T>()
     {
-        Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute> searchableProperties =
-            new Dictionary<PropertyInfo, ProjectionDocumentPropertyAttribute>();
+        Dictionary<PropertyInfo, (ProjectionDocumentPropertyAttribute ProjectionDocumentAttribute, object NestedDictionary)> properties = new();
 
         PropertyInfo[] props = typeof(T).GetProperties();
         foreach (PropertyInfo prop in props)
@@ -94,17 +93,36 @@ public class ProjectionDocumentAttribute : Attribute
             object[] attrs = prop.GetCustomAttributes(true);
             foreach (object attr in attrs)
             {
+                object nestedProperties = null;
                 if (attr is ProjectionDocumentPropertyAttribute propertyAttribute)
                 {
-                    searchableProperties.Add(prop, propertyAttribute);
+                    if (propertyAttribute.IsNestedObject)
+                    {
+                        // go recursively through the properties
+                        nestedProperties = typeof(ProjectionDocumentAttribute)
+                            .GetMethod(nameof(GetAllProjectionProperties))
+                            .MakeGenericMethod(prop.PropertyType)
+                            .Invoke(null, new object[] { });
+                    }
+                    else if (propertyAttribute.IsNestedArray)
+                    {
+                        var arrayItemType = prop.PropertyType.GenericTypeArguments[0];
+
+                        nestedProperties = typeof(ProjectionDocumentAttribute)
+                            .GetMethod(nameof(GetAllProjectionProperties))
+                            .MakeGenericMethod(arrayItemType)
+                            .Invoke(null, new object[] { });
+                    }
+
+                    properties.Add(prop, (propertyAttribute, nestedProperties));
                 }
             }
         }
 
-        return searchableProperties;
+        return properties;
     }
 
-    public static List<string> GetQueryablePropertyNames<T>()
+    public static List<string> GetAllPropertyNames<T>()
     {
         return GetAllProjectionProperties<T>().Keys.Select(p => p.Name).ToList();
     }
@@ -178,7 +196,7 @@ public class ProjectionDocumentAttribute : Attribute
             throw new Exception($"GetPropertyTypeCode: can't find property {propertyName} on type {type.FullName}");
         }
 
-        return GetPropertyTypeCode(propertyInfo, type);
+        return GetPropertyTypeCode(propertyInfo);
     }
 
     public static TypeCode? GetPropertyTypeCode<T>(string propertyName)
@@ -186,7 +204,7 @@ public class ProjectionDocumentAttribute : Attribute
         return GetPropertyPathTypeCode(propertyName, typeof(T));
     }
 
-    public static TypeCode GetPropertyTypeCode(PropertyInfo propertyInfo, Type type)
+    public static TypeCode GetPropertyTypeCode(PropertyInfo propertyInfo)
     {
         if (propertyInfo.PropertyType.IsGenericType)
         {
