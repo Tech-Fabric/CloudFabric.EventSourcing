@@ -459,4 +459,88 @@ public abstract class OrderTests
 
         await projectionsEngine.StopAsync();
     }
+
+    [TestMethod]
+    public async Task TestProjectionsNestedArrayOfObjectsQuery()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
+        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
+
+        // Projections engine - takes events from events observer and passes them to multiple projection builders
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
+        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
+
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
+        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
+
+        string instanceName = "ProjectionsNestedQueryInstance";
+
+        await projectionsEngine.StartAsync(instanceName);
+
+
+        var userId = Guid.NewGuid();
+        var userInfo = new EventUserInfo(userId);
+        var firstOrderItems = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Colonizing Mars",
+                12.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Dixit",
+                6.59m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Time Stories",
+                4.85m
+            )
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "New Years Gifts", firstOrderItems, userId);
+        await orderRepository.SaveOrder(userInfo, firstOrder);
+
+        // var orderName = "Birthday Gift";
+        var secondOrderItems = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Caverna",
+                12.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Dixit",
+                6.59m
+            )
+        };
+        var secondOrder = new Order(Guid.NewGuid(), "Birthday Gifts", secondOrderItems, userId);
+        await orderRepository.SaveOrder(userInfo, secondOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        // search by nested array element
+        var query = new ProjectionQuery
+        {
+            SearchText = "Time"
+        };
+
+        // query by name
+        var orders = await ordersListProjectionsRepository.Query(query);
+        orders.Count.Should().Be(1);
+        orders.First().Items.Count.Should().Be(3);
+
+        query.SearchText = "dixit";
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.Count.Should().Be(1);
+        orders.First().Items.Count.Should().Be(2);
+
+        await projectionsEngine.StopAsync();
+    }
 }

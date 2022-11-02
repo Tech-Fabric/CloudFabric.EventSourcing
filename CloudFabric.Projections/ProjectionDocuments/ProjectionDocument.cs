@@ -10,6 +10,6 @@ public class ProjectionDocument
     public Guid? Id { get; set; }
 
     [JsonPropertyName("partitionKey")]
-    [ProjectionDocumentProperty(IsSearchable = true, IsFilterable = true)]
+    [ProjectionDocumentProperty(IsFilterable = true)]
     public string? PartitionKey { get; set; }
 }

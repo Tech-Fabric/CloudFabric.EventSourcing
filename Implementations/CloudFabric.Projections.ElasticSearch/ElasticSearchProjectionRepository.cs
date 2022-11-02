@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Security.AccessControl;
 using System.Text.Json;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
@@ -68,6 +69,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     private string? _keyPropertyName;
     private string? _indexName;
     private readonly ElasticClient _client;
+    private readonly ElasticSearchIndexer _indexer;
     private readonly ILogger<ElasticSearchProjectionRepository> _logger;
 
     public ElasticSearchProjectionRepository(
@@ -92,6 +94,10 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         connectionSettings.DefaultFieldNameInferrer(x => x);
 
         _client = new ElasticClient(connectionSettings);
+
+        // create an index
+        _indexer = new ElasticSearchIndexer(uri, username, password, certificateFingerprint);
+        _indexer.CreateOrUpdateIndex(IndexName, projectionDocumentSchema).Wait();
     }
 
     public string IndexName
@@ -295,12 +301,24 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
         if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
-            var searchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable);
+            var searchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable).Select(p => p.PropertyName).ToList();
 
-            textQuery = new QueryStringQuery()
+            textQuery = new NestedQuery()
             {
-                Query = projectionQuery.SearchText,
-                Fields = string.Join(',', searchableProperties.Select(x => x.PropertyName))
+                Path = "Items",
+                Query = new BoolQuery()
+                {
+                    Filter = new List<QueryContainer>()
+                    {
+                        new QueryStringQuery() { Query = projectionQuery.SearchText }
+                    }
+                }
+                //new WildcardQuery 
+                //{
+                //    Field = "Items.Name",
+                //    Value = $"*{projectionQuery.SearchText}*"
+                //} 
+                //Fields = "Items.Name"//string.Join(',', searchableProperties.Select(x => x.PropertyName))
             };
         }
 
@@ -315,14 +333,37 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         foreach (var f in projectionQuery.Filters)
         {
             var conditionFilter = $"({ConstructConditionFilter(f)})";
+            var propName = f.PropertyName == null ? f.Filters[0].Filter.PropertyName : f.PropertyName;
 
-            filterStrings.Add(conditionFilter);
+            if (f.PropertyName?.IndexOf(".") == -1)
+            {
+                filterStrings.Add(conditionFilter);
+            }
         }
 
         var filter = new List<QueryContainer>()
         {
             new QueryStringQuery() { Query = string.Join(" AND ", filterStrings) }
         };
+
+        var nestedQueryStrings = ConstructNestedQueryFilters(projectionQuery.Filters);
+
+        foreach (var entry in nestedQueryStrings)
+        {
+            var nestedFilter = new NestedQuery()
+            {
+                Path = entry.Key,
+                Query = new BoolQuery()
+                {
+                    Filter = new List<QueryContainer>()
+                    {
+                        new QueryStringQuery() { Query = entry.Value }
+                    }
+                }
+            };
+
+            filter.Add(nestedFilter);
+        }
 
         return searchDescriptor.Bool(q =>
             new BoolQuery()
@@ -331,6 +372,103 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                 Filter = filter
             }
         );
+    }
+
+    // in order to mark the nested property as searchable all the chain of properies from parent to child should be marked as searchable
+    private string ConstructSearchTerms(string searchText)
+    {
+        var queries = new List<QueryContainer>();
+
+        // find all searchable fields
+        var notNestedSearchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable && !x.IsNestedObject && !x.IsNestedArray);
+        var nestedSearchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable && (x.IsNestedObject || x.IsNestedArray));
+
+        // create basic search queries for 1-level fields
+        if (!notNestedSearchableProperties.Any())
+        {
+            queries.Add(new QueryStringQuery()
+            {
+                Query = searchText,
+                Fields = string.Join(',', notNestedSearchableProperties.Where(x => !x.IsNestedObject && !x.IsNestedArray).Select(x => x.PropertyName))
+            });
+        }
+
+        // created queries for nested fields
+        foreach (var nestedProp in nestedSearchableProperties)
+        {
+
+        }
+
+        return null;
+    }
+
+    private Dictionary<string, string> ConstructNestedQueryFilters(List<Queries.Filter> filters)
+    {
+        var result = new Dictionary<string, string>();
+
+        if (filters == null || filters.Count == 0)
+        {
+            return result;
+        }
+
+        var nestedFiltersStrings = new Dictionary<string, List<string>>();
+
+        foreach (var f in filters)
+        {
+            var propName = f.PropertyName == null ? f.Filters[0].Filter.PropertyName : f.PropertyName;
+            var pathParts = propName.Split('.');
+
+            if (pathParts.Count() <= 1)
+            {
+                continue;
+            }
+
+            var conditionFilter = $"({ConstructConditionFilter(f)})";
+            var nestedPath = string.Join(".", pathParts.Take(pathParts.Length - 1));
+
+            if (!nestedFiltersStrings.ContainsKey(nestedPath))
+            {
+                nestedFiltersStrings[nestedPath] = new List<string>();
+            }
+
+            nestedFiltersStrings[nestedPath].Add(conditionFilter);
+        }
+
+        foreach (var entry in nestedFiltersStrings)
+        {
+            result[entry.Key] = string.Join(" AND ", entry.Value);
+        }
+
+        return result;
+    }
+
+    private string ConstructConditionFilter(Queries.Filter filter)
+    {
+        var q = ConstructOneConditionFilter(filter);
+
+        foreach (FilterConnector f in filter.Filters)
+        {
+            if (!string.IsNullOrEmpty(q) && f.Logic != null)
+            {
+                q += $" {f.Logic.ToUpper()} ";
+            }
+
+            var wrapWithParentheses = f.Logic != null;
+
+            if (wrapWithParentheses)
+            {
+                q += "(";
+            }
+
+            q += ConstructConditionFilter(f.Filter);
+
+            if (wrapWithParentheses)
+            {
+                q += ")";
+            }
+        }
+
+        return q;
     }
 
     private string ConstructOneConditionFilter(Queries.Filter filter)
@@ -375,35 +513,6 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
 
         return condition;
-    }
-
-    private string ConstructConditionFilter(Queries.Filter filter)
-    {
-        var q = ConstructOneConditionFilter(filter);
-
-        foreach (FilterConnector f in filter.Filters)
-        {
-            if (!string.IsNullOrEmpty(q) && f.Logic != null)
-            {
-                q += $" {f.Logic.ToUpper()} ";
-            }
-
-            var wrapWithParentheses = f.Logic != null;
-
-            if (wrapWithParentheses)
-            {
-                q += "(";
-            }
-
-            q += ConstructConditionFilter(f.Filter);
-
-            if (wrapWithParentheses)
-            {
-                q += ")";
-            }
-        }
-
-        return q;
     }
 
     private SortDescriptor<T> ConstructSort<T>(SortDescriptor<T> sortDescriptor, ProjectionQuery projectionQuery) where T : class
