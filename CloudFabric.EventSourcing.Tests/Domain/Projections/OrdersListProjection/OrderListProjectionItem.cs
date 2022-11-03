@@ -16,5 +16,5 @@ public class OrderListProjectionItem : ProjectionDocument
     public List<OrderListProjectionOrderItem> Items { get; set; } = new List<OrderListProjectionOrderItem>();
 
     [ProjectionDocumentProperty(IsNestedObject = true)]
-    public OrderListProjectionUserInfo CreatorInfo { get; set; }
+    public OrderListProjectionUserInfo CreatedBy { get; set; }
 }

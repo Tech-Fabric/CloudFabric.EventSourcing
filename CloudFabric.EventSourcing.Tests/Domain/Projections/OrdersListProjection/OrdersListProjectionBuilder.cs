@@ -22,7 +22,7 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
                 {
                     Name = @event.Item.Name,
                     Amount = @event.Item.Amount,
-                    TimeAdded = @event.Item.TimeAdded
+                    AddedAt = @event.Item.TimeAdded
                 });
 
                 orderProjection.ItemsCount++;
@@ -61,11 +61,11 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
             {
                 Amount = x.Amount,
                 Name = x.Name,
-                TimeAdded = x.TimeAdded
+                AddedAt = x.TimeAdded
             }
         ).ToList();
 
-        projectionItem.CreatorInfo = new OrderListProjectionUserInfo
+        projectionItem.CreatedBy = new OrderListProjectionUserInfo
         {
             UserId = @event.CreatedById
         };

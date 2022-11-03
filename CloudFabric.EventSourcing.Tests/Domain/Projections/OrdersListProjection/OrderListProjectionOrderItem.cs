@@ -4,7 +4,7 @@ namespace CloudFabric.EventSourcing.Tests.Domain.Projections.OrdersListProjectio
 public class OrderListProjectionOrderItem
 {
     [ProjectionDocumentProperty]
-    public DateTime TimeAdded { get; set; }
+    public DateTime AddedAt { get; set; }
 
     [ProjectionDocumentProperty(IsSearchable = true)]
     public string Name { get; set; }

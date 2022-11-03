@@ -199,7 +199,7 @@ public abstract class OrderTests
         orderProjection.Name.Should().Be(orderName);
         orderProjection.ItemsCount.Should().Be(items.Count);
         orderProjection.Items.Count.Should().Be(items.Count);
-        orderProjection.CreatorInfo.UserId.Should().Be(userId);
+        orderProjection.CreatedBy.UserId.Should().Be(userId);
 
         var addItem = new OrderItem(DateTime.UtcNow, "Twilight Struggle", 6.95m);
         order.AddItem(addItem);
@@ -221,7 +221,7 @@ public abstract class OrderTests
         orderProjection2.Name.Should().Be(orderName);
         orderProjection2.ItemsCount.Should().Be(4);
         orderProjection2.Items.Count.Should().Be(4);
-        orderProjection2.CreatorInfo.UserId.Should().Be(userId);
+        orderProjection2.CreatedBy.UserId.Should().Be(userId);
 
         var orderProjectionFromQuery =
             await ordersListProjectionsRepository.Query(
