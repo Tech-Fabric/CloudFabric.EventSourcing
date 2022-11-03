@@ -2,6 +2,7 @@ using System.Reflection;
 using Nest;
 
 namespace CloudFabric.Projections.ElasticSearch;
+
 public class ElasticSearchProjectionIndexer
 {
     private readonly ElasticClient _client;
