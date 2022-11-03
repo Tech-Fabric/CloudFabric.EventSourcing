@@ -297,34 +297,44 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     private QueryContainer ConstructSearchQuery<T>(QueryContainerDescriptor<T> searchDescriptor, ProjectionQuery projectionQuery) where T : class
     {
         // construct search query
-        QueryBase textQuery = new MatchAllQuery();
+        List<QueryContainer> textQueries = new();
 
         if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
-            var searchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable).Select(p => p.PropertyName).ToList();
+            var nestedSearchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable && (x.IsNestedObject || x.IsNestedArray)).ToList();
 
-            textQuery = new NestedQuery()
+            var queries = new List<QueryContainer>
             {
-                Path = "Items",
-                Query = new BoolQuery()
+                new BoolQuery()
                 {
                     Filter = new List<QueryContainer>()
                     {
                         new QueryStringQuery() { Query = projectionQuery.SearchText }
                     }
                 }
-                //new WildcardQuery 
-                //{
-                //    Field = "Items.Name",
-                //    Value = $"*{projectionQuery.SearchText}*"
-                //} 
-                //Fields = "Items.Name"//string.Join(',', searchableProperties.Select(x => x.PropertyName))
             };
+
+            foreach (var prop in nestedSearchableProperties)
+            {
+                queries.Add(
+                    CreateNestedQuery(prop, prop.PropertyName, projectionQuery.SearchText)
+                );
+            }
+
+            textQueries.Add(new BoolQuery()
+            {
+                Should = queries
+            });
         }
 
         if (projectionQuery.Filters == null || !projectionQuery.Filters.Any())
         {
-            return textQuery;
+            return searchDescriptor.Bool(q =>
+                new BoolQuery()
+                {
+                    Should = textQueries
+                }
+            );
         }
 
         // construct filters
@@ -368,38 +378,45 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         return searchDescriptor.Bool(q =>
             new BoolQuery()
             {
-                Must = new List<QueryContainer>() { textQuery },
+                Should = textQueries,
                 Filter = filter
             }
         );
     }
 
     // in order to mark the nested property as searchable all the chain of properies from parent to child should be marked as searchable
-    private string ConstructSearchTerms(string searchText)
+    private QueryContainer CreateNestedQuery(ProjectionDocumentPropertySchema property, string nestedPath, string searchText)
     {
-        var queries = new List<QueryContainer>();
+        bool containsNotNestedSearchableProperties = property.NestedObjectProperties?.Any(x => x.IsSearchable && !x.IsNestedObject && !x.IsNestedArray) == true;
+        var nestedSearchableProperties = property.NestedObjectProperties?.Where(x => x.IsSearchable && (x.IsNestedObject || x.IsNestedArray)).ToList() ?? new();
 
-        // find all searchable fields
-        var notNestedSearchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable && !x.IsNestedObject && !x.IsNestedArray);
-        var nestedSearchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable && (x.IsNestedObject || x.IsNestedArray));
-
-        // create basic search queries for 1-level fields
-        if (!notNestedSearchableProperties.Any())
+        var nestedQueries = new List<QueryContainer>();
+        if (containsNotNestedSearchableProperties)
         {
-            queries.Add(new QueryStringQuery()
+            nestedQueries.Add(new BoolQuery()
             {
-                Query = searchText,
-                Fields = string.Join(',', notNestedSearchableProperties.Where(x => !x.IsNestedObject && !x.IsNestedArray).Select(x => x.PropertyName))
+                Filter = new List<QueryContainer>()
+                {
+                    new QueryStringQuery() { Query = searchText }
+                }
             });
         }
 
-        // created queries for nested fields
-        foreach (var nestedProp in nestedSearchableProperties)
+        if (nestedSearchableProperties.Any())
         {
-
+            nestedQueries.AddRange(
+                nestedSearchableProperties.Select(prop => CreateNestedQuery(prop, $"{nestedPath}.{prop.PropertyName}", searchText))
+            );
         }
 
-        return null;
+        return new NestedQuery()
+        {
+            Path = nestedPath,
+            Query = new BoolQuery()
+            {
+                Should = nestedQueries
+            }
+        };
     }
 
     private Dictionary<string, string> ConstructNestedQueryFilters(List<Queries.Filter> filters)

@@ -44,14 +44,19 @@ public class ElasticSearchIndexer
                 .Settings(s => s
                     .Analysis(analysis => analysis
                         .Analyzers(analyzers => analyzers
-                            .Custom("folding-analyzer", c => c
-                                .Tokenizer("standard")
-                                .Filters("lowercase", "asciifolding")
-                            )
                             .Custom("keyword-custom", c => c
                                 .Tokenizer("keyword")
                                 .Filters("lowercase")
-                            )   
+                            )
+                            .Custom("url-email-analyzer", c => c
+                                .Tokenizer("url-email-tokenizer")
+                                .Filters("lowercase")
+                            )
+                        )
+                        .Tokenizers(tokenizer => tokenizer
+                            .UaxEmailUrl("url-email-tokenizer", u => u
+                                .MaxTokenLength(255)
+                            )
                         )
                     )
                 );
@@ -123,18 +128,11 @@ public class ElasticSearchIndexer
                             .Name(prop.PropertyName)
                             .Fields(f => f
                                 .Text(ss => ss
-                                    .Name("folded")
-                                    .Analyzer("folding-analyzer")
-                                //.Boost(prop.SearchableBoost)
-                                )
-                                .Text(ss => ss
                                     .Name("text")
                                     .Analyzer(analyzer)
                                     .SearchAnalyzer(searchAnalyzer)
-                                //.Boost(prop.SearchableBoost)
                                 )
                             );
-                        //.Boost(prop.SearchableBoost);
                     });
                 }
                 else

@@ -69,7 +69,7 @@ public abstract class OrderTests
                 4.85m
             )
         };
-        var order = new Order(id, orderName, items, userId);
+        var order = new Order(id, orderName, items, userId, "john@gmail.com");
 
         await orderRepository.SaveOrder(userInfo, order);
         var order2 = await orderRepository.LoadOrder(id, PartitionKeys.GetOrderPartitionKey());
@@ -105,7 +105,7 @@ public abstract class OrderTests
             )
         };
 
-        var order = new Order(id, orderName, items, userId);
+        var order = new Order(id, orderName, items, userId, "john@gmail.com");
         var orderRepository = new OrderRepository(await GetEventStore());
 
         // add another item:
@@ -187,7 +187,7 @@ public abstract class OrderTests
             )
         };
 
-        var order = new Order(id, orderName, items, userId);
+        var order = new Order(id, orderName, items, userId, "john@gmail.com");
 
         await orderRepository.SaveOrder(userInfo, order);
 
@@ -265,10 +265,10 @@ public abstract class OrderTests
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "Rebuild product first order", items, userId);
+        var firstOrder = new Order(Guid.NewGuid(), "Rebuild product first order", items, userId, "john@gmail.com");
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
-        var secondOrder = new Order(Guid.NewGuid(), "Rebuild product second order", items, userId);
+        var secondOrder = new Order(Guid.NewGuid(), "Rebuild product second order", items, userId, "john@gmail.com");
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
@@ -334,10 +334,10 @@ public abstract class OrderTests
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "Rebuild orders first order", items, userId);
+        var firstOrder = new Order(Guid.NewGuid(), "Rebuild orders first order", items, userId, "john@gmail.com");
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
-        var secondOrder = new Order(Guid.NewGuid(), "Rebuild orders second order", items, userId);
+        var secondOrder = new Order(Guid.NewGuid(), "Rebuild orders second order", items, userId, "john@gmail.com");
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
@@ -428,11 +428,11 @@ public abstract class OrderTests
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "First test order", items, userId);
+        var firstOrder = new Order(Guid.NewGuid(), "First test order", items, userId, "john@gmail.com");
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
         // second order will contain only one item
-        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1), userId);
+        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1), userId, "john@gmail.com");
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
@@ -461,7 +461,7 @@ public abstract class OrderTests
     }
 
     [TestMethod]
-    public async Task TestProjectionsNestedArrayOfObjectsQuery()
+    public async Task TestProjectionsNestedObjectsQuery()
     {
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
@@ -482,53 +482,37 @@ public abstract class OrderTests
         await projectionsEngine.StartAsync(instanceName);
 
 
-        var userId = Guid.NewGuid();
-        var userInfo = new EventUserInfo(userId);
+        var userInfo1 = new EventUserInfo(Guid.NewGuid());
+        var userInfo2 = new EventUserInfo(Guid.NewGuid());
+        var userInfo3 = new EventUserInfo(Guid.NewGuid());
         var firstOrderItems = new List<OrderItem>
         {
-            new OrderItem(
-                DateTime.UtcNow,
-                "Colonizing Mars",
-                12.00m
-            ),
-            new OrderItem(
-                DateTime.UtcNow,
-                "Dixit",
-                6.59m
-            ),
-            new OrderItem(
-                DateTime.UtcNow,
-                "Time Stories",
-                4.85m
-            )
+            new OrderItem(DateTime.UtcNow, "Colonizing Mars", 12.00m),
+            new OrderItem(DateTime.UtcNow, "Patchwork", 6.59m),
+            new OrderItem(DateTime.UtcNow, "Time Stories", 4.85m)
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "New Years Gifts", firstOrderItems, userId);
-        await orderRepository.SaveOrder(userInfo, firstOrder);
+        var firstOrder = new Order(Guid.NewGuid(), "New Years Gifts", firstOrderItems, userInfo1.UserId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo1, firstOrder);
 
-        // var orderName = "Birthday Gift";
         var secondOrderItems = new List<OrderItem>
         {
-            new OrderItem(
-                DateTime.UtcNow,
-                "Caverna",
-                12.00m
-            ),
-            new OrderItem(
-                DateTime.UtcNow,
-                "Dixit",
-                6.59m
-            )
+            new OrderItem(DateTime.UtcNow, "Caverna", 12.00m),
+            new OrderItem(DateTime.UtcNow, "Dixit", 6.59m)
         };
-        var secondOrder = new Order(Guid.NewGuid(), "Birthday Gifts", secondOrderItems, userId);
-        await orderRepository.SaveOrder(userInfo, secondOrder);
+
+        var secondOrder = new Order(Guid.NewGuid(), "Birthday Gifts", secondOrderItems, userInfo2.UserId, "will@gmail.com");
+        await orderRepository.SaveOrder(userInfo2, secondOrder);
+
+        var thirdOrder = new Order(Guid.NewGuid(), "Christmas Gifts", new List<OrderItem>(), userInfo3.UserId, "amy@gmail.com");
+        await orderRepository.SaveOrder(userInfo3, thirdOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        // search by nested array element
+        // search by nested Items array
         var query = new ProjectionQuery
         {
-            SearchText = "Time"
+            SearchText = "stories"
         };
 
         // query by name
@@ -540,6 +524,11 @@ public abstract class OrderTests
         orders = await ordersListProjectionsRepository.Query(query);
         orders.Count.Should().Be(1);
         orders.First().Items.Count.Should().Be(2);
+
+        query.SearchText = "amy@gmail.com";
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.Count.Should().Be(1);
+        orders.First().Items.Count.Should().Be(0);
 
         await projectionsEngine.StopAsync();
     }

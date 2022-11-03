@@ -13,9 +13,9 @@ public class Order : AggregateBase
     {
     }
 
-    public Order(Guid id, string orderName, List<OrderItem> items, Guid createdById)
+    public Order(Guid id, string orderName, List<OrderItem> items, Guid createdById, string createdByEmail)
     {
-        Apply(new OrderPlaced(id, orderName, PartitionKey, items, createdById));
+        Apply(new OrderPlaced(id, orderName, PartitionKey, items, createdById, createdByEmail));
     }
 
     public override string PartitionKey => PartitionKeys.GetOrderPartitionKey();
