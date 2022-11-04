@@ -1,3 +1,4 @@
+using System.Reflection;
 using CloudFabric.Projections.Attributes;
 
 namespace CloudFabric.Projections;
@@ -9,27 +10,51 @@ public class ProjectionDocumentSchemaFactory
         var schema = new ProjectionDocumentSchema();
 
         schema.SchemaName = ProjectionDocumentAttribute.GetIndexName<T>();
-        schema.Properties = ProjectionDocumentAttribute.GetAllProjectionProperties<T>().Select(p =>
-            new ProjectionDocumentPropertySchema()
-            {
-                PropertyName = p.Key.Name,
-                PropertyType = ProjectionDocumentAttribute.GetPropertyTypeCode(p.Key, typeof(T)),
-                IsKey = p.Value.IsKey,
-                IsSearchable = p.Value.IsSearchable,
-                IsRetrievable = p.Value.IsRetrievable,
-                SynonymMaps = p.Value.SynonymMaps,
-                SearchableBoost = p.Value.SearchableBoost,
-                IsFilterable = p.Value.IsFilterable,
-                IsSortable = p.Value.IsSortable,
-                IsFacetable = p.Value.IsFacetable,
-                IsNested = p.Value.IsNested,
-                Analyzer = p.Value.Analyzer,
-                SearchAnalyzer = p.Value.SearchAnalyzer,
-                IndexAnalyzer = p.Value.IndexAnalyzer,
-                UseForSuggestions = p.Value.UseForSuggestions,
-                FacetableRanges = p.Value.FacetableRanges,
-            }).ToList();
+        schema.Properties = ProjectionDocumentAttribute.GetAllProjectionProperties<T>()
+            .Select(p => GetPropertySchema(p.Key, p.Value.DocumentPropertyAttribute, p.Value.NestedDictionary))
+            .ToList();
 
         return schema;
+    }
+
+    private static ProjectionDocumentPropertySchema GetPropertySchema(
+        PropertyInfo propertyInfo,
+        ProjectionDocumentPropertyAttribute documentPropertyAttribute,
+        object nestedPropertiesDictionary
+    )
+    {
+        return new ProjectionDocumentPropertySchema()
+        {
+            PropertyName = propertyInfo.Name,
+            PropertyType = ProjectionDocumentAttribute.GetPropertyTypeCode(propertyInfo),
+            IsKey = documentPropertyAttribute.IsKey,
+            IsSearchable = documentPropertyAttribute.IsSearchable,
+            IsRetrievable = documentPropertyAttribute.IsRetrievable,
+            SynonymMaps = documentPropertyAttribute.SynonymMaps,
+            SearchableBoost = documentPropertyAttribute.SearchableBoost,
+            IsFilterable = documentPropertyAttribute.IsFilterable,
+            IsSortable = documentPropertyAttribute.IsSortable,
+            IsFacetable = documentPropertyAttribute.IsFacetable,
+            Analyzer = documentPropertyAttribute.Analyzer,
+            SearchAnalyzer = documentPropertyAttribute.SearchAnalyzer,
+            IndexAnalyzer = documentPropertyAttribute.IndexAnalyzer,
+            UseForSuggestions = documentPropertyAttribute.UseForSuggestions,
+            FacetableRanges = documentPropertyAttribute.FacetableRanges,
+            IsNestedObject = documentPropertyAttribute.IsNestedObject,
+            IsNestedArray = documentPropertyAttribute.IsNestedArray,
+            ArrayElementType = documentPropertyAttribute.IsNestedArray
+                    ? Type.GetTypeCode(propertyInfo.PropertyType.GenericTypeArguments[0])
+                    : null,
+            NestedObjectProperties = (documentPropertyAttribute.IsNestedObject || documentPropertyAttribute.IsNestedArray)
+                    ? GetNestedObjectProperties(nestedPropertiesDictionary as Dictionary<PropertyInfo, (ProjectionDocumentPropertyAttribute, object)>)
+                    : null
+        };
+    }
+
+    private static List<ProjectionDocumentPropertySchema> GetNestedObjectProperties(Dictionary<PropertyInfo, (ProjectionDocumentPropertyAttribute DocumentPropertyAttribute, object NestedDictionary)> nestedProperties)
+    {
+        return nestedProperties
+            .Select(property => GetPropertySchema(property.Key, property.Value.DocumentPropertyAttribute, property.Value.NestedDictionary))
+            .ToList();
     }
 }

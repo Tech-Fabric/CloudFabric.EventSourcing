@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using CloudFabric.Projections.Queries;
+using CloudFabric.Projections.Utils;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Polly;
@@ -510,25 +511,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
 
                 if (propertySchema != null)
                 {
-                    newDictionary[kv.Key] = propertySchema.PropertyType switch
-                    {
-                        TypeCode.Boolean => valueAsJsonElement.GetBoolean(),
-                        TypeCode.SByte => valueAsJsonElement.GetSByte(),
-                        TypeCode.Byte => valueAsJsonElement.GetByte(),
-                        TypeCode.Int16 => valueAsJsonElement.GetInt16(),
-                        TypeCode.UInt16 => valueAsJsonElement.GetUInt16(),
-                        TypeCode.Int32 => valueAsJsonElement.GetInt32(),
-                        TypeCode.UInt32 => valueAsJsonElement.GetUInt32(),
-                        TypeCode.Int64 => valueAsJsonElement.GetInt64(),
-                        TypeCode.UInt64 => valueAsJsonElement.GetUInt64(),
-                        TypeCode.Single => valueAsJsonElement.GetSingle(),
-                        TypeCode.Double => valueAsJsonElement.GetDouble(),
-                        TypeCode.Decimal => valueAsJsonElement.GetDecimal(),
-                        TypeCode.DateTime => valueAsJsonElement.GetDateTime(),
-                        TypeCode.String => valueAsJsonElement.GetString(),
-                        TypeCode.Object => !propertySchema.IsNested ? valueAsJsonElement.GetGuid() : throw new Exception($"Failed to deserialize json element for property {kv.Key}"),
-                        _ => throw new Exception($"Failed to deserialize json element for property {kv.Key}")
-                    };
+                    newDictionary[kv.Key] = JsonToObjectConverter.Convert(valueAsJsonElement, propertySchema);
                 }
             }
         }

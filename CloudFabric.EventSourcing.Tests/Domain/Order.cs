@@ -13,15 +13,16 @@ public class Order : AggregateBase
     {
     }
 
-    public Order(Guid id, string orderName, List<OrderItem> items)
+    public Order(Guid id, string orderName, List<OrderItem> items, Guid createdById)
     {
-        Apply(new OrderPlaced(id, orderName, PartitionKey, items));
+        Apply(new OrderPlaced(id, orderName, PartitionKey, items, createdById));
     }
 
     public override string PartitionKey => PartitionKeys.GetOrderPartitionKey();
 
     public string OrderName { get; private set; }
     public List<OrderItem> Items { get; private set; }
+    public Guid CreatedById { get; private set; }
 
     public void AddItem(OrderItem item)
     {
@@ -43,6 +44,7 @@ public class Order : AggregateBase
         Id = @event.Id;
         OrderName = @event.OrderName;
         Items = @event.Items;
+        CreatedById = @event.CreatedById;
     }
 
     public void On(OrderItemAdded @event)

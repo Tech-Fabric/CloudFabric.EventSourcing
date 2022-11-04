@@ -12,10 +12,16 @@ public class ProjectionDocumentPropertySchema
     public bool IsFilterable { get; set; } = false;
     public bool IsSortable { get; set; } = false;
     public bool IsFacetable { get; set; } = false;
-    public bool IsNested { get; set; } = false;
     public string? Analyzer { get; set; }
     public string? SearchAnalyzer { get; set; }
     public string? IndexAnalyzer { get; set; }
     public bool UseForSuggestions { get; set; } = false;
     public double[] FacetableRanges { get; set; } = Array.Empty<double>();
+
+    public bool IsNestedObject { get; set; } = false;
+    public bool IsNestedArray { get; set; } = false;
+    public TypeCode? ArrayElementType { get; set; }
+    // nested object/array properties schema
+    public List<ProjectionDocumentPropertySchema> NestedObjectProperties { get; set; }
+
 }
