@@ -461,7 +461,7 @@ public abstract class OrderTests
     }
 
     [TestMethod]
-    public async Task TestProjectionsNestedObjectsQuery()
+    public virtual async Task TestProjectionsNestedObjectsQuery()
     {
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
@@ -529,6 +529,97 @@ public abstract class OrderTests
         orders = await ordersListProjectionsRepository.Query(query);
         orders.Count.Should().Be(1);
         orders.First().Items.Count.Should().Be(0);
+
+        await projectionsEngine.StopAsync();
+    }
+
+    [TestMethod]
+    public virtual async Task TestProjectionsNestedObjectsFilter()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
+        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
+
+        // Projections engine - takes events from events observer and passes them to multiple projection builders
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
+        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
+
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
+        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
+
+        string instanceName = "ProjectionsNestedQueryInstance";
+
+        await projectionsEngine.StartAsync(instanceName);
+
+
+        var userInfo1 = new EventUserInfo(Guid.NewGuid());
+        var userInfo2 = new EventUserInfo(Guid.NewGuid());
+        var userInfo3 = new EventUserInfo(Guid.NewGuid());
+        var firstOrderItems = new List<OrderItem>
+        {
+            new OrderItem(DateTime.UtcNow, "Colonizing Mars", 12.00m),
+            new OrderItem(DateTime.UtcNow.AddDays(-7), "Patchwork", 6.59m),
+            new OrderItem(DateTime.UtcNow, "Time Stories", 4.85m)
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "New Years Gifts", firstOrderItems, userInfo1.UserId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo1, firstOrder);
+
+        var secondOrderItems = new List<OrderItem>
+        {
+            new OrderItem(DateTime.UtcNow, "Caverna", 12.00m),
+            new OrderItem(DateTime.UtcNow, "Dixit", 6.59m)
+        };
+
+        var secondOrder = new Order(Guid.NewGuid(), "Birthday Gifts", secondOrderItems, userInfo2.UserId, "will@gmail.com");
+        await orderRepository.SaveOrder(userInfo2, secondOrder);
+
+        var thirdOrder = new Order(Guid.NewGuid(), "Christmas Gifts", new List<OrderItem>(), userInfo3.UserId, "amy@gmail.com");
+        await orderRepository.SaveOrder(userInfo3, thirdOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        // filter by creator id
+        var query = new ProjectionQuery();
+        query.Filters.Add(new Filter
+        {
+            PropertyName = "CreatedBy.UserId",
+            Operator = FilterOperator.Equal,
+            Value = userInfo2.UserId
+        });
+
+        var orders = await ordersListProjectionsRepository.Query(query);
+        orders.Count.Should().Be(1);
+        orders.First().CreatedBy.UserId.Should().Be(userInfo2.UserId);
+
+        // filter by items date
+        query.Filters[0] = new Filter
+        {
+            PropertyName = "Items.AddedAt",
+            Operator = FilterOperator.Lower,
+            Value = DateTime.UtcNow.AddDays(-1)
+        };
+
+        orders = await ordersListProjectionsRepository.Query(query);
+
+        orders.Count.Should().Be(1);
+        orders.First().Items.Count.Should().Be(3);
+
+        // filter by items Amount
+        query.Filters[0] = new Filter
+        {
+            PropertyName = "Items.Amount",
+            Operator = FilterOperator.GreaterOrEqual,
+            Value = 5
+        };
+
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.Count.Should().Be(2);
+        orders.Any(x => x.Items.Count == 3).Should().BeTrue();
+        orders.Any(x => x.Items.Count == 2).Should().BeTrue();
 
         await projectionsEngine.StopAsync();
     }

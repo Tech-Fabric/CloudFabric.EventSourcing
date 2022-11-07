@@ -1,3 +1,4 @@
+using CloudFabric.Projections.Constants;
 using Nest;
 
 namespace CloudFabric.Projections.ElasticSearch;
@@ -48,7 +49,7 @@ public class ElasticSearchIndexer
                                 .Tokenizer("keyword")
                                 .Filters("lowercase")
                             )
-                            .Custom("url-email-analyzer", c => c
+                            .Custom(SearchAnalyzers.UrlEmailAnalyzer, c => c
                                 .Tokenizer("url-email-tokenizer")
                                 .Filters("lowercase")
                             )
@@ -103,15 +104,49 @@ public class ElasticSearchIndexer
         switch (propertyType)
         {
             case TypeCode.Byte:
+                properties = properties.Number(p =>
+                    p.Name(prop.PropertyName)
+                        .Type(NumberType.Byte)
+                );
+                break;
             case TypeCode.Int16:
+                properties = properties.Number(p =>
+                    p.Name(prop.PropertyName)
+                        .Type(NumberType.Short)
+                );
+                break;
             case TypeCode.Int32:
+                properties = properties.Number(p =>
+                    p.Name(prop.PropertyName)
+                        .Type(NumberType.Integer)
+                );
+                break;
             case TypeCode.Int64:
+                properties = properties.Number(p =>
+                    p.Name(prop.PropertyName)
+                        .Type(NumberType.Long)
+                );
+                break;
             case TypeCode.UInt16:
             case TypeCode.UInt32:
             case TypeCode.UInt64:
+                properties = properties.Number(p =>
+                    p.Name(prop.PropertyName)
+                        .Type(NumberType.UnsignedLong)
+                );
+                break;
             case TypeCode.Double:
+                properties = properties.Number(p =>
+                    p.Name(prop.PropertyName)
+                        .Type(NumberType.Double)
+                );
+                break;
             case TypeCode.Decimal:
-                properties = properties.Number(p => p.Name(prop.PropertyName));
+                properties = properties.Number(p => 
+                    p.Name(prop.PropertyName)
+                        .Type(NumberType.ScaledFloat)
+                        .ScalingFactor(1000000)
+                );
                 break;
             case TypeCode.Boolean:
                 properties = properties.Boolean(p => p.Name(prop.PropertyName));

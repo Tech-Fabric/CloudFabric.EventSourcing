@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Security.AccessControl;
 using System.Text.Json;
+using CloudFabric.Projections.ElasticSearch.Helpers;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Microsoft.Extensions.Logging;
@@ -280,14 +281,25 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
         foreach (var kv in newDictionary)
         {
+            var propertySchema = _projectionDocumentSchema.Properties.FirstOrDefault(p => p.PropertyName == kv.Key);
+
+            if (propertySchema == null)
+            {
+                continue;
+            }
+
             if (kv.Value is JsonElement valueAsJsonElement)
             {
-                var propertySchema = _projectionDocumentSchema.Properties.FirstOrDefault(p => p.PropertyName == kv.Key);
-
-                if (propertySchema != null)
-                {
-                    newDictionary[kv.Key] = JsonToObjectConverter.Convert(valueAsJsonElement, propertySchema);
-                }
+                newDictionary[kv.Key] = JsonToObjectConverter.Convert(valueAsJsonElement, propertySchema);
+            }
+            else if (propertySchema.PropertyType == TypeCode.Object && kv.Value is string)
+            {
+                newDictionary[kv.Key] = Guid.Parse(kv.Value as string);
+            }
+            // ES Nest returns int as long for some reason
+            else if (propertySchema.PropertyType == TypeCode.Int32)
+            {
+                newDictionary[kv.Key] = Convert.ToInt32(kv.Value);
             }
         }
 
@@ -301,25 +313,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
         if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
-            var nestedSearchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable && (x.IsNestedObject || x.IsNestedArray)).ToList();
-
-            var queries = new List<QueryContainer>
-            {
-                new BoolQuery()
-                {
-                    Filter = new List<QueryContainer>()
-                    {
-                        new QueryStringQuery() { Query = projectionQuery.SearchText }
-                    }
-                }
-            };
-
-            foreach (var prop in nestedSearchableProperties)
-            {
-                queries.Add(
-                    CreateNestedQuery(prop, prop.PropertyName, projectionQuery.SearchText)
-                );
-            }
+            var queries = ElasticSearchQueryFactory.ConstructSearchQuery(_projectionDocumentSchema, projectionQuery.SearchText);
 
             textQueries.Add(new BoolQuery()
             {
@@ -338,198 +332,15 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
 
         // construct filters
-        var filterStrings = new List<string>();
-
-        foreach (var f in projectionQuery.Filters)
-        {
-            var conditionFilter = $"({ConstructConditionFilter(f)})";
-            var propName = f.PropertyName == null ? f.Filters[0].Filter.PropertyName : f.PropertyName;
-
-            if (f.PropertyName?.IndexOf(".") == -1)
-            {
-                filterStrings.Add(conditionFilter);
-            }
-        }
-
-        var filter = new List<QueryContainer>()
-        {
-            new QueryStringQuery() { Query = string.Join(" AND ", filterStrings) }
-        };
-
-        var nestedQueryStrings = ConstructNestedQueryFilters(projectionQuery.Filters);
-
-        foreach (var entry in nestedQueryStrings)
-        {
-            var nestedFilter = new NestedQuery()
-            {
-                Path = entry.Key,
-                Query = new BoolQuery()
-                {
-                    Filter = new List<QueryContainer>()
-                    {
-                        new QueryStringQuery() { Query = entry.Value }
-                    }
-                }
-            };
-
-            filter.Add(nestedFilter);
-        }
+        var filters = ElasticSearchFilterFactory.ConstructFilters(projectionQuery.Filters);
 
         return searchDescriptor.Bool(q =>
             new BoolQuery()
             {
                 Should = textQueries,
-                Filter = filter
+                Filter = filters
             }
         );
-    }
-
-    // in order to mark the nested property as searchable all the chain of properies from parent to child should be marked as searchable
-    private QueryContainer CreateNestedQuery(ProjectionDocumentPropertySchema property, string nestedPath, string searchText)
-    {
-        bool containsNotNestedSearchableProperties = property.NestedObjectProperties?.Any(x => x.IsSearchable && !x.IsNestedObject && !x.IsNestedArray) == true;
-        var nestedSearchableProperties = property.NestedObjectProperties?.Where(x => x.IsSearchable && (x.IsNestedObject || x.IsNestedArray)).ToList() ?? new();
-
-        var nestedQueries = new List<QueryContainer>();
-        if (containsNotNestedSearchableProperties)
-        {
-            nestedQueries.Add(new BoolQuery()
-            {
-                Filter = new List<QueryContainer>()
-                {
-                    new QueryStringQuery() { Query = searchText }
-                }
-            });
-        }
-
-        if (nestedSearchableProperties.Any())
-        {
-            nestedQueries.AddRange(
-                nestedSearchableProperties.Select(prop => CreateNestedQuery(prop, $"{nestedPath}.{prop.PropertyName}", searchText))
-            );
-        }
-
-        return new NestedQuery()
-        {
-            Path = nestedPath,
-            Query = new BoolQuery()
-            {
-                Should = nestedQueries
-            }
-        };
-    }
-
-    private Dictionary<string, string> ConstructNestedQueryFilters(List<Queries.Filter> filters)
-    {
-        var result = new Dictionary<string, string>();
-
-        if (filters == null || filters.Count == 0)
-        {
-            return result;
-        }
-
-        var nestedFiltersStrings = new Dictionary<string, List<string>>();
-
-        foreach (var f in filters)
-        {
-            var propName = f.PropertyName == null ? f.Filters[0].Filter.PropertyName : f.PropertyName;
-            var pathParts = propName.Split('.');
-
-            if (pathParts.Count() <= 1)
-            {
-                continue;
-            }
-
-            var conditionFilter = $"({ConstructConditionFilter(f)})";
-            var nestedPath = string.Join(".", pathParts.Take(pathParts.Length - 1));
-
-            if (!nestedFiltersStrings.ContainsKey(nestedPath))
-            {
-                nestedFiltersStrings[nestedPath] = new List<string>();
-            }
-
-            nestedFiltersStrings[nestedPath].Add(conditionFilter);
-        }
-
-        foreach (var entry in nestedFiltersStrings)
-        {
-            result[entry.Key] = string.Join(" AND ", entry.Value);
-        }
-
-        return result;
-    }
-
-    private string ConstructConditionFilter(Queries.Filter filter)
-    {
-        var q = ConstructOneConditionFilter(filter);
-
-        foreach (FilterConnector f in filter.Filters)
-        {
-            if (!string.IsNullOrEmpty(q) && f.Logic != null)
-            {
-                q += $" {f.Logic.ToUpper()} ";
-            }
-
-            var wrapWithParentheses = f.Logic != null;
-
-            if (wrapWithParentheses)
-            {
-                q += "(";
-            }
-
-            q += ConstructConditionFilter(f.Filter);
-
-            if (wrapWithParentheses)
-            {
-                q += ")";
-            }
-        }
-
-        return q;
-    }
-
-    private string ConstructOneConditionFilter(Queries.Filter filter)
-    {
-        if (string.IsNullOrEmpty(filter.PropertyName))
-        {
-            return "";
-        }
-
-        var filterOperator = "";
-        switch (filter.Operator)
-        {
-            case FilterOperator.NotEqual:
-            case FilterOperator.Equal:
-                filterOperator = ":";
-                break;
-            case FilterOperator.Greater:
-                filterOperator = ":>";
-                break;
-            case FilterOperator.GreaterOrEqual:
-                filterOperator = ":>=";
-                break;
-            case FilterOperator.Lower:
-                filterOperator = ":<";
-                break;
-            case FilterOperator.LowerOrEqual:
-                filterOperator = ":<=";
-                break;
-        }
-
-        var filterValue = filter.Value.ToString();
-
-        var condition = $"{filter.PropertyName}{filterOperator}{filterValue}";
-        if (filter.Value == null)
-        {
-            condition = $"({condition} OR (!(_exists_:{filter.PropertyName})))";
-        }
-
-        if (filter.Operator == FilterOperator.NotEqual)
-        {
-            return $"!({condition})";
-        }
-
-        return condition;
     }
 
     private SortDescriptor<T> ConstructSort<T>(SortDescriptor<T> sortDescriptor, ProjectionQuery projectionQuery) where T : class
