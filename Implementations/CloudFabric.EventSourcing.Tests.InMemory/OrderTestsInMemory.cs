@@ -48,4 +48,16 @@ public class OrderTestsInMemory : OrderTests
     {
         return new InMemoryProjectionRepository<ProjectionRebuildState>();
     }
+
+    [Ignore]
+    public override async Task TestProjectionsNestedObjectsFilter()
+    {
+        return;
+    }
+
+    [Ignore]
+    public override async Task TestProjectionsNestedObjectsQuery()
+    {
+        return;
+    }
 }

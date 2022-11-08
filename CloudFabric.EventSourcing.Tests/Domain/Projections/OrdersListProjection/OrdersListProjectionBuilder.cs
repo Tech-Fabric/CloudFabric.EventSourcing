@@ -67,7 +67,8 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
 
         projectionItem.CreatedBy = new OrderListProjectionUserInfo
         {
-            UserId = @event.CreatedById
+            UserId = @event.CreatedById,
+            Email = @event.CreatedByEmail
         };
 
         await UpsertDocument(projectionItem, @event.PartitionKey);

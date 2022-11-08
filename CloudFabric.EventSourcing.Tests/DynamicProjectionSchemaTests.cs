@@ -156,7 +156,7 @@ public abstract class DynamicProjectionSchemaTests
             )
         };
 
-        var order = new Order(id, orderName, items, userId);
+        var order = new Order(id, orderName, items, userId, "john@gmail.com");
 
         await orderRepository.SaveOrder(userInfo, order);
 

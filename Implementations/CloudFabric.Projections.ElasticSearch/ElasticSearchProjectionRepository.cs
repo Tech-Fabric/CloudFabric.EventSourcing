@@ -1,5 +1,7 @@
 using System.Linq;
+using System.Security.AccessControl;
 using System.Text.Json;
+using CloudFabric.Projections.ElasticSearch.Helpers;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Microsoft.Extensions.Logging;
@@ -68,6 +70,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     private string? _keyPropertyName;
     private string? _indexName;
     private readonly ElasticClient _client;
+    private readonly ElasticSearchIndexer _indexer;
     private readonly ILogger<ElasticSearchProjectionRepository> _logger;
 
     public ElasticSearchProjectionRepository(
@@ -92,6 +95,10 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         connectionSettings.DefaultFieldNameInferrer(x => x);
 
         _client = new ElasticClient(connectionSettings);
+
+        // create an index
+        _indexer = new ElasticSearchIndexer(uri, username, password, certificateFingerprint);
+        _indexer.CreateOrUpdateIndex(IndexName, projectionDocumentSchema).Wait();
     }
 
     public string IndexName
@@ -274,14 +281,25 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
         foreach (var kv in newDictionary)
         {
+            var propertySchema = _projectionDocumentSchema.Properties.FirstOrDefault(p => p.PropertyName == kv.Key);
+
+            if (propertySchema == null)
+            {
+                continue;
+            }
+
             if (kv.Value is JsonElement valueAsJsonElement)
             {
-                var propertySchema = _projectionDocumentSchema.Properties.FirstOrDefault(p => p.PropertyName == kv.Key);
-
-                if (propertySchema != null)
-                {
-                    newDictionary[kv.Key] = JsonToObjectConverter.Convert(valueAsJsonElement, propertySchema);
-                }
+                newDictionary[kv.Key] = JsonToObjectConverter.Convert(valueAsJsonElement, propertySchema);
+            }
+            else if (propertySchema.PropertyType == TypeCode.Object && kv.Value is string)
+            {
+                newDictionary[kv.Key] = Guid.Parse(kv.Value as string);
+            }
+            // ES Nest returns int as long for some reason
+            else if (propertySchema.PropertyType == TypeCode.Int32)
+            {
+                newDictionary[kv.Key] = Convert.ToInt32(kv.Value);
             }
         }
 
@@ -291,119 +309,38 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     private QueryContainer ConstructSearchQuery<T>(QueryContainerDescriptor<T> searchDescriptor, ProjectionQuery projectionQuery) where T : class
     {
         // construct search query
-        QueryBase textQuery = new MatchAllQuery();
+        List<QueryContainer> textQueries = new();
 
         if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
-            var searchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable);
+            var queries = ElasticSearchQueryFactory.ConstructSearchQuery(_projectionDocumentSchema, projectionQuery.SearchText);
 
-            textQuery = new QueryStringQuery()
+            textQueries.Add(new BoolQuery()
             {
-                Query = projectionQuery.SearchText,
-                Fields = string.Join(',', searchableProperties.Select(x => x.PropertyName))
-            };
+                Should = queries
+            });
         }
 
         if (projectionQuery.Filters == null || !projectionQuery.Filters.Any())
         {
-            return textQuery;
+            return searchDescriptor.Bool(q =>
+                new BoolQuery()
+                {
+                    Should = textQueries
+                }
+            );
         }
 
         // construct filters
-        var filterStrings = new List<string>();
-
-        foreach (var f in projectionQuery.Filters)
-        {
-            var conditionFilter = $"({ConstructConditionFilter(f)})";
-
-            filterStrings.Add(conditionFilter);
-        }
-
-        var filter = new List<QueryContainer>()
-        {
-            new QueryStringQuery() { Query = string.Join(" AND ", filterStrings) }
-        };
+        var filters = ElasticSearchFilterFactory.ConstructFilters(projectionQuery.Filters);
 
         return searchDescriptor.Bool(q =>
             new BoolQuery()
             {
-                Must = new List<QueryContainer>() { textQuery },
-                Filter = filter
+                Should = textQueries,
+                Filter = filters
             }
         );
-    }
-
-    private string ConstructOneConditionFilter(Queries.Filter filter)
-    {
-        if (string.IsNullOrEmpty(filter.PropertyName))
-        {
-            return "";
-        }
-
-        var filterOperator = "";
-        switch (filter.Operator)
-        {
-            case FilterOperator.NotEqual:
-            case FilterOperator.Equal:
-                filterOperator = ":";
-                break;
-            case FilterOperator.Greater:
-                filterOperator = ":>";
-                break;
-            case FilterOperator.GreaterOrEqual:
-                filterOperator = ":>=";
-                break;
-            case FilterOperator.Lower:
-                filterOperator = ":<";
-                break;
-            case FilterOperator.LowerOrEqual:
-                filterOperator = ":<=";
-                break;
-        }
-
-        var filterValue = filter.Value.ToString();
-
-        var condition = $"{filter.PropertyName}{filterOperator}{filterValue}";
-        if (filter.Value == null)
-        {
-            condition = $"({condition} OR (!(_exists_:{filter.PropertyName})))";
-        }
-
-        if (filter.Operator == FilterOperator.NotEqual)
-        {
-            return $"!({condition})";
-        }
-
-        return condition;
-    }
-
-    private string ConstructConditionFilter(Queries.Filter filter)
-    {
-        var q = ConstructOneConditionFilter(filter);
-
-        foreach (FilterConnector f in filter.Filters)
-        {
-            if (!string.IsNullOrEmpty(q) && f.Logic != null)
-            {
-                q += $" {f.Logic.ToUpper()} ";
-            }
-
-            var wrapWithParentheses = f.Logic != null;
-
-            if (wrapWithParentheses)
-            {
-                q += "(";
-            }
-
-            q += ConstructConditionFilter(f.Filter);
-
-            if (wrapWithParentheses)
-            {
-                q += ")";
-            }
-        }
-
-        return q;
     }
 
     private SortDescriptor<T> ConstructSort<T>(SortDescriptor<T> sortDescriptor, ProjectionQuery projectionQuery) where T : class

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
@@ -76,5 +76,17 @@ public class OrderTestsPostgresql : OrderTests
         watch.Stop();
 
         Console.WriteLine($"It took {watch.Elapsed}!");
+    }
+
+    [Ignore]
+    public override async Task TestProjectionsNestedObjectsFilter()
+    {
+        return;
+    }
+
+    [Ignore]
+    public override async Task TestProjectionsNestedObjectsQuery()
+    {
+        return;
     }
 }

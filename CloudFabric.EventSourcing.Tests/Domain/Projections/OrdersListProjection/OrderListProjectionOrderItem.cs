@@ -6,7 +6,7 @@ public class OrderListProjectionOrderItem
     [ProjectionDocumentProperty]
     public DateTime AddedAt { get; set; }
 
-    [ProjectionDocumentProperty]
+    [ProjectionDocumentProperty(IsSearchable = true)]
     public string Name { get; set; }
 
     [ProjectionDocumentProperty]

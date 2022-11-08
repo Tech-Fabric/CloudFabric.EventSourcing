@@ -197,4 +197,16 @@ public class OrderTestsCosmosDb : OrderTests
 
         Console.WriteLine($"It took {watch.Elapsed}!");
     }
+
+    [Ignore]
+    public override async Task TestProjectionsNestedObjectsFilter()
+    {
+        return;
+    }
+
+    [Ignore]
+    public override async Task TestProjectionsNestedObjectsQuery()
+    {
+        return;
+    }
 }
