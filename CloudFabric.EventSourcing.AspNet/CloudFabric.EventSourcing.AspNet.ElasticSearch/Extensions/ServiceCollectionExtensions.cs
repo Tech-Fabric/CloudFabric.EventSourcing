@@ -12,6 +12,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             string uri,
             string username,
             string password,
+            string certificateFingerprint,
             LoggerFactory loggerFactory,
             params Type[] projectionBuildersTypes
         ) where TDocument : ProjectionDocument
@@ -20,6 +21,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
                 uri,
                 username,
                 password,
+                certificateFingerprint,
                 loggerFactory
             );
 
@@ -30,6 +32,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
                 uri,
                 username,
                 password,
+                certificateFingerprint,
                 loggerFactory
             );
 
