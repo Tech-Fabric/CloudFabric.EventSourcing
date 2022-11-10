@@ -75,6 +75,15 @@ COPY Implementations/CloudFabric.EventSourcing.EventStore.Postgresql/CloudFabric
 COPY Implementations/CloudFabric.EventSourcing.Tests.Postgresql/CloudFabric.EventSourcing.Tests.Postgresql.csproj /src/Implementations/CloudFabric.EventSourcing.Tests.Postgresql/CloudFabric.EventSourcing.Tests.Postgresql.csproj
 COPY Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj /src/Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj
 
+COPY Implementations/CloudFabric.EventSourcing.Tests.ElasticSearch/CloudFabric.EventSourcing.Tests.ElasticSearch.csproj /src/Implementations/CloudFabric.EventSourcing.Tests.ElasticSearch/CloudFabric.EventSourcing.Tests.ElasticSearch.csproj
+COPY Implementations/CloudFabric.Projections.ElasticSearch/CloudFabric.Projections.ElasticSearch.csproj /src/Implementations/CloudFabric.Projections.ElasticSearch/CloudFabric.Projections.ElasticSearch.csproj
+
+COPY CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.csproj /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.csproj
+COPY CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.CosmosDb/CloudFabric.EventSourcing.AspNet.CosmosDb.csproj /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.CosmosDb/CloudFabric.EventSourcing.AspNet.CosmosDb.csproj
+COPY CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.ElasticSearch/CloudFabric.EventSourcing.AspNet.ElasticSearch.csproj /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.ElasticSearch/CloudFabric.EventSourcing.AspNet.ElasticSearch.csproj
+COPY CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.InMemory/CloudFabric.EventSourcing.AspNet.InMemory.csproj /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.InMemory/CloudFabric.EventSourcing.AspNet.InMemory.csproj
+COPY CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.Postgresql/CloudFabric.EventSourcing.AspNet.Postgresql.csproj /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.Postgresql/CloudFabric.EventSourcing.AspNet.Postgresql.csproj
+
 COPY CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj
 
 #RUN dotnet restore /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj
@@ -130,6 +139,11 @@ RUN sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/
     sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.Projections.CosmosDb/CloudFabric.Projections.CosmosDb.csproj && \
     sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.Projections.InMemory/CloudFabric.Projections.InMemory.csproj && \
     sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.CosmosDb/CloudFabric.EventSourcing.AspNet.CosmosDb.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.ElasticSearch/CloudFabric.EventSourcing.AspNet.ElasticSearch.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.InMemory/CloudFabric.EventSourcing.AspNet.InMemory.csproj && \
+    sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.Postgresql/CloudFabric.EventSourcing.AspNet.Postgresql.csproj && \
     dotnet pack /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/CloudFabric.EventSourcing.EventStore/CloudFabric.EventSourcing.EventStore.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/CloudFabric.Projections/CloudFabric.Projections.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
@@ -139,7 +153,12 @@ RUN sed -i "s|<Version>.*</Version>|<Version>$PACKAGE_VERSION</Version>|g" /src/
     dotnet pack /src/Implementations/CloudFabric.EventSourcing.EventStore.Postgresql/CloudFabric.EventSourcing.EventStore.Postgresql.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/Implementations/CloudFabric.Projections.CosmosDb/CloudFabric.Projections.CosmosDb.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
     dotnet pack /src/Implementations/CloudFabric.Projections.InMemory/CloudFabric.Projections.InMemory.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
-    dotnet pack /src/Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
+    dotnet pack /src/Implementations/CloudFabric.Projections.Postgresql/CloudFabric.Projections.Postgresql.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
+    dotnet pack /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
+    dotnet pack /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.CosmosDb/CloudFabric.EventSourcing.AspNet.CosmosDb.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
+    dotnet pack /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.ElasticSearch/CloudFabric.EventSourcing.AspNet.ElasticSearch.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
+    dotnet pack /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.InMemory/CloudFabric.EventSourcing.AspNet.InMemory.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg && \
+    dotnet pack /src/CloudFabric.EventSourcing.AspNet/CloudFabric.EventSourcing.AspNet.Postgresql/CloudFabric.EventSourcing.AspNet.Postgresql.csproj -o /artifacts/nugets -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
 
 ARG NUGET_API_KEY
 RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.Domain.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
@@ -152,6 +171,11 @@ RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudF
 RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.Projections.CosmosDb.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
 RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.Projections.InMemory.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
 RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.Projections.Postgresql.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.AspNet.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.AspNet.CosmosDb.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.AspNet.ElasticSearch.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.AspNet.InMemory.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
+RUN if [ -n "$NUGET_API_KEY" ] ; then dotnet nuget push /artifacts/nugets/CloudFabric.EventSourcing.AspNet.Postgresql.$PACKAGE_VERSION.nupkg --skip-duplicate -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json ; fi
 #---------------------------------------------------------------------
 # /Build artifacts
 #---------------------------------------------------------------------
