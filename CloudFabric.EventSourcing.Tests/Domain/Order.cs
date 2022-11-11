@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.Tests.Domain.Events;
@@ -21,19 +22,24 @@ public class Order : AggregateBase
     public override string PartitionKey => PartitionKeys.GetOrderPartitionKey();
 
     public string OrderName { get; private set; }
-    public List<OrderItem> Items { get; private set; }
+    
+    /// <summary>
+    /// It should not be possible to modify the collection from outside.
+    /// The only way to modify the collection is by calling aggregate methods AddItem and RemoveItem.
+    /// </summary>
+    public ReadOnlyCollection<OrderItem> Items { get; private set; }
     public Guid CreatedById { get; private set; }
 
     public void AddItem(OrderItem item)
     {
-        Apply(new OrderItemAdded(this.Id, item, PartitionKey));
+        Apply(new OrderItemAdded(Id, item, PartitionKey));
     }
 
     public void RemoveItem(string name)
     {
         if (Items.Any(x => x.Name == name))
         {
-            Apply(new OrderItemRemoved(this.Id, name, PartitionKey));
+            Apply(new OrderItemRemoved(Id, name, PartitionKey));
         }
     }
 
@@ -43,7 +49,7 @@ public class Order : AggregateBase
     {
         Id = @event.Id;
         OrderName = @event.OrderName;
-        Items = @event.Items;
+        Items = new ReadOnlyCollection<OrderItem>(@event.Items);
         CreatedById = @event.CreatedById;
     }
 
@@ -52,7 +58,7 @@ public class Order : AggregateBase
         // build new list
         var items = new List<OrderItem>(Items) { @event.Item };
         // set to list with new item
-        Items = items;
+        Items = items.AsReadOnly();
     }
 
     public void On(OrderItemRemoved @event)
@@ -61,7 +67,7 @@ public class Order : AggregateBase
         var items = new List<OrderItem>();
         items.AddRange(Items.Where(x => x.Name != @event.Name));
         // set to list without item
-        Items = items;
+        Items = items.AsReadOnly();
     }
 
     #endregion
