@@ -104,13 +104,28 @@ COPY CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj /s
 #---------------------------------------------------------------------
 COPY /. /src
 
-# Start Sonar Scanner
-RUN if [ -n "$SONAR_TOKEN" ] ; then dotnet sonarscanner begin \
+ARG PULLREQUEST_TARGET_BRANCH
+ARG PULLREQUEST_BRANCH
+ARG PULLREQUEST_ID
+ARG BRANCH_NAME
+
+# Sonar scanner has two different modes - PR and regular with different set of options
+RUN if [ -n "$SONAR_TOKEN" ] && [ -n $PULLREQUEST_TARGET_BRANCH ] ; then dotnet sonarscanner begin \
   /k:"$SONAR_PROJECT_KEY" \
   /o:"$SONAR_OGRANIZAION_KEY" \
   /d:sonar.host.url="$SONAR_HOST_URL" \
   /d:sonar.login="$SONAR_TOKEN" \
-  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; fi
+  /d:sonar.pullrequest.base="$PULLREQUEST_TARGET_BRANCH" \
+  /d:sonar.pullrequest.branch="$PULLREQUEST_BRANCH" \
+  /d:sonar.pullrequest.key="$PULLREQUEST_ID" \
+  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; elif [ -n "$SONAR_TOKEN" ] then dotnet sonarscanner begin \
+  /k:"$SONAR_PROJECT_KEY" \
+  /o:"$SONAR_OGRANIZAION_KEY" \
+  /d:sonar.host.url="$SONAR_HOST_URL" \
+  /d:sonar.login="$SONAR_TOKEN" \
+  /d:sonar.login=sonar.branch.name="$BRANCH_NAME" \
+  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; fi  
+
 
 RUN service postgresql start && \
     dotnet test /src/Implementations/CloudFabric.EventSourcing.Tests.Postgresql/CloudFabric.EventSourcing.Tests.Postgresql.csproj --logger trx --results-directory /artifacts/tests --configuration Release --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura,lcov,teamcity,opencover
