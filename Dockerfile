@@ -125,7 +125,7 @@ RUN if [ -n "$SONAR_TOKEN" ] && [ -n $PULLREQUEST_TARGET_BRANCH ] ; then dotnet 
   /o:"$SONAR_OGRANIZAION_KEY" \
   /d:sonar.host.url="$SONAR_HOST_URL" \
   /d:sonar.login="$SONAR_TOKEN" \
-  /d:sonar.login=sonar.branch.name="$BRANCH_NAME" \
+  /d:sonar.branch.name="$BRANCH_NAME" \
   /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; fi  
 
 
