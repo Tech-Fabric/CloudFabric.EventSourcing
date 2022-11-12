@@ -109,6 +109,8 @@ ARG PULLREQUEST_BRANCH
 ARG PULLREQUEST_ID
 ARG BRANCH_NAME
 
+RUN echo "$PULLREQUEST_TARGET_BRANCH | $PULLREQUEST_BRANCH | $PULLREQUEST_ID | $BRANCH_NAME"
+
 # Sonar scanner has two different modes - PR and regular with different set of options
 RUN if [ -n "$SONAR_TOKEN" ] && [ -n $PULLREQUEST_TARGET_BRANCH ] ; then dotnet sonarscanner begin \
   /k:"$SONAR_PROJECT_KEY" \
