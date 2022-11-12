@@ -118,7 +118,7 @@ RUN if [ -n "$SONAR_TOKEN" ] && [ -n $PULLREQUEST_TARGET_BRANCH ] ; then dotnet 
   /d:sonar.pullrequest.base="$PULLREQUEST_TARGET_BRANCH" \
   /d:sonar.pullrequest.branch="$PULLREQUEST_BRANCH" \
   /d:sonar.pullrequest.key="$PULLREQUEST_ID" \
-  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; elif [ -n "$SONAR_TOKEN" ] then dotnet sonarscanner begin \
+  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; elif [ -n "$SONAR_TOKEN" ] ; then dotnet sonarscanner begin \
   /k:"$SONAR_PROJECT_KEY" \
   /o:"$SONAR_OGRANIZAION_KEY" \
   /d:sonar.host.url="$SONAR_HOST_URL" \
