@@ -388,7 +388,6 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         sb.AppendJoin(',', properties.Select(p => p.PropertyName));
         sb.Append(" FROM ");
         sb.Append(string.Join(", ", fromStatements));
-        sb.Append(" WHERE ");
 
         if (!string.IsNullOrEmpty(partitionKey))
         {
@@ -405,7 +404,11 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             queryChunk.Parameters.Add(param);
         }
 
-        sb.Append(queryChunk.WhereChunk);
+        if (!string.IsNullOrEmpty(queryChunk.WhereChunk))
+        {
+            sb.Append(" WHERE ");
+            sb.Append(queryChunk.WhereChunk);
+        }
 
         sb.Append(" GROUP BY id");
 
