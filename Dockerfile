@@ -109,10 +109,8 @@ ARG PULLREQUEST_BRANCH
 ARG PULLREQUEST_ID
 ARG BRANCH_NAME
 
-RUN echo "$PULLREQUEST_TARGET_BRANCH | $PULLREQUEST_BRANCH | $PULLREQUEST_ID | $BRANCH_NAME"
-
 # Sonar scanner has two different modes - PR and regular with different set of options
-RUN if [ -n "$SONAR_TOKEN" ] && [ -n $PULLREQUEST_TARGET_BRANCH ] ; then dotnet sonarscanner begin \
+RUN if [ -n "$SONAR_TOKEN" ] && [ -n "$PULLREQUEST_TARGET_BRANCH" ] ; then echo "Running sonarscanner in pull request mode: sonar.pullrequest.base=$PULLREQUEST_TARGET_BRANCH, sonar.pullrequest.branch=$PULLREQUEST_BRANCH, sonar.pullrequest.key=$PULLREQUEST_ID" && dotnet sonarscanner begin \
   /k:"$SONAR_PROJECT_KEY" \
   /o:"$SONAR_OGRANIZAION_KEY" \
   /d:sonar.host.url="$SONAR_HOST_URL" \
@@ -120,7 +118,7 @@ RUN if [ -n "$SONAR_TOKEN" ] && [ -n $PULLREQUEST_TARGET_BRANCH ] ; then dotnet 
   /d:sonar.pullrequest.base="$PULLREQUEST_TARGET_BRANCH" \
   /d:sonar.pullrequest.branch="$PULLREQUEST_BRANCH" \
   /d:sonar.pullrequest.key="$PULLREQUEST_ID" \
-  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; elif [ -n "$SONAR_TOKEN" ] ; then dotnet sonarscanner begin \
+  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; elif [ -n "$SONAR_TOKEN" ] ; then echo "Running sonarscanner in branch mode: sonar.branch.name=$BRANCH_NAME" && dotnet sonarscanner begin \
   /k:"$SONAR_PROJECT_KEY" \
   /o:"$SONAR_OGRANIZAION_KEY" \
   /d:sonar.host.url="$SONAR_HOST_URL" \
