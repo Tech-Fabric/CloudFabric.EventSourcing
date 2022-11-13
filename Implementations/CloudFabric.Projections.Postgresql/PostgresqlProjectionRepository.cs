@@ -1,12 +1,17 @@
-using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Npgsql;
-using Npgsql.PostgresTypes;
 
 namespace CloudFabric.Projections.Postgresql;
+
+public class QueryChunk
+{
+    public string WhereChunk { get; set; } = "";
+    public List<NpgsqlParameter> Parameters { get; init; } = new ();
+    public List<string> AdditionalFromSelects { get; init; } = new();
+}
 
 public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlProjectionRepository, IProjectionRepository<TProjectionDocument>
     where TProjectionDocument : ProjectionDocument
@@ -224,7 +229,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             }
             else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
-                throw new Exception(
+                throw new InvalidOperationException(
                     $"Something went terribly wrong and table for index \"{TableName}\" does not have one of the columns. Please delete that table and wait, it will be created automatically.",
                     ex
                 );
@@ -370,34 +375,44 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         
         var properties = _projectionDocumentSchema.Properties;
 
+        var queryChunk = ConstructConditionFilters(projectionQuery.Filters);
+        var fromStatements = new List<string>()
+        {
+            "\"" + TableName + "\""
+        };
+        
+        fromStatements.AddRange(queryChunk.AdditionalFromSelects);
+        
         var sb = new StringBuilder();
         sb.Append("SELECT ");
         sb.AppendJoin(',', properties.Select(p => p.PropertyName));
         sb.Append(" FROM ");
-        sb.Append("\"" + TableName + "\"");
+        sb.Append(string.Join(", ", fromStatements));
         sb.Append(" WHERE ");
-
-        var (whereClause, parameters) = ConstructConditionFilters(projectionQuery.Filters);
 
         if (!string.IsNullOrEmpty(partitionKey))
         {
-            whereClause += $" AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey";
-            parameters.Add(new("partitionKey", partitionKey));
+            queryChunk.WhereChunk += string.IsNullOrWhiteSpace(queryChunk.WhereChunk)
+                ? $" {nameof(ProjectionDocument.PartitionKey)} = @partitionKey"
+                : $" AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey";
+            queryChunk.Parameters.Add(new("partitionKey", partitionKey));
         }
 
         if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
             (string searchQuery, NpgsqlParameter param) = ConstructSearchQuery(projectionQuery.SearchText);
-            whereClause += (string.IsNullOrWhiteSpace(whereClause) ? $" {searchQuery}" : $" AND {searchQuery}");
-            parameters.Add(param);
+            queryChunk.WhereChunk += string.IsNullOrWhiteSpace(queryChunk.WhereChunk) ? $" {searchQuery}" : $" AND {searchQuery}";
+            queryChunk.Parameters.Add(param);
         }
 
-        sb.Append(whereClause);
+        sb.Append(queryChunk.WhereChunk);
+
+        sb.Append(" GROUP BY id");
 
         sb.Append(" LIMIT @limit");
-        parameters.Add(new NpgsqlParameter("limit", projectionQuery.Limit));
+        queryChunk.Parameters.Add(new NpgsqlParameter("limit", projectionQuery.Limit));
         sb.Append(" OFFSET @offset");
-        parameters.Add(new NpgsqlParameter("offset", projectionQuery.Offset));
+        queryChunk.Parameters.Add(new NpgsqlParameter("offset", projectionQuery.Offset));
 
         if (projectionQuery.OrderBy.Count > 0)
         {
@@ -409,7 +424,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         await conn.OpenAsync(cancellationToken);
 
         var cmd = new NpgsqlCommand(sb.ToString(), conn);
-        cmd.Parameters.AddRange(parameters.ToArray());
+        cmd.Parameters.AddRange(queryChunk.Parameters.ToArray());
 
         try
         {
@@ -468,19 +483,51 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                     ex
                 );
             }
+            else
+            {
+                throw;
+            }
         }
 
         return new List<Dictionary<string, object?>>();
     }
 
-    private static (string, NpgsqlParameter?) ConstructOneConditionFilter(Filter filter)
+    private QueryChunk ConstructOneConditionFilter(Filter filter)
     {
+        var queryChunk = new QueryChunk();
+        
         var filterOperator = "";
         var propertyName = filter.PropertyName;
+        var propertyParameterName = filter.PropertyName;
 
         if (string.IsNullOrEmpty(propertyName))
         {
-            return (string.Empty, null);
+            return queryChunk;
+        }
+
+        var nestedPath = propertyName.Split('.');
+        if (nestedPath.Length > 1)
+        {
+            // Nested array check.
+            // From query perspective both nested object and nested array item lookup look same: user.id = 1 or users.id = 1
+            // so we need to use schema definition to find out whether it's an array. Because for arrays the query will be completely different. 
+            var isArray = _projectionDocumentSchema.Properties
+                .FirstOrDefault(p => p.PropertyName == nestedPath.First())?.IsNestedArray;
+
+            if (isArray == true)
+            {
+                queryChunk.AdditionalFromSelects.Add(
+                    $"jsonb_array_elements({nestedPath.First()}) with ordinality " +
+                    $"{nestedPath.First()}_array({nestedPath.First()}_array_item, position)"
+                );
+                propertyName = $"{nestedPath.First()}_array.{nestedPath.First()}_array_item->>{string.Join("->>", nestedPath.Skip(1).Select(n => $"'{n}'"))}";
+            }
+            else
+            {
+                propertyName = $"{nestedPath.First()}->>{string.Join("->>", nestedPath.Skip(1).Select(n => $"'{n}'"))}";
+            }
+
+            propertyParameterName = string.Join("_", nestedPath);
         }
 
         switch (filter.Operator)
@@ -505,57 +552,85 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                 break;
         }
 
-        return ($"{propertyName} {filterOperator} @{propertyName}", new NpgsqlParameter(propertyName, filter.Value));
+        if (filter.Value is Guid)
+        {
+            propertyName = $"({propertyName})::uuid";
+        } 
+        else if (filter.Value is DateTime)
+        {
+            propertyName = $"({propertyName})::timestamp";
+        }
+        else if (filter.Value is int)
+        {
+            propertyName = $"({propertyName})::int";
+        }
+        else if (filter.Value is decimal)
+        {
+            propertyName = $"({propertyName})::decimal";
+        }
+        else if (filter.Value is float)
+        {
+            propertyName = $"({propertyName})::float";
+        }
+
+        queryChunk.WhereChunk = $"{propertyName} {filterOperator} @{propertyParameterName}";
+        queryChunk.Parameters.Add(new NpgsqlParameter(propertyParameterName, filter.Value));
+
+        return queryChunk;
     }
 
-    private (string, List<NpgsqlParameter>) ConstructConditionFilter(Filter filter)
+    private QueryChunk ConstructConditionFilter(Filter filter)
     {
-        var parameters = new List<NpgsqlParameter>();
+        var queryChunk = new QueryChunk();
 
-        var (q, param) = ConstructOneConditionFilter(filter);
+        var q = ConstructOneConditionFilter(filter);
 
-        if (param != null)
-        {
-            parameters.Add(param);
-        }
+        queryChunk.WhereChunk += q.WhereChunk;
+        queryChunk.Parameters.AddRange(q.Parameters);
+        queryChunk.AdditionalFromSelects.AddRange(q.AdditionalFromSelects);
 
         foreach (var f in filter.Filters)
         {
-            if (!string.IsNullOrEmpty(q))
+            if (!string.IsNullOrEmpty(q.WhereChunk))
             {
-                q += $" {f.Logic} ";
+                queryChunk.WhereChunk += $" {f.Logic} ";
             }
 
             var wrapWithParentheses = f.Filter.Filters.Count > 0;
 
             if (wrapWithParentheses)
             {
-                q += "(";
+                queryChunk.WhereChunk += "(";
             }
 
-            q += ConstructConditionFilter(f.Filter);
+            var innerFilterQueryChunk = ConstructConditionFilter(f.Filter);
+            queryChunk.WhereChunk += innerFilterQueryChunk.WhereChunk;
 
             if (wrapWithParentheses)
             {
-                q += ")";
+                queryChunk.WhereChunk += ")";
             }
         }
 
-        return (q, parameters);
+        return queryChunk;
     }
 
-    private (string, List<NpgsqlParameter>) ConstructConditionFilters(List<Filter> filters)
+    private QueryChunk ConstructConditionFilters(List<Filter> filters)
     {
-        var allParameters = new List<NpgsqlParameter>();
+        var queryChunk = new QueryChunk();
+        
         var whereClauses = new List<string>();
+        
         foreach (var f in filters)
         {
-            var (whereClause, parameters) = ConstructConditionFilter(f);
-            whereClauses.Add(whereClause);
-            allParameters.AddRange(parameters);
+            var filterQueryChunk = ConstructConditionFilter(f);
+            whereClauses.Add(filterQueryChunk.WhereChunk);
+            queryChunk.Parameters.AddRange(filterQueryChunk.Parameters);
+            queryChunk.AdditionalFromSelects.AddRange(filterQueryChunk.AdditionalFromSelects);
         }
 
-        return (string.Join(" AND ", whereClauses), allParameters);
+        queryChunk.WhereChunk = string.Join(" AND ", whereClauses);
+        return queryChunk;
     }
 
     private (string, NpgsqlParameter) ConstructSearchQuery(string searchText)
@@ -613,42 +688,6 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         if (property.IsNestedObject || property.IsNestedArray)
         {
-            //var nestedFields = new List<PostgresCompositeType.Field>();
-
-            //var isList = propertyType.GetTypeInfo().IsGenericType &&
-            //             propertyType.GetGenericTypeDefinition() == typeof(List<>);
-
-            //if (isList)
-            //{
-            //    propertyType = propertyType.GetGenericArguments()[0];
-            //}
-
-            //PropertyInfo[] nestedProps = propertyType.GetProperties();
-            //foreach (PropertyInfo nestedProp in nestedProps)
-            //{
-            //    object[] attrs = nestedProp.GetCustomAttributes(true);
-            //    foreach (object attr in attrs)
-            //    {
-            //        ProjectionDocumentPropertyAttribute nestedPropertyAttribute = attr as ProjectionDocumentPropertyAttribute;
-
-            //        if (propertyAttribute != null)
-            //        {
-            //            var nestedField = ConstructFieldCreateStatementForProperty(nestedProp, nestedPropertyAttribute);
-
-            //            nestedFields.Add(nestedField);
-            //        }
-            //    }
-            //}
-
-            //if (isList)
-            //{
-            //    field = new PostgresCompositeType.Field(fieldName, DataType.Collection(DataType.Complex), nestedFields);
-            //}
-            //else
-            //{
-            //    field = new PostgresCompositeType.Field(fieldName, DataType.Complex, nestedFields);
-            //}
-
             column = $"{property.PropertyName} jsonb";
         }
         else

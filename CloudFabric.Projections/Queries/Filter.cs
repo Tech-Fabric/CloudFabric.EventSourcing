@@ -177,6 +177,8 @@ public class Filter
                 PropertyInfo propertyInfo = (PropertyInfo)memberInfo;
                 var propertyValue = GetExpressionValue((expression as MemberExpression).Expression);
                 var fieldValue = propertyInfo.GetValue(propertyValue);
+                
+                // TODO@sergey: nested objects member access
                 return fieldValue;
             }
             else

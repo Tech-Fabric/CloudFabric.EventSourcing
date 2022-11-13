@@ -203,24 +203,30 @@ public abstract class OrderTests
 
         var addItem = new OrderItem(DateTime.UtcNow, "Twilight Struggle", 6.95m);
         order.AddItem(addItem);
+        order.AddItem(addItem);
+        order.AddItem(addItem);
+        order.AddItem(addItem);
 
         await orderRepository.SaveOrder(userInfo, order);
 
         await Task.Delay(ProjectionsUpdateDelay);
 
         items.Add(addItem);
+        items.Add(addItem);
+        items.Add(addItem);
+        items.Add(addItem);
+        
         var order2 = await orderRepository.LoadOrder(id, PartitionKeys.GetOrderPartitionKey());
         order2.Id.Should().Be(id);
         order2.OrderName.Should().Be(orderName);
         order2.Items.Should().BeEquivalentTo(items);
-        order2.Items.Count.Should().Be(4);
+        order2.Items.Count.Should().Be(7);
 
         var orderProjection2 = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjection2 != null, nameof(orderProjection2) + " != null");
 
         orderProjection2.Name.Should().Be(orderName);
-        orderProjection2.ItemsCount.Should().Be(4);
-        orderProjection2.Items.Count.Should().Be(4);
+        orderProjection2.ItemsCount.Should().Be(7);
         orderProjection2.CreatedBy.UserId.Should().Be(userId);
 
         var orderProjectionFromQuery =
@@ -613,7 +619,7 @@ public abstract class OrderTests
         {
             PropertyName = "Items.Amount",
             Operator = FilterOperator.GreaterOrEqual,
-            Value = 5
+            Value = 5m
         };
 
         orders = await ordersListProjectionsRepository.Query(query);
