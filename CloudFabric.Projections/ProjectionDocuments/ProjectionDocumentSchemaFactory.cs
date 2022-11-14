@@ -3,7 +3,7 @@ using CloudFabric.Projections.Attributes;
 
 namespace CloudFabric.Projections;
 
-public class ProjectionDocumentSchemaFactory
+public static class ProjectionDocumentSchemaFactory
 {
     public static ProjectionDocumentSchema FromTypeWithAttributes<T>()
     {

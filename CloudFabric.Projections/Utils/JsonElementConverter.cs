@@ -20,6 +20,15 @@ public static class JsonToObjectConverter
             {
                 if (propertySchema.ArrayElementType == TypeCode.Object)
                 {
+                    if (propertySchema.NestedObjectProperties.Count == 0)
+                    {
+                        throw new Exception(
+                            $"Invalid nested object configuration for projection property {propertySchema.PropertyName}." +
+                            $"It appears that the property marked with IsNestedArray has array items class " +
+                            $"not decorated with [ProjectionDocumentProperty] attribute."
+                        );
+                    }
+                    
                     var dictObject = arrayItem.Deserialize<Dictionary<string, JsonElement>>();
                     var resultObject = new Dictionary<string, object?>();
 
