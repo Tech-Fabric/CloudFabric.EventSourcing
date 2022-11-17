@@ -638,6 +638,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
     private (string, NpgsqlParameter) ConstructSearchQuery(string searchText)
     {
+        // TODO: add search inside nexted jsonb columns
         var searchableProperties = _projectionDocumentSchema.Properties.Where(x => x.IsSearchable);
 
         List<string> query = new List<string>();

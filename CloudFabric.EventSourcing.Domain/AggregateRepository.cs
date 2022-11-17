@@ -21,12 +21,26 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
 
         var eventStream = await _eventStore.LoadStreamAsync(id, partitionKey);
 
-        if (eventStream.Events.Any())
+        if (!eventStream.Events.Any()) return null;
+        
+        var firstEvent = eventStream.Events.First();
+            
+        // Support for derived types. The construction of generic T here will not work if 
+        // our aggregate is one of many derived types of T. 
+        // Hence we are storing exact aggregate type in each event to be able to construct 
+        // exact derived type.
+        if (!string.IsNullOrEmpty(firstEvent.AggregateType))
         {
-            return (T?)Activator.CreateInstance(typeof(T), new object[] { eventStream.Events });
-        }
+            var type = Type.GetType(firstEvent.AggregateType);
 
-        return null;
+            if (type != null)
+            {
+                return (T?)Activator.CreateInstance(type, new object[] { eventStream.Events });
+            }
+        }
+            
+        return (T?)Activator.CreateInstance(typeof(T), new object[] { eventStream.Events });
+
     }
 
     public async Task<T> LoadAsyncOrThrowNotFound(Guid id, string partitionKey, CancellationToken cancellationToken = default)
@@ -46,6 +60,11 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         if (aggregate.UncommittedEvents.Any())
         {
             var streamId = aggregate.Id;
+
+            foreach (var e in aggregate.UncommittedEvents)
+            {
+                e.AggregateType = aggregate.GetType().AssemblyQualifiedName ?? "";
+            }
 
             var eventsSavedSuccessfully = await _eventStore.AppendToStreamAsync(
                 eventUserInfo,
