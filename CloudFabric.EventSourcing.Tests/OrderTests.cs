@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using CloudFabric.EventSourcing.Tests.Domain;
@@ -45,7 +46,7 @@ public abstract class OrderTests
     [TestMethod]
     public async Task TestPlaceOrder()
     {
-        var orderRepository = new OrderRepository(await GetEventStore());
+        var orderRepository = new AggregateRepository<Order>(await GetEventStore());
 
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
@@ -71,12 +72,23 @@ public abstract class OrderTests
         };
         var order = new Order(id, orderName, items, userId, "john@gmail.com");
 
-        await orderRepository.SaveOrder(userInfo, order);
-        var order2 = await orderRepository.LoadOrder(id, PartitionKeys.GetOrderPartitionKey());
+        await orderRepository.SaveAsync(userInfo, order);
+        var order2 = await orderRepository.LoadAsync(id, PartitionKeys.GetOrderPartitionKey());
         order2.Id.Should().Be(id);
         order2.OrderName.Should().Be(orderName);
         order2.Items.Should().BeEquivalentTo(items);
         order2.Items.Count.Should().Be(3);
+    }
+    
+    
+    [TestMethod]
+    public async Task TestOrderNotFound()
+    {
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        var act = async () => await orderRepository.LoadOrder(Guid.Empty, PartitionKeys.GetOrderPartitionKey());
+
+        await act.Should().ThrowAsync<EventStore.NotFoundException>();
     }
 
     [TestMethod]

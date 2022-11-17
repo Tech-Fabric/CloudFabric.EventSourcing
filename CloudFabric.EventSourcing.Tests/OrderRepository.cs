@@ -36,6 +36,11 @@ public class OrderRepository : IOrderRepository
         {
             var streamId = aggregate.Id;
 
+            foreach (var e in aggregate.UncommittedEvents)
+            {
+                e.AggregateType = aggregate.GetType().AssemblyQualifiedName ?? "";
+            }
+            
             var savedEvents = await _eventStore.AppendToStreamAsync(eventUserInfo,
                 streamId,
                 aggregate.Version,
