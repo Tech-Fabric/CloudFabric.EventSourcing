@@ -477,6 +477,96 @@ public abstract class OrderTests
 
         await projectionsEngine.StopAsync();
     }
+    
+    
+    [TestMethod]
+    public async Task TestProjectionsQueryFilterStringMatching()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
+        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
+
+        // Projections engine - takes events from events observer and passes them to multiple projection builders
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
+        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
+
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
+        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
+
+        string instanceName = "ProjectionsQueryInstance";
+
+        await projectionsEngine.StartAsync(instanceName);
+
+
+        var userId = Guid.NewGuid();
+        var userInfo = new EventUserInfo(userId);
+        var items = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            )
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "Qwerty123 order", items, userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, firstOrder);
+
+        // second order will contain only one item
+        var secondOrder = new Order(Guid.NewGuid(), "Order Qwerty123", items.GetRange(0, 1), userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, secondOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        var queryStartsWith = new ProjectionQuery
+        {
+            Filters = new List<Filter>()
+            {
+                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("Qwerty123"))
+            }
+        };
+
+        // query by name
+        var ordersStartingWith = await ordersListProjectionsRepository.Query(queryStartsWith);
+        ordersStartingWith.Count.Should().Be(1);
+        
+        var queryEndsWith = new ProjectionQuery
+        {
+            Filters = new List<Filter>()
+            {
+                Filter.Where<OrderListProjectionItem>(f => f.Name.EndsWith("Qwerty123"))
+            }
+        };
+        
+        var ordersEndingWith = await ordersListProjectionsRepository.Query(queryEndsWith);
+        ordersEndingWith.Count.Should().Be(1);
+        
+        var queryContaining = new ProjectionQuery
+        {
+            Filters = new List<Filter>()
+            {
+                Filter.Where<OrderListProjectionItem>(f => f.Name.Contains("Qwerty123"))
+            }
+        };
+        
+        var ordersContaining = await ordersListProjectionsRepository.Query(queryContaining);
+        ordersContaining.Count.Should().Be(2);
+        
+        await projectionsEngine.StopAsync();
+    }
 
     [TestMethod]
     public virtual async Task TestProjectionsNestedObjectsQuery()
