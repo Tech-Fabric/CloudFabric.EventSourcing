@@ -47,7 +47,7 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
+    public new async Task<List<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
@@ -238,7 +238,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
+    public async Task<List<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -262,7 +262,8 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                 return request;
             });
 
-            return result.Documents;
+            return result.Documents.Select(x => DeserializeDictionary(x))
+                .ToList();
         }
         catch (Exception ex)
         {
