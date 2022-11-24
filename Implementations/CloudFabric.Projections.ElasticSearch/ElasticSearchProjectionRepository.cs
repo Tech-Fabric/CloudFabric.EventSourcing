@@ -262,7 +262,8 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                 return request;
             });
 
-            return result.Documents;
+            return result.Documents.Select(x => DeserializeDictionary(x))
+                .ToList();
         }
         catch (Exception ex)
         {
