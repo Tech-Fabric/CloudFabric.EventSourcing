@@ -553,6 +553,11 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             case FilterOperator.NotEqual:
                 filterOperator = "!=";
                 break;
+            case FilterOperator.StartsWith:
+            case FilterOperator.EndsWith:
+            case FilterOperator.Contains:
+                filterOperator = "LIKE";
+                break;
         }
 
         if (filter.Value is Guid)
@@ -575,8 +580,25 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         {
             propertyName = $"({propertyName})::float";
         }
+        
+        queryChunk.WhereChunk = $"{propertyName} {filterOperator} ";
 
-        queryChunk.WhereChunk = $"{propertyName} {filterOperator} @{propertyParameterName}";
+        switch (filter.Operator)
+        {
+            case FilterOperator.StartsWith:
+                queryChunk.WhereChunk += $"@{propertyParameterName} || '%'";
+                break;
+            case FilterOperator.EndsWith:
+                queryChunk.WhereChunk += $"'%' || @{propertyParameterName}";
+                break;
+            case FilterOperator.Contains:
+                queryChunk.WhereChunk += $"'%' || @{propertyParameterName} || '%'";
+                break;
+            default:
+                queryChunk.WhereChunk += $"@{propertyParameterName}";
+                break;
+        }
+
         queryChunk.Parameters.Add(new NpgsqlParameter(propertyParameterName, filter.Value));
 
         return queryChunk;

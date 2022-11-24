@@ -131,8 +131,22 @@ public static class ElasticSearchFilterFactory
         }
 
         var filterOperator = "";
+        var filterValue = filter.Value.ToString();
+
         switch (filter.Operator)
         {
+            case FilterOperator.Contains:
+                filterOperator = ":";
+                filterValue = $"*{filterValue}*";
+                break;
+            case FilterOperator.StartsWith:
+                filterOperator = ":";
+                filterValue = $"{filterValue}*";
+                break;
+            case FilterOperator.EndsWith:
+                filterOperator = ":";
+                filterValue = $"*{filterValue}";
+                break;
             case FilterOperator.NotEqual:
             case FilterOperator.Equal:
                 filterOperator = ":";
@@ -151,7 +165,7 @@ public static class ElasticSearchFilterFactory
                 break;
         }
 
-        var filterValue = filter.Value.ToString();
+        
 
         var condition = $"{filter.PropertyName}{filterOperator}{filterValue}";
         if (filter.Value == null)

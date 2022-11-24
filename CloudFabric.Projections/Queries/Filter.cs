@@ -69,6 +69,15 @@ public class Filter
         return (Expression<Func<TParameter, bool>>)Expression.Lambda(expression, expressionParameter);
     }
 
+    # region Reflection methods cache
+    private static readonly MethodInfo StringStartsWith = typeof(string).GetMethods()
+        .First(m => m.Name == "StartsWith" && m.GetParameters().Length == 1);
+    private static readonly MethodInfo StringEndsWith = typeof(string).GetMethods()
+        .First(m => m.Name == "EndsWith" && m.GetParameters().Length == 1);
+    private static readonly MethodInfo StringContains = typeof(string).GetMethods()
+        .First(m => m.Name == "Contains" && m.GetParameters().Length == 1);
+    #endregion
+    
     public (Expression, ParameterExpression) ToExpression<TParameter>(ParameterExpression? parameter = null)
     {
         if (string.IsNullOrEmpty(PropertyName))
@@ -96,21 +105,19 @@ public class Filter
         }
 
         var value = Expression.Constant(Value);
-
-        var thisExpression = Operator switch
+        var operand = Expression.Convert(property, Value.GetType());
+        
+        Expression thisExpression = Operator switch
         {
-            FilterOperator.Equal => Expression.Equal(Expression.Convert(property, Value.GetType()), value),
-            FilterOperator.NotEqual => Expression.NotEqual(Expression.Convert(property, Value.GetType()), value),
-            FilterOperator.Greater => Expression.GreaterThan(Expression.Convert(property, Value.GetType()), value),
-            FilterOperator.GreaterOrEqual => Expression.GreaterThanOrEqual(
-                Expression.Convert(property, Value.GetType()),
-                value
-            ),
-            FilterOperator.Lower => Expression.LessThan(Expression.Convert(property, Value.GetType()), value),
-            FilterOperator.LowerOrEqual => Expression.LessThanOrEqual(
-                Expression.Convert(property, Value.GetType()),
-                value
-            ),
+            FilterOperator.Equal => Expression.Equal(operand, value),
+            FilterOperator.NotEqual => Expression.NotEqual(operand, value),
+            FilterOperator.Greater => Expression.GreaterThan(operand, value),
+            FilterOperator.GreaterOrEqual => Expression.GreaterThanOrEqual(operand, value),
+            FilterOperator.Lower => Expression.LessThan(operand, value),
+            FilterOperator.LowerOrEqual => Expression.LessThanOrEqual(operand, value),
+            FilterOperator.StartsWith => Expression.Call(operand, StringStartsWith, value),
+            FilterOperator.EndsWith => Expression.Call(operand, StringEndsWith, value),
+            FilterOperator.Contains => Expression.Call(operand, StringContains, value),
             _ => throw new Exception(
                 $"Cannot create an expression. Filter's operator is either incorrect or not supported: {Operator}"
             )
@@ -272,6 +279,41 @@ public class Filter
                 var rightOr = ConstructFilterFromExpression((expression as BinaryExpression).Right);
 
                 return leftOr.Or(rightOr);
+            case ExpressionType.Call:
+                var e = expression as MethodCallExpression;
+                var property = (string)GetExpressionValue(e.Object);
+                
+                if (e.Method.Name == "StartsWith" && e.Method.DeclaringType == typeof(string))
+                {
+                    return new Filter()
+                    {
+                        Operator = FilterOperator.StartsWith,
+                        PropertyName = property,
+                        Value = GetExpressionValue(e.Arguments.First())
+                    };
+                }
+                else if (e.Method.Name == "EndsWith" && e.Method.DeclaringType == typeof(string))
+                {
+                    return new Filter()
+                    {
+                        Operator = FilterOperator.EndsWith,
+                        PropertyName = property,
+                        Value = GetExpressionValue(e.Arguments.First())
+                    };
+                }
+                else if (e.Method.Name == "Contains" && e.Method.DeclaringType == typeof(string))
+                {
+                    return new Filter()
+                    {
+                        Operator = FilterOperator.Contains,
+                        PropertyName = property,
+                        Value = GetExpressionValue(e.Arguments.First())
+                    };
+                }
+                else
+                {
+                    throw new Exception($"Unsupported method call in expression: {e.Method.Name}");
+                }
             default:
                 throw new Exception($"Unsupported expression type: {expression.NodeType}");
         }

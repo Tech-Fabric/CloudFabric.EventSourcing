@@ -8,4 +8,7 @@ public static class FilterOperator
     public const string GreaterOrEqual = "ge";
     public const string Lower = "lt";
     public const string LowerOrEqual = "le";
+    public const string StartsWith = "string-starts-with";
+    public const string EndsWith = "string-ends-with";
+    public const string Contains = "string-contains";
 }
