@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Linq;
 using System.Security.AccessControl;
 using System.Text.Json;
@@ -284,27 +285,62 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         {
             var propertySchema = _projectionDocumentSchema.Properties.FirstOrDefault(p => p.PropertyName == kv.Key);
 
-            if (propertySchema == null)
+            if (propertySchema != null)
             {
-                continue;
-            }
-
-            if (kv.Value is JsonElement valueAsJsonElement)
-            {
-                newDictionary[kv.Key] = JsonToObjectConverter.Convert(valueAsJsonElement, propertySchema);
-            }
-            else if (propertySchema.PropertyType == TypeCode.Object && kv.Value is string)
-            {
-                newDictionary[kv.Key] = Guid.Parse(kv.Value as string);
-            }
-            // ES Nest returns int as long for some reason
-            else if (propertySchema.PropertyType == TypeCode.Int32)
-            {
-                newDictionary[kv.Key] = Convert.ToInt32(kv.Value);
+                newDictionary[kv.Key] = DeserializeDictionaryItem(kv.Value, propertySchema);
             }
         }
 
         return newDictionary;
+    }
+
+    private object? DeserializeDictionaryItem(object? item, ProjectionDocumentPropertySchema propertySchema)
+    {
+        if (item is JsonElement valueAsJsonElement)
+        {
+            return JsonToObjectConverter.Convert(valueAsJsonElement, propertySchema);
+        }
+        else if (propertySchema.PropertyType == TypeCode.Object && item is string)
+        {
+            return Guid.Parse(item as string);
+        }
+        // ES Nest returns int as long for some reason
+        else if (propertySchema.PropertyType == TypeCode.Int32)
+        {
+            return Convert.ToInt32(item);
+        }
+        else if (propertySchema.IsNestedObject)
+        {
+            var nestedObject = item as Dictionary<string, object?>;
+            foreach (var nestedProperty in nestedObject)
+            {
+                var nestedPropertySchema = propertySchema.NestedObjectProperties.First(x => x.PropertyName == nestedProperty.Key);
+                nestedObject[nestedProperty.Key] = DeserializeDictionaryItem(nestedProperty.Value, nestedPropertySchema);
+            }
+
+            return nestedObject;
+        }
+        else if (propertySchema.IsNestedArray && propertySchema.ArrayElementType == TypeCode.Object)
+        {
+            IList<object?> resultList = new List<object?>();
+            foreach (var listItem in (item as IList))
+            {
+                var listItemDictionary = listItem as Dictionary<string, object?>;
+                foreach (var listItemProperty in listItemDictionary)
+                {
+                    listItemDictionary[listItemProperty.Key] = DeserializeDictionaryItem(
+                        listItemProperty.Value, 
+                        propertySchema.NestedObjectProperties.First(x => x.PropertyName == listItemProperty.Key)
+                    );
+                } 
+                
+                resultList.Add(listItemDictionary);
+            }
+
+            return resultList;
+        }
+
+        return item;
     }
 
     private QueryContainer ConstructSearchQuery<T>(QueryContainerDescriptor<T> searchDescriptor, ProjectionQuery projectionQuery) where T : class
