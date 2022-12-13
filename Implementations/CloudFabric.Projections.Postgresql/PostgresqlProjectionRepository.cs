@@ -431,8 +431,9 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         if (projectionQuery.OrderBy.Count > 0)
         {
+            // NOTE: nested sorting is not implemented
             sb.Append(" ORDER BY ");
-            sb.AppendJoin(',', projectionQuery.OrderBy.Select(kv => $"{kv.Key} {kv.Value}"));
+            sb.AppendJoin(',', projectionQuery.OrderBy.Select(kv => $"{kv.KeyPath} {kv.Order}"));
         }
 
         await using var conn = new NpgsqlConnection(_connectionString);

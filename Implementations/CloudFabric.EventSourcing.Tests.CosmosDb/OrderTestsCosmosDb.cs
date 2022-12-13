@@ -209,4 +209,10 @@ public class OrderTestsCosmosDb : OrderTests
     {
         return;
     }
+    
+    [Ignore]
+    public override async Task TestProjectionsNestedObjectsSorting()
+    {
+        return;
+    }
 }

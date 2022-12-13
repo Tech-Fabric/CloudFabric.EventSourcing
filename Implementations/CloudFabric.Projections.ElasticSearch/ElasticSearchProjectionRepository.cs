@@ -8,6 +8,7 @@ using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Microsoft.Extensions.Logging;
 using Nest;
+using SortOrder = Nest.SortOrder;
 
 namespace CloudFabric.Projections.ElasticSearch;
 
@@ -398,12 +399,70 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     {
         foreach (var orderBy in projectionQuery.OrderBy)
         {
+            var keyPaths = orderBy.KeyPath.Split('.');
+            SortOrder sortOrder = orderBy.Order.ToLower() == "asc" ? Nest.SortOrder.Ascending : Nest.SortOrder.Descending;
+            
             sortDescriptor = sortDescriptor.Field(
-                new Nest.Field(orderBy.Key),
-                orderBy.Value.ToLower() == "asc" ? Nest.SortOrder.Ascending : Nest.SortOrder.Descending
+                field =>
+                {
+                    var descriptor = field
+                        .Field(new Nest.Field(orderBy.KeyPath))
+                        .Order(sortOrder);
+
+                    // add sorting statement for each nested level
+                    for (var pathElementsNumber = 1; pathElementsNumber < keyPaths.Length; pathElementsNumber++)
+                    {
+                        descriptor = descriptor
+                            .Nested(nested =>
+                            {
+                                string nestedPath = string.Join('.', keyPaths.Take(pathElementsNumber));
+                                
+                                var nestedDescriptor = nested.Path(nestedPath);
+
+                                // check property filters (for example if we sort by an array element, we need to filter it)
+                                if (orderBy.Filters.Any())
+                                {
+                                    // take parent path for current nested level
+                                    string parentObjectPath = nestedPath.Contains(".")
+                                        ? nestedPath.Substring(0, nestedPath.LastIndexOf('.'))
+                                        : nestedPath;
+                                    
+                                    // find a filter with the same parent path
+                                    // which means to filter by a property of the same object
+                                    var filter = orderBy.Filters.FirstOrDefault(
+                                        x =>
+                                        {
+                                            string filterParentPath = x.FilterKeyPath.Contains(".")
+                                                ? x.FilterKeyPath.Substring(0, x.FilterKeyPath.LastIndexOf('.'))
+                                                : x.FilterKeyPath;
+                                                
+                                            return filterParentPath == parentObjectPath;
+                                        }
+                                    );
+
+                                    if (filter != null)
+                                    {
+                                        nestedDescriptor.Filter(
+                                            f => f
+                                                .Term(
+                                                    term => term
+                                                        .Field(filter.FilterKeyPath)
+                                                        .Value(filter.FilterValue)
+                                                )
+                                        );
+                                    }
+                                }
+
+                                return nestedDescriptor;
+                            });
+                    }
+
+                    return descriptor;
+                }
             );
         }
 
         return sortDescriptor;
     }
+    // }
 }

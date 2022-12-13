@@ -293,8 +293,9 @@ public class CosmosDbProjectionRepository : IProjectionRepository
 
         if (projectionQuery.OrderBy.Count > 0)
         {
+            // NOTE: nested sorting is not implemented
             sb.Append(" ORDER BY ");
-            sb.AppendJoin(',', projectionQuery.OrderBy.Select(kv => $"{kv.Key} {kv.Value}"));
+            sb.AppendJoin(',', projectionQuery.OrderBy.Select(kv => $"{kv.KeyPath} {kv.Order}"));
         }
 
         var queryDefinition = new QueryDefinition(sb.ToString());
