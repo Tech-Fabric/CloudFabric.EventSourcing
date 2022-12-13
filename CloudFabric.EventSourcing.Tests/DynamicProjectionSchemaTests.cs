@@ -192,8 +192,9 @@ public abstract class DynamicProjectionSchemaTests
             await ordersListProjectionsRepository.Query(
                 ProjectionQuery.Where<OrderListProjectionItem>(d => d.Name == orderName)
             );
-        orderProjectionFromQuery.Count.Should().Be(1);
-        orderProjectionFromQuery.First()["Name"].Should().Be(orderName);
+        orderProjectionFromQuery.TotalCount.Should().Be(1);
+        orderProjectionFromQuery.Records.Count.Should().Be(1);
+        orderProjectionFromQuery.Records.First()["Name"].Should().Be(orderName);
 
         await projectionsEngine.StopAsync();
     }

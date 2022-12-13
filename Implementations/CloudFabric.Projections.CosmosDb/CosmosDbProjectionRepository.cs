@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using CloudFabric.Projections.Models;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Microsoft.Azure.Cosmos;
@@ -58,7 +59,7 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(
+    public new async Task<PagedList<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -68,14 +69,20 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
 
         var records = new List<TProjectionDocument>();
 
-        foreach (var dict in recordsDictionary)
+        foreach (var dict in recordsDictionary.Records)
         {
             records.Add(
                 ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
             );
         }
 
-        return records;
+        return new PagedList<TProjectionDocument>
+        {
+            Limit = recordsDictionary.Limit,
+            Offset = recordsDictionary.Offset,
+            TotalCount = recordsDictionary.TotalCount,
+            Records = records
+        };
     }
 }
 
@@ -248,7 +255,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
+    public async Task<PagedList<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -265,15 +272,20 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         sb.Append(" WHERE ");
 
         var (whereClause, parameters) = ConstructConditionFilters(projectionQuery.Filters);
-        sb.Append(whereClause);
-
+        
         if (!string.IsNullOrWhiteSpace(projectionQuery.SearchText) && projectionQuery.SearchText != "*")
         {
             (string searchQuery, CosmosDbSqlParameter param) = ConstructSearchQuery(projectionQuery.SearchText);
-            sb.Append(string.IsNullOrWhiteSpace(whereClause) ? $" {searchQuery}" : $" AND {searchQuery}");
+            whereClause = string.IsNullOrWhiteSpace(whereClause) ? $" {searchQuery}" : $"{whereClause} AND {searchQuery}";
             parameters.Add(param);
         }
 
+        // total count query and params
+        string totalCountQuery = $"SELECT COUNT(1) FROM {_containerId} t WHERE {whereClause}";
+        CosmosDbSqlParameter[] totalCountParams = new CosmosDbSqlParameter[parameters.Count];
+        parameters.CopyTo(totalCountParams);
+
+        sb.Append(whereClause);
         sb.Append(" OFFSET @offset");
         parameters.Add(new CosmosDbSqlParameter("offset", projectionQuery.Offset));
         sb.Append(" LIMIT @limit");
@@ -309,8 +321,25 @@ public class CosmosDbProjectionRepository : IProjectionRepository
                 var batchResults = await ExecuteWithRetries(c => iterator.ReadNextAsync(c), cancellationToken);
                 results.AddRange(batchResults.Select(DeserializeDictionary));
             }
+            
+            // get total count
+            queryDefinition = new QueryDefinition(totalCountQuery);
 
-            return results;
+            foreach (var param in totalCountParams)
+            {
+                queryDefinition = queryDefinition.WithParameter($"@{param.Name}", param.Value);
+            }
+            
+            FeedIterator<int> totalCountIterator = container.GetItemQueryIterator<int>(queryDefinition, null, requestOptions);
+            var totalCountResponse = await totalCountIterator.ReadNextAsync();
+
+            return new PagedList<Dictionary<string, object?>>
+            {
+                Limit = projectionQuery.Limit,
+                Offset = projectionQuery.Offset,
+                TotalCount = totalCountResponse.Resource.FirstOrDefault(),
+                Records = results
+            };
         }
         catch (Exception ex)
         {

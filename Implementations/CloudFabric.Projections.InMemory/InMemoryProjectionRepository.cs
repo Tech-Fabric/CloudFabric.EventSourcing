@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using CloudFabric.Projections.Models;
 using CloudFabric.Projections.Queries;
 
 namespace CloudFabric.Projections.InMemory;
@@ -30,24 +31,30 @@ public class InMemoryProjectionRepository<TProjectionDocument>
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(
+    public new async Task<PagedList<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
-        var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
+        PagedList<Dictionary<string, object?>> recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
         var records = new List<TProjectionDocument>();
 
-        foreach (var dict in recordsDictionary)
+        foreach (var dict in recordsDictionary.Records)
         {
             records.Add(
                 ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
             );
         }
 
-        return records;
+        return new PagedList<TProjectionDocument>
+        {
+            Limit = recordsDictionary.Limit,
+            Offset = recordsDictionary.Offset,
+            TotalCount = recordsDictionary.TotalCount,
+            Records = records
+        };
     }
 }
 
@@ -66,7 +73,7 @@ public class InMemoryProjectionRepository : IProjectionRepository
         return Task.FromResult(_storage.GetValueOrDefault((id, partitionKey)) ?? null);
     }
 
-    public Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
+    public Task<PagedList<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default)
@@ -99,7 +106,20 @@ public class InMemoryProjectionRepository : IProjectionRepository
             );
         }
 
-        return Task.FromResult((IReadOnlyCollection<Dictionary<string, object?>>)result.ToList().AsReadOnly());
+        var totalCount = result.Count();
+
+        result = result.Skip(projectionQuery.Offset)
+            .Take(projectionQuery.Limit);
+
+        return Task.FromResult(
+            new PagedList<Dictionary<string, object?>>
+            {
+                Limit = projectionQuery.Limit,
+                Offset = projectionQuery.Offset,
+                TotalCount = totalCount,
+                Records = result.ToList()
+            }
+        );
     }
 
     public Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)

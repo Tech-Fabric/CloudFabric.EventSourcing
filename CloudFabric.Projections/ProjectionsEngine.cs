@@ -77,6 +77,7 @@ public class ProjectionsEngine : IProjectionsEngine
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName),
             partitionKey: partitionKey
         ))
+        .Records
         .LastOrDefault();
 
         return rebuildState;
@@ -102,6 +103,7 @@ public class ProjectionsEngine : IProjectionsEngine
         var rebuildState = (await _projectionsStateRepository.Query(
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
         ))
+        .Records
         .FirstOrDefault();
         
         if (rebuildState == null)
@@ -123,6 +125,7 @@ public class ProjectionsEngine : IProjectionsEngine
         var rebuildState = (await _projectionsStateRepository.Query(
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
         ))
+        .Records
         .FirstOrDefault();
         
         if (rebuildState == null)

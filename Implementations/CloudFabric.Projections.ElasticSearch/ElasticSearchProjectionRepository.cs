@@ -3,6 +3,7 @@ using System.Linq;
 using System.Security.AccessControl;
 using System.Text.Json;
 using CloudFabric.Projections.ElasticSearch.Helpers;
+using CloudFabric.Projections.Models;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Microsoft.Extensions.Logging;
@@ -48,20 +49,26 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
+    public new async Task<PagedList<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
         var records = new List<TProjectionDocument>();
 
-        foreach (var dict in recordsDictionary)
+        foreach (var dict in recordsDictionary.Records)
         {
             records.Add(
                 ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
             );
         }
 
-        return records;
+        return new PagedList<TProjectionDocument>
+        {
+            Limit = recordsDictionary.Limit,
+            Offset = recordsDictionary.Offset,
+            TotalCount = recordsDictionary.TotalCount,
+            Records = records
+        };
     }
 }
 
@@ -239,7 +246,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
+    public async Task<PagedList<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -247,24 +254,31 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     {
         try
         {
-            var result = await _client.SearchAsync<Dictionary<string, object?>>(request =>
-            {
-                request = request.TrackTotalHits();
-                request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
-                request = request.Sort(s => ConstructSort(s, projectionQuery));
-                request = request.Skip(projectionQuery.Offset);
-                request = request.Take(projectionQuery.Limit);
-
-                if (!string.IsNullOrEmpty(partitionKey))
+            var result = await _client.SearchAsync<Dictionary<string, object?>>(
+                request =>
                 {
-                    request = request.Routing(partitionKey);
+                    request = request.TrackTotalHits();
+                    request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
+                    request = request.Sort(s => ConstructSort(s, projectionQuery));
+                    request = request.Skip(projectionQuery.Offset);
+                    request = request.Take(projectionQuery.Limit);
+
+                    if (!string.IsNullOrEmpty(partitionKey))
+                    {
+                        request = request.Routing(partitionKey);
+                    }
+
+                    return request;
                 }
+            );
 
-                return request;
-            });
-
-            return result.Documents.Select(x => DeserializeDictionary(x))
-                .ToList();
+            return new PagedList<Dictionary<string, object?>>
+            {
+                Limit = projectionQuery.Limit,
+                Offset = projectionQuery.Offset,
+                TotalCount = (int)result.Total,
+                Records = result.Documents.Select(x => DeserializeDictionary(x)).ToList()
+            };
         }
         catch (Exception ex)
         {

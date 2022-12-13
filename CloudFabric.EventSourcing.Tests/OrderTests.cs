@@ -245,8 +245,9 @@ public abstract class OrderTests
             await ordersListProjectionsRepository.Query(
                 ProjectionQuery.Where<OrderListProjectionItem>(d => d.Name == orderName)
             );
-        orderProjectionFromQuery.Count.Should().Be(1);
-        orderProjectionFromQuery.First().Name.Should().Be(orderName);
+        orderProjectionFromQuery.TotalCount.Should().Be(1);
+        orderProjectionFromQuery.Records.Count.Should().Be(1);
+        orderProjectionFromQuery.Records.First().Name.Should().Be(orderName);
 
         await projectionsEngine.StopAsync();
     }
@@ -457,28 +458,32 @@ public abstract class OrderTests
 
         var query = new ProjectionQuery
         {
-            SearchText = "ORDER"
+            SearchText = "ORDER",
+            Limit = 1
         };
 
         // query by name
         var orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(2);
+        orders.TotalCount.Should().Be(2);
+        orders.Records.Count.Should().Be(1);
 
         query.SearchText = "queryable";
+        query.Limit = 50;
 
         orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
+        orders.TotalCount.Should().Be(1);
+        orders.Records.Count.Should().Be(1);
 
         // add filter by count
         orders = await ordersListProjectionsRepository.Query(
             ProjectionQuery.Where<OrderListProjectionItem>(x => x.ItemsCount > 1)
         );
-        orders.Count.Should().Be(1);
+        orders.TotalCount.Should().Be(1);
+        orders.Records.Count.Should().Be(1);
 
         await projectionsEngine.StopAsync();
     }
-    
-    
+
     [TestMethod]
     public async Task TestProjectionsQueryFilterStringMatching()
     {
@@ -541,7 +546,7 @@ public abstract class OrderTests
 
         // query by name
         var ordersStartingWith = await ordersListProjectionsRepository.Query(queryStartsWith);
-        ordersStartingWith.Count.Should().Be(1);
+        ordersStartingWith.Records.Count.Should().Be(1);
         
         var queryEndsWith = new ProjectionQuery
         {
@@ -552,7 +557,7 @@ public abstract class OrderTests
         };
         
         var ordersEndingWith = await ordersListProjectionsRepository.Query(queryEndsWith);
-        ordersEndingWith.Count.Should().Be(1);
+        ordersEndingWith.Records.Count.Should().Be(1);
         
         var queryContaining = new ProjectionQuery
         {
@@ -563,7 +568,7 @@ public abstract class OrderTests
         };
         
         var ordersContaining = await ordersListProjectionsRepository.Query(queryContaining);
-        ordersContaining.Count.Should().Be(2);
+        ordersContaining.Records.Count.Should().Be(2);
         
         await projectionsEngine.StopAsync();
     }
@@ -625,18 +630,18 @@ public abstract class OrderTests
 
         // query by name
         var orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
-        orders.First().Items.Count.Should().Be(3);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().Items.Count.Should().Be(3);
 
         query.SearchText = "dixit";
         orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
-        orders.First().Items.Count.Should().Be(2);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().Items.Count.Should().Be(2);
 
         query.SearchText = "amy@gmail.com";
         orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
-        orders.First().Items.Count.Should().Be(0);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().Items.Count.Should().Be(0);
 
         await projectionsEngine.StopAsync();
     }
@@ -700,8 +705,8 @@ public abstract class OrderTests
         });
 
         var orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
-        orders.First().CreatedBy.UserId.Should().Be(userInfo2.UserId);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().CreatedBy.UserId.Should().Be(userInfo2.UserId);
 
         // filter by items date
         query.Filters[0] = new Filter
@@ -713,8 +718,8 @@ public abstract class OrderTests
 
         orders = await ordersListProjectionsRepository.Query(query);
 
-        orders.Count.Should().Be(1);
-        orders.First().Items.Count.Should().Be(3);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().Items.Count.Should().Be(3);
 
         // filter by items Amount
         query.Filters[0] = new Filter
@@ -725,9 +730,9 @@ public abstract class OrderTests
         };
 
         orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(2);
-        orders.Any(x => x.Items.Count == 3).Should().BeTrue();
-        orders.Any(x => x.Items.Count == 2).Should().BeTrue();
+        orders.Records.Count.Should().Be(2);
+        orders.Records.Any(x => x.Items.Count == 3).Should().BeTrue();
+        orders.Records.Any(x => x.Items.Count == 2).Should().BeTrue();
 
         await projectionsEngine.StopAsync();
     }

@@ -79,7 +79,7 @@ public class ProjectionBuilder : IProjectionBuilder
     {
         var documents = await Repository.Query(projectionQuery);
 
-        var updateTasks = documents.Select(document =>
+        var updateTasks = documents.Records.Select(document =>
         {
             callback(document);
 
@@ -176,7 +176,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
     {
         var documents = await Repository.Query(projectionQuery);
 
-        var updateTasks = documents.Select(document =>
+        var updateTasks = documents.Records.Select(document =>
         {
             callback(document);
 
