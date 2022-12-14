@@ -13,9 +13,9 @@ public static class ElasticSearchFilterFactory
         foreach (var f in filters)
         {
             var conditionFilter = $"({ConstructConditionFilter(f)})";
-            var propName = f.PropertyName == null ? f.Filters[0].Filter.PropertyName : f.PropertyName;
+            var propName = f.PropertyName ?? f.Filters[0].Filter.PropertyName;
 
-            if (propName.IndexOf(".") == -1)
+            if (propName != null && propName.IndexOf(".", StringComparison.Ordinal) == -1)
             {
                 filterStrings.Add(conditionFilter);
             }
@@ -23,7 +23,12 @@ public static class ElasticSearchFilterFactory
 
         var filter = new List<QueryContainer>()
         {
-            new QueryStringQuery() { Query = string.Join(" AND ", filterStrings) }
+            new QueryStringQuery()
+            {
+                Query = string.Join(" AND ", filterStrings),
+                AllowLeadingWildcard = true,
+                AnalyzeWildcard = true
+            }
         };
 
         // create nested filters
@@ -38,7 +43,12 @@ public static class ElasticSearchFilterFactory
                 {
                     Filter = new List<QueryContainer>()
                     {
-                        new QueryStringQuery() { Query = entry.Value }
+                        new QueryStringQuery()
+                        {
+                            Query = entry.Value,
+                            AllowLeadingWildcard = true,
+                            AnalyzeWildcard = true
+                        }
                     }
                 }
             };
@@ -139,11 +149,23 @@ public static class ElasticSearchFilterFactory
                 filterOperator = ":";
                 filterValue = $"*{filterValue}*";
                 break;
+            case FilterOperator.ContainsIgnoreCase:
+                filterOperator = ":";
+                filterValue = $"*{filterValue}*";
+                break;
             case FilterOperator.StartsWith:
                 filterOperator = ":";
                 filterValue = $"{filterValue}*";
                 break;
+            case FilterOperator.StartsWithIgnoreCase:
+                filterOperator = ":";
+                filterValue = $"{filterValue}*";
+                break;
             case FilterOperator.EndsWith:
+                filterOperator = ":";
+                filterValue = $"*{filterValue}";
+                break;
+            case FilterOperator.EndsWithIgnoreCase:
                 filterOperator = ":";
                 filterValue = $"*{filterValue}";
                 break;

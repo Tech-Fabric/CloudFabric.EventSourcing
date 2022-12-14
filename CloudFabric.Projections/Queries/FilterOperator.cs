@@ -11,4 +11,7 @@ public static class FilterOperator
     public const string StartsWith = "string-starts-with";
     public const string EndsWith = "string-ends-with";
     public const string Contains = "string-contains";
+    public const string StartsWithIgnoreCase = "string-starts-with-ignore-case";
+    public const string EndsWithIgnoreCase = "string-ends-with-ignore-case";
+    public const string ContainsIgnoreCase = "string-contains-ignore-case";
 }

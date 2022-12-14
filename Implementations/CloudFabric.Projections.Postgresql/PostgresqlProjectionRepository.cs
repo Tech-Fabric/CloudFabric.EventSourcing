@@ -163,8 +163,10 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT " +
-            string.Join(',', _projectionDocumentSchema.Properties.Select(p => p.PropertyName)) +
-            $" FROM \"{TableName}\" WHERE {KeyColumnName} = @id AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey", conn
+            string.Join(',', _projectionDocumentSchema.Properties.Select(p => p.PropertyName)) + " " +
+            $"FROM \"{TableName}\" " +
+            $"WHERE {KeyColumnName} = @id AND {nameof(ProjectionDocument.PartitionKey)} = @partitionKey " +
+            $"LIMIT 1", conn
         )
         {
             Parameters =
@@ -558,6 +560,11 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             case FilterOperator.Contains:
                 filterOperator = "LIKE";
                 break;
+            case FilterOperator.StartsWithIgnoreCase:
+            case FilterOperator.EndsWithIgnoreCase:
+            case FilterOperator.ContainsIgnoreCase:
+                filterOperator = "ILIKE";
+                break;
         }
 
         if (filter.Value is Guid)
@@ -585,12 +592,15 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         switch (filter.Operator)
         {
+            case FilterOperator.StartsWithIgnoreCase:
             case FilterOperator.StartsWith:
                 queryChunk.WhereChunk += $"@{propertyParameterName} || '%'";
                 break;
+            case FilterOperator.EndsWithIgnoreCase:
             case FilterOperator.EndsWith:
                 queryChunk.WhereChunk += $"'%' || @{propertyParameterName}";
                 break;
+            case FilterOperator.ContainsIgnoreCase:
             case FilterOperator.Contains:
                 queryChunk.WhereChunk += $"'%' || @{propertyParameterName} || '%'";
                 break;
