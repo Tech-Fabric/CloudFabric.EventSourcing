@@ -34,8 +34,8 @@ public class OrderStringComparisonTestsElasticSearch : OrderStringComparisonTest
     {
         return new ElasticSearchProjectionRepositoryFactory(
             "http://127.0.0.1:9200",
-            "", //"elasticsearch",
-            "", //"UK-IUV2yYs0n0MZ339CI",
+            "",
+            "",
             "",
             new LoggerFactory()
         );

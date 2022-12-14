@@ -34,19 +34,9 @@ public class OrderTestsInMemory : OrderTests
         return _eventStoreEventsObserver;
     }
 
-    protected override IProjectionRepository<T> GetProjectionRepository<T>()
+    protected override InMemoryProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        if (!_projectionsRepositories.ContainsKey(typeof(T)))
-        {
-            _projectionsRepositories[typeof(T)] = new InMemoryProjectionRepository<T>();
-        }
-
-        return (IProjectionRepository<T>)_projectionsRepositories[typeof(T)];
-    }
-
-    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
-    {
-        return new InMemoryProjectionRepository<ProjectionRebuildState>();
+        return new InMemoryProjectionRepositoryFactory();
     }
 
     [Ignore]

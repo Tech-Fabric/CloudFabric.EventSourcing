@@ -28,23 +28,6 @@ public class DynamicProjectionsOrderTestsElasticSearch : DynamicProjectionSchema
         return _eventStore;
     }
 
-    protected override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema schema)
-    {
-        if (!_projectionsRepositories.ContainsKey(schema.SchemaName))
-        {
-            _projectionsRepositories[schema.SchemaName] = new ElasticSearchProjectionRepository(
-                "http://127.0.0.1:9200",
-                "",
-                "",
-                "",
-                schema,
-                new LoggerFactory()
-            );
-        }
-
-        return _projectionsRepositories[schema.SchemaName];
-    }
-
     protected override IEventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
@@ -55,9 +38,9 @@ public class DynamicProjectionsOrderTestsElasticSearch : DynamicProjectionSchema
         return _eventStoreEventsObserver;
     }
 
-    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
+    protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        return new ElasticSearchProjectionRepository<ProjectionRebuildState>(
+        return new ElasticSearchProjectionRepositoryFactory(
             "http://127.0.0.1:9200",
             "",
             "",

@@ -32,7 +32,7 @@ public class OrderStringComparisonTestsInMemory : OrderStringComparisonTests
 
         return _eventStoreEventsObserver;
     }
-    
+
     protected override InMemoryProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
         return new InMemoryProjectionRepositoryFactory();

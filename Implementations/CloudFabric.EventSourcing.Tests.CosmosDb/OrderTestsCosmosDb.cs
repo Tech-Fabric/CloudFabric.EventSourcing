@@ -150,25 +150,9 @@ public class OrderTestsCosmosDb : OrderTests
         return _eventStoreEventsObserver;
     }
 
-    protected override IProjectionRepository<T> GetProjectionRepository<T>()
+    protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        if (!_projectionsRepositories.ContainsKey(typeof(T)))
-        {
-            _projectionsRepositories[typeof(T)] = new CosmosDbProjectionRepository<T>(
-                new LoggerFactory(),
-                CosmosDbConnectionString,
-                _cosmosClientOptions,
-                DatabaseName,
-                ProjectionsContainerName
-            );
-        }
-
-        return (IProjectionRepository<T>)_projectionsRepositories[typeof(T)];
-    }
-
-    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
-    {
-        return new CosmosDbProjectionRepository<ProjectionRebuildState>(
+        return new CosmosDbProjectionRepositoryFactory(
             new LoggerFactory(),
             CosmosDbConnectionString,
             _cosmosClientOptions,
