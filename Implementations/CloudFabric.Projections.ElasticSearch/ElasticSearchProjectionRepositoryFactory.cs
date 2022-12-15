@@ -27,18 +27,33 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
     
     public override IProjectionRepository<TProjectionDocument> GetProjectionRepository<TProjectionDocument>()
     {
-        return new ElasticSearchProjectionRepository<TProjectionDocument>(
+        var cached = GetFromCache<TProjectionDocument>();
+        if (cached != null)
+        {
+            return cached;
+        }
+        
+        var repository = new ElasticSearchProjectionRepository<TProjectionDocument>(
             _uri,
             _username,
             _password,
             _certificateThumbprint,
             _loggerFactory
         );
+        
+        SetToCache<TProjectionDocument>(repository);
+        return repository;
     }
 
     public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
-        return new ElasticSearchProjectionRepository(
+        var cached = GetFromCache(projectionDocumentSchema);
+        if (cached != null)
+        {
+            return cached;
+        }
+        
+        var repository = new ElasticSearchProjectionRepository(
             _uri,
             _username,
             _password,
@@ -46,5 +61,8 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
             projectionDocumentSchema,
             _loggerFactory
         );
+        
+        SetToCache(projectionDocumentSchema, repository);
+        return repository;
     }
 }

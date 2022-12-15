@@ -11,11 +11,27 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
     
     public override IProjectionRepository<TProjectionDocument> GetProjectionRepository<TProjectionDocument>()
     {
-        return new PostgresqlProjectionRepository<TProjectionDocument>(_connectionString);
+        var cached = GetFromCache<TProjectionDocument>();
+        if (cached != null)
+        {
+            return cached;
+        }
+        
+        var repository = new PostgresqlProjectionRepository<TProjectionDocument>(_connectionString);
+        SetToCache<TProjectionDocument>(repository);
+        return repository;
     }
 
     public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
-        return new PostgresqlProjectionRepository(_connectionString, projectionDocumentSchema);
+        var cached = GetFromCache(projectionDocumentSchema);
+        if (cached != null)
+        {
+            return cached;
+        }
+        
+        var repository = new PostgresqlProjectionRepository(_connectionString, projectionDocumentSchema);
+        SetToCache(projectionDocumentSchema, repository);
+        return repository;
     }
 }

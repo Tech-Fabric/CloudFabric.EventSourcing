@@ -28,18 +28,33 @@ public class CosmosDbProjectionRepositoryFactory : ProjectionRepositoryFactory
 
     public override IProjectionRepository<TProjectionDocument> GetProjectionRepository<TProjectionDocument>()
     {
-        return new CosmosDbProjectionRepository<TProjectionDocument>(
+        var cached = GetFromCache<TProjectionDocument>();
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        var repository = new CosmosDbProjectionRepository<TProjectionDocument>(
             _loggerFactory,
             _connectionString,
             _cosmosClientOptions,
             _databaseId,
             _containerId
         );
+
+        SetToCache<TProjectionDocument>(repository);
+        return repository;
     }
 
     public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
-        return new CosmosDbProjectionRepository(
+        var cached = GetFromCache(projectionDocumentSchema);
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        var repository = new CosmosDbProjectionRepository(
             _loggerFactory,
             _connectionString,
             _cosmosClientOptions,
@@ -47,5 +62,8 @@ public class CosmosDbProjectionRepositoryFactory : ProjectionRepositoryFactory
             _containerId,
             projectionDocumentSchema
         );
+
+        SetToCache(projectionDocumentSchema, repository);
+        return repository;
     }
 }
