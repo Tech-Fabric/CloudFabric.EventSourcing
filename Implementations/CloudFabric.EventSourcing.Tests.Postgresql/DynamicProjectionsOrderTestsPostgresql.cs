@@ -9,6 +9,7 @@ namespace CloudFabric.EventSourcing.Tests.Postgresql;
 [TestClass]
 public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTests
 {
+    private ProjectionRepositoryFactory? _projectionRepositoryFactory;
     private PostgresqlEventStore? _eventStore;
     private PostgresqlEventStoreEventObserver? _eventStoreEventsObserver;
 
@@ -26,11 +27,16 @@ public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTes
         return _eventStore;
     }
 
-    protected override PostgresqlProjectionRepositoryFactory GetProjectionRepositoryFactory()
+    protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        return new PostgresqlProjectionRepositoryFactory(
-            TestsConnectionStrings.CONNECTION_STRING
-        );
+        if (_projectionRepositoryFactory == null)
+        {
+            _projectionRepositoryFactory = new PostgresqlProjectionRepositoryFactory(
+                TestsConnectionStrings.CONNECTION_STRING
+            );
+        }
+
+        return _projectionRepositoryFactory;
     }
 
     protected override IEventsObserver GetEventStoreEventsObserver()

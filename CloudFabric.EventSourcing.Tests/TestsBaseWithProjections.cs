@@ -31,7 +31,7 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
         ProjectionsEngine = new ProjectionsEngine(GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>());
         ProjectionsEngine.SetEventsObserver(repositoryEventsObserver);
 
-        ProjectionBuilder = (TProjectionBuilder)Activator.CreateInstance(typeof(TProjectionBuilder), ProjectionsRepository) 
+        ProjectionBuilder = (TProjectionBuilder)Activator.CreateInstance(typeof(TProjectionBuilder), GetProjectionRepositoryFactory()) 
                              ?? throw new InvalidOperationException("Could not create projection builder.");
         
         ProjectionsEngine.AddProjectionBuilder(ProjectionBuilder);

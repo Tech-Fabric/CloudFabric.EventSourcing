@@ -9,7 +9,7 @@ namespace CloudFabric.EventSourcing.Tests.InMemory;
 [TestClass]
 public class OrderTestsInMemory : OrderTests
 {
-    private readonly Dictionary<Type, object> _projectionsRepositories = new();
+    private ProjectionRepositoryFactory? _projectionRepositoryFactory;
     private InMemoryEventStore? _eventStore = null;
     private InMemoryEventStoreEventObserver? _eventStoreEventsObserver = null;
 
@@ -34,9 +34,14 @@ public class OrderTestsInMemory : OrderTests
         return _eventStoreEventsObserver;
     }
 
-    protected override InMemoryProjectionRepositoryFactory GetProjectionRepositoryFactory()
+    protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        return new InMemoryProjectionRepositoryFactory();
+        if (_projectionRepositoryFactory == null)
+        {
+            _projectionRepositoryFactory = new InMemoryProjectionRepositoryFactory();
+        }
+
+        return _projectionRepositoryFactory;
     }
 
     [Ignore]

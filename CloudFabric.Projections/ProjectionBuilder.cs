@@ -1,4 +1,4 @@
-using System.Reflection.Metadata;
+using System.Reflection;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.Projections.Queries;
 
@@ -6,21 +6,23 @@ namespace CloudFabric.Projections;
 
 public class ProjectionBuilder : IProjectionBuilder
 {
-    public ProjectionBuilder(IProjectionRepository repository)
+    protected ProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory)
     {
         var interfaces = GetType()
             .FindInterfaces(
-                new System.Reflection.TypeFilter((type, _) =>
-                    type.IsGenericType && typeof(IHandleEvent<>).IsAssignableFrom(type.GetGenericTypeDefinition())),
+                new TypeFilter(
+                    (type, _) =>
+                        type.IsGenericType && typeof(IHandleEvent<>).IsAssignableFrom(type.GetGenericTypeDefinition())
+                ),
                 null
             );
 
         HandledEventTypes = new HashSet<Type>(interfaces.Select(x => x.GenericTypeArguments.First()));
 
-        Repository = repository;
+        ProjectionRepositoryFactory = projectionRepositoryFactory;
     }
 
-    public IProjectionRepository Repository { get; }
+    protected readonly ProjectionRepositoryFactory ProjectionRepositoryFactory;
     public HashSet<Type> HandledEventTypes { get; }
 
     public async Task ApplyEvent(IEvent @event)
@@ -36,14 +38,29 @@ public class ProjectionBuilder : IProjectionBuilder
         }
     }
 
-    protected Task UpsertDocument(Dictionary<string, object?> document, string partitionKey)
+    protected Task UpsertDocument(
+        ProjectionDocumentSchema projectionDocumentSchema,
+        Dictionary<string, object?> document,
+        string partitionKey,
+        CancellationToken cancellationToken = default
+    )
     {
-        return Repository.Upsert(document, partitionKey);
+        return ProjectionRepositoryFactory
+            .GetProjectionRepository(projectionDocumentSchema)
+            .Upsert(document, partitionKey, cancellationToken);
     }
 
-    protected Task UpdateDocument(Guid id, string partitionKey, Action<Dictionary<string, object?>> callback, Action? documentNotFound = null)
+    protected Task UpdateDocument(
+        ProjectionDocumentSchema projectionDocumentSchema,
+        Guid id,
+        string partitionKey,
+        Action<Dictionary<string, object?>> callback,
+        Action? documentNotFound = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return UpdateDocument(
+            projectionDocumentSchema,
             id,
             partitionKey,
             document =>
@@ -51,17 +68,24 @@ public class ProjectionBuilder : IProjectionBuilder
                 callback(document);
                 return Task.CompletedTask;
             },
-            documentNotFound
+            documentNotFound,
+            cancellationToken
         );
     }
 
     protected async Task UpdateDocument(
+        ProjectionDocumentSchema projectionDocumentSchema,
         Guid id,
         string partitionKey,
         Func<Dictionary<string, object?>, Task> callback,
-        Action? documentNotFound = null)
+        Action? documentNotFound = null,
+        CancellationToken cancellationToken = default
+    )
     {
-        Dictionary<string, object?>? document = await Repository.Single(id, partitionKey);
+        var repository = ProjectionRepositoryFactory
+            .GetProjectionRepository(projectionDocumentSchema);
+
+        Dictionary<string, object?>? document = await repository.Single(id, partitionKey, cancellationToken);
 
         if (document == null)
         {
@@ -71,48 +95,70 @@ public class ProjectionBuilder : IProjectionBuilder
         {
             await callback(document);
 
-            await Repository.Upsert(document, partitionKey);
+            await repository.Upsert(document, partitionKey, cancellationToken);
         }
     }
 
-    protected async Task UpdateDocuments(ProjectionQuery projectionQuery, string partitionKey, Action<Dictionary<string, object?>> callback)
+    protected async Task UpdateDocuments(
+        ProjectionDocumentSchema projectionDocumentSchema,
+        ProjectionQuery projectionQuery,
+        string partitionKey,
+        Action<Dictionary<string, object?>> callback,
+        CancellationToken cancellationToken = default
+    )
     {
-        var documents = await Repository.Query(projectionQuery);
+        var repository = ProjectionRepositoryFactory
+            .GetProjectionRepository(projectionDocumentSchema);
 
-        var updateTasks = documents.Select(document =>
-        {
-            callback(document);
+        var documents = await repository.Query(projectionQuery, partitionKey, cancellationToken);
 
-            return Repository.Upsert(document, partitionKey);
-        });
+        var updateTasks = documents.Select(
+            document =>
+            {
+                callback(document);
+
+                return repository.Upsert(document, partitionKey, cancellationToken);
+            }
+        );
 
         await Task.WhenAll(updateTasks);
     }
 
-    protected Task DeleteDocument(Guid id, string partitionKey)
+    protected Task DeleteDocument(
+        ProjectionDocumentSchema projectionDocumentSchema,
+        Guid id,
+        string partitionKey,
+        CancellationToken cancellationToken = default
+    )
     {
-        return Repository.Delete(id, partitionKey);
+        var repository = ProjectionRepositoryFactory
+            .GetProjectionRepository(projectionDocumentSchema);
+
+        return repository.Delete(id, partitionKey, cancellationToken);
     }
 }
 
 public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocument>
     where TDocument : ProjectionDocument
 {
-    public ProjectionBuilder(IProjectionRepository<TDocument> repository)
+    protected ProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory)
     {
         var interfaces = GetType()
             .FindInterfaces(
-                new System.Reflection.TypeFilter((type, _) =>
-                    type.IsGenericType && typeof(IHandleEvent<>).IsAssignableFrom(type.GetGenericTypeDefinition())),
+                new TypeFilter(
+                    (type, _) =>
+                        type.IsGenericType && typeof(IHandleEvent<>).IsAssignableFrom(type.GetGenericTypeDefinition())
+                ),
                 null
             );
 
         HandledEventTypes = new HashSet<Type>(interfaces.Select(x => x.GenericTypeArguments.First()));
 
-        Repository = repository;
+        ProjectionRepositoryFactory = projectionRepositoryFactory;
     }
 
-    public IProjectionRepository<TDocument> Repository { get; }
+    protected readonly ProjectionRepositoryFactory ProjectionRepositoryFactory;
+
     public HashSet<Type> HandledEventTypes { get; }
 
     public async Task ApplyEvent(IEvent @event)
@@ -128,12 +174,20 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         }
     }
 
-    protected Task UpsertDocument(TDocument document, string partitionKey)
+    protected Task UpsertDocument(TDocument document, string partitionKey, CancellationToken cancellationToken = default)
     {
-        return Repository.Upsert(document, partitionKey);
+        return ProjectionRepositoryFactory
+            .GetProjectionRepository<TDocument>()
+            .Upsert(document, partitionKey, cancellationToken);
     }
 
-    protected Task UpdateDocument(Guid id, string partitionKey, Action<TDocument> callback, Action? documentNotFound = null)
+    protected Task UpdateDocument(
+        Guid id,
+        string partitionKey,
+        Action<TDocument> callback,
+        Action? documentNotFound = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return UpdateDocument(
             id,
@@ -143,7 +197,8 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
                 callback(document);
                 return Task.CompletedTask;
             },
-            documentNotFound
+            documentNotFound,
+            cancellationToken
         );
     }
 
@@ -151,14 +206,19 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         Guid id,
         string partitionKey,
         Func<TDocument, Task> callback,
-        Action? documentNotFound = null)
+        Action? documentNotFound = null,
+        CancellationToken cancellationToken = default
+    )
     {
         if (id == Guid.Empty)
         {
             throw new ArgumentException("id should not be null", nameof(id));
         }
 
-        TDocument? document = await Repository.Single(id, partitionKey);
+        var repository = ProjectionRepositoryFactory
+            .GetProjectionRepository<TDocument>();
+
+        TDocument? document = await repository.Single(id, partitionKey, cancellationToken);
 
         if (document == null)
         {
@@ -168,26 +228,42 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         {
             await callback(document);
 
-            await Repository.Upsert(document, partitionKey);
+            await repository.Upsert(document, partitionKey, cancellationToken);
         }
     }
 
-    protected async Task UpdateDocuments(ProjectionQuery projectionQuery, string partitionKey, Action<TDocument> callback)
+    protected async Task UpdateDocuments(
+        ProjectionQuery projectionQuery,
+        string partitionKey,
+        Action<TDocument> callback,
+        CancellationToken cancellationToken = default
+    )
     {
-        var documents = await Repository.Query(projectionQuery);
+        var repository = ProjectionRepositoryFactory
+            .GetProjectionRepository<TDocument>();
 
-        var updateTasks = documents.Select(document =>
-        {
-            callback(document);
+        var documents = await repository.Query(projectionQuery, partitionKey, cancellationToken);
 
-            return Repository.Upsert(document, partitionKey);
-        });
+        var updateTasks = documents.Select(
+            document =>
+            {
+                callback(document);
+
+                return repository.Upsert(document, partitionKey, cancellationToken);
+            }
+        );
 
         await Task.WhenAll(updateTasks);
     }
 
-    protected Task DeleteDocument(Guid id, string partitionKey)
+    protected Task DeleteDocument(
+        Guid id,
+        string partitionKey,
+        CancellationToken cancellationToken = default
+    )
     {
-        return Repository.Delete(id, partitionKey);
+        return ProjectionRepositoryFactory
+            .GetProjectionRepository<TDocument>()
+            .Delete(id, partitionKey, cancellationToken);
     }
 }

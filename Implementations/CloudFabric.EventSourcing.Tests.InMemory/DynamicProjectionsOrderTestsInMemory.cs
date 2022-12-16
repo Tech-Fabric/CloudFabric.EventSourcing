@@ -9,6 +9,7 @@ namespace CloudFabric.EventSourcing.Tests.InMemory;
 [TestClass]
 public class DynamicProjectionsOrderTestsInMemory : DynamicProjectionSchemaTests
 {
+    private ProjectionRepositoryFactory? _projectionRepositoryFactory;
     private InMemoryEventStore? _eventStore;
     private InMemoryEventStoreEventObserver? _eventStoreEventsObserver;
 
@@ -33,8 +34,13 @@ public class DynamicProjectionsOrderTestsInMemory : DynamicProjectionSchemaTests
         return _eventStoreEventsObserver;
     }
     
-    protected override InMemoryProjectionRepositoryFactory GetProjectionRepositoryFactory()
+    protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        return new InMemoryProjectionRepositoryFactory();
+        if (_projectionRepositoryFactory == null)
+        {
+            _projectionRepositoryFactory = new InMemoryProjectionRepositoryFactory();
+        }
+
+        return _projectionRepositoryFactory;
     }
 }

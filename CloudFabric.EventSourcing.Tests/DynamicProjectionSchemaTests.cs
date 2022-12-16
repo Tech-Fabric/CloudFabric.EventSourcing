@@ -17,35 +17,48 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
     IHandleEvent<OrderItemAdded>,
     IHandleEvent<OrderItemRemoved>
 {
-    public OrderListsDynamicProjectionBuilder(IProjectionRepository repository) : base(repository)
+    private readonly ProjectionDocumentSchema _projectionDocumentSchema;
+
+    public OrderListsDynamicProjectionBuilder(
+        ProjectionRepositoryFactory projectionRepositoryFactory,
+        ProjectionDocumentSchema projectionDocumentSchema
+    ) : base(projectionRepositoryFactory)
     {
+        _projectionDocumentSchema = projectionDocumentSchema;
     }
 
     public async Task On(OrderPlaced @event)
     {
-        await UpsertDocument(new Dictionary<string, object?>()
-        {
-            { "Id", @event.Id },
-            { "Name", @event.OrderName },
-            { "ItemsCount", @event.Items.Count }
-        },
-        @event.PartitionKey);
+        await UpsertDocument(
+            _projectionDocumentSchema,
+            new Dictionary<string, object?>()
+            {
+                { "Id", @event.Id },
+                { "Name", @event.OrderName },
+                { "ItemsCount", @event.Items.Count }
+            },
+            @event.PartitionKey
+        );
     }
 
     public async Task On(OrderItemAdded @event)
     {
-        await UpdateDocument(@event.Id, @event.PartitionKey, (orderProjection) =>
-        {
-            orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) + 1;
-        });
+        await UpdateDocument(
+            _projectionDocumentSchema,
+            @event.Id,
+            @event.PartitionKey,
+            (orderProjection) => { orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) + 1; }
+        );
     }
 
     public async Task On(OrderItemRemoved @event)
     {
-        await UpdateDocument(@event.Id, @event.PartitionKey, (orderProjection) =>
-        {
-            orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) - 1;
-        });
+        await UpdateDocument(
+            _projectionDocumentSchema,
+            @event.Id, 
+            @event.PartitionKey, 
+            (orderProjection) => { orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) - 1; }
+        );
     }
 }
 
@@ -80,8 +93,8 @@ public abstract class DynamicProjectionSchemaTests
             await projectionRepository.DeleteAll();
 
             var rebuildStateRepository = GetProjectionRepositoryFactory()
-                .GetProjectionRepository<ProjectionRebuildState>(); 
-            
+                .GetProjectionRepository<ProjectionRebuildState>();
+
             await rebuildStateRepository.DeleteAll();
         }
         catch
@@ -124,7 +137,8 @@ public abstract class DynamicProjectionSchemaTests
         };
 
         // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository(ordersProjectionSchema);
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory()
+            .GetProjectionRepository(ordersProjectionSchema);
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
         var projectionsEngine = new ProjectionsEngine(
@@ -132,7 +146,10 @@ public abstract class DynamicProjectionSchemaTests
         );
         projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
 
-        var ordersListProjectionBuilder = new OrderListsDynamicProjectionBuilder(ordersListProjectionsRepository);
+        var ordersListProjectionBuilder = new OrderListsDynamicProjectionBuilder(
+            GetProjectionRepositoryFactory(),
+            ordersProjectionSchema
+        );
         projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
 
 

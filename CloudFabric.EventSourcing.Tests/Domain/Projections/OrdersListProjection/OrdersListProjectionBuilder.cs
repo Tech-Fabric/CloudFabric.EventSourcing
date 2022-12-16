@@ -8,7 +8,8 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
     IHandleEvent<OrderItemAdded>,
     IHandleEvent<OrderItemRemoved>
 {
-    public OrdersListProjectionBuilder(IProjectionRepository<OrderListProjectionItem> repository) : base(repository)
+    public OrdersListProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory) 
+        : base(projectionRepositoryFactory)
     {
     }
 
