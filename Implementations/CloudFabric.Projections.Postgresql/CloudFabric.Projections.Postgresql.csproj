@@ -11,11 +11,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj"/>
+        <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Npgsql" Version="6.0.4"/>
+        <PackageReference Include="Npgsql" Version="6.0.4" />
     </ItemGroup>
 
 </Project>

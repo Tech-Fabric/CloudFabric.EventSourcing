@@ -1,4 +1,4 @@
-﻿using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace CloudFabric.EventSourcing.Tests.Postgresql;
 
 [TestClass]
-public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTests
+public class OrderStringComparisonTestsPostgresql : OrderStringComparisonTests
 {
     private PostgresqlEventStore? _eventStore;
     private PostgresqlEventStoreEventObserver? _eventStoreEventsObserver;
@@ -25,7 +25,7 @@ public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTes
 
         return _eventStore;
     }
-
+    
     protected override PostgresqlProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
         return new PostgresqlProjectionRepositoryFactory(

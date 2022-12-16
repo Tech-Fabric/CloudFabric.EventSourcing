@@ -1,4 +1,4 @@
-using CloudFabric.EventSourcing.EventStore;
+﻿using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
@@ -7,11 +7,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace CloudFabric.EventSourcing.Tests.InMemory;
 
 [TestClass]
-public class OrderTestsInMemory : OrderTests
+public class OrderStringComparisonTestsInMemory : OrderStringComparisonTests
 {
-    private readonly Dictionary<Type, object> _projectionsRepositories = new();
-    private InMemoryEventStore? _eventStore = null;
-    private InMemoryEventStoreEventObserver? _eventStoreEventsObserver = null;
+    private InMemoryEventStore? _eventStore;
+    private InMemoryEventStoreEventObserver? _eventStoreEventsObserver;
 
     protected override async Task<IEventStore> GetEventStore()
     {
@@ -37,17 +36,5 @@ public class OrderTestsInMemory : OrderTests
     protected override InMemoryProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
         return new InMemoryProjectionRepositoryFactory();
-    }
-
-    [Ignore]
-    public override async Task TestProjectionsNestedObjectsFilter()
-    {
-        return;
-    }
-
-    [Ignore]
-    public override async Task TestProjectionsNestedObjectsQuery()
-    {
-        return;
     }
 }

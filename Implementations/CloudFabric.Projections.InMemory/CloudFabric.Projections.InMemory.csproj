@@ -11,7 +11,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj"/>
+        <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj" />
     </ItemGroup>
 
 </Project>

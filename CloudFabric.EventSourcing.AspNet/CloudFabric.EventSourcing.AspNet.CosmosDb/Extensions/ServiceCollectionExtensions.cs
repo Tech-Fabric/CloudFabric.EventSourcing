@@ -83,6 +83,16 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             );
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
+            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => 
+                new CosmosDbProjectionRepositoryFactory(
+                    projectionsConnectionInfo.LoggerFactory,
+                    projectionsConnectionInfo.ConnectionString,
+                    projectionsConnectionInfo.CosmosClientOptions,
+                    projectionsConnectionInfo.DatabaseId,
+                    projectionsConnectionInfo.ContainerId
+                )
+            );
+            
             // add repository for saving rebuild states
             var projectionStateRepository = new CosmosDbProjectionRepository<ProjectionRebuildState>(
                 projectionsConnectionInfo.LoggerFactory,
