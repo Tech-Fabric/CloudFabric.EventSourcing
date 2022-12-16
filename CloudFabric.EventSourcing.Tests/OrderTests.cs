@@ -340,7 +340,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         var projectionsEngine = new ProjectionsEngine(GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>());
         projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
 
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(GetProjectionRepositoryFactory());
         projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
 
         string instanceName = "ProjectionsQueryInstance";

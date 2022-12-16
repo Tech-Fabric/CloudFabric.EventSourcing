@@ -14,6 +14,7 @@ namespace CloudFabric.EventSourcing.Tests.ElasticSearch;
 [TestClass]
 public class OrderTestsElasticSearch : OrderTests
 {
+    private ProjectionRepositoryFactory? _projectionRepositoryFactory;
     private PostgresqlEventStore? _eventStore;
     private PostgresqlEventStoreEventObserver? _eventStoreEventsObserver;
 
@@ -33,13 +34,18 @@ public class OrderTestsElasticSearch : OrderTests
 
     protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        return new ElasticSearchProjectionRepositoryFactory(
-            "http://127.0.0.1:9200",
-            "",
-            "",
-            "", 
-            new LoggerFactory()
-        );
+        if (_projectionRepositoryFactory == null)
+        {
+            _projectionRepositoryFactory = new ElasticSearchProjectionRepositoryFactory(
+                "http://127.0.0.1:9200",
+                "",
+                "",
+                "",
+                new LoggerFactory()
+            );
+        }
+
+        return _projectionRepositoryFactory;
     }
 
     protected override IEventsObserver GetEventStoreEventsObserver()
