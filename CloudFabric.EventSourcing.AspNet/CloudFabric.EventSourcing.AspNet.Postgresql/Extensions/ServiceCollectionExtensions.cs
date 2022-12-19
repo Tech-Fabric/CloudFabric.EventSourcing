@@ -2,6 +2,7 @@ using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
 {
@@ -30,22 +31,26 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
         public static IEventSourcingBuilder AddRepository<TRepo>(this IEventSourcingBuilder builder)
             where TRepo : class
         {
+            if (builder.EventStore == null)
+            {
+                throw new ArgumentException("Event store is missing");
+            }
+            
             builder.Services.AddSingleton(sp => ActivatorUtilities.CreateInstance<TRepo>(sp, new object[] { builder.EventStore }));
             return builder;
         }
 
-        public static IEventSourcingBuilder AddPostgresqlProjections<TDocument>(
+        // NOTE: projection repositories can't work with different databases for now
+        public static IEventSourcingBuilder AddPostgresqlProjections(
             this IEventSourcingBuilder builder,
             string projectionsConnectionString,
             params Type[] projectionBuildersTypes
-        ) where TDocument : ProjectionDocument
+        )
         {
-            var projectionRepository = new PostgresqlProjectionRepository<TDocument>(projectionsConnectionString);
-            builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
+            var repositoryFactory = new PostgresqlProjectionRepositoryFactory(projectionsConnectionString);
 
-            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => 
-                new PostgresqlProjectionRepositoryFactory(projectionsConnectionString)
-            );
+            // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
+            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
             
             // add repository for saving rebuild states
             var projectionStateRepository = new PostgresqlProjectionRepository<ProjectionRebuildState>(projectionsConnectionString);
@@ -61,13 +66,8 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                if (!typeof(ProjectionBuilder<TDocument>).IsAssignableFrom(projectionBuilderType))
-                {
-                    throw new ArgumentException($"Invalid projection builder type: {projectionBuilderType.Name}");
-                }
-
                 projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { projectionRepository })
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
                 );
             }
 

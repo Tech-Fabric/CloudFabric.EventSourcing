@@ -1,13 +1,15 @@
 using CloudFabric.Projections;
 using CloudFabric.Projections.ElasticSearch;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
 {
     public static class ServiceCollectionExtensions
     {
-        public static IEventSourcingBuilder AddElasticSearchProjections<TDocument>(
+        // NOTE: projection repositories can't work with different databases for now
+        public static IEventSourcingBuilder AddElasticSearchProjections(
             this IEventSourcingBuilder builder,
             string uri,
             string username,
@@ -15,9 +17,9 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             string certificateFingerprint,
             LoggerFactory loggerFactory,
             params Type[] projectionBuildersTypes
-        ) where TDocument : ProjectionDocument
+        )
         {
-            var projectionRepository = new ElasticSearchProjectionRepository<TDocument>(
+            var repositoryFactory = new ElasticSearchProjectionRepositoryFactory(
                 uri,
                 username,
                 password,
@@ -25,17 +27,8 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
                 loggerFactory
             );
 
-            builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
-
-            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => 
-                new ElasticSearchProjectionRepositoryFactory(
-                    uri,
-                    username,
-                    password,
-                    certificateFingerprint,
-                    loggerFactory
-                )
-            );
+            // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
+            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
             
             // add repository for saving rebuild states
             var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
@@ -57,13 +50,8 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                if (!typeof(ProjectionBuilder<TDocument>).IsAssignableFrom(projectionBuilderType))
-                {
-                    throw new ArgumentException($"Invalid projection builder type: {projectionBuilderType.Name}");
-                }
-
                 projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { projectionRepository })
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
                 );
             }
 

@@ -6,7 +6,8 @@ public class ProjectionQuery
 {
     public List<FacetInfoRequest> FacetInfoToReturn = new List<FacetInfoRequest>();
     public List<string> FieldsToHighlight = new List<string>();
-    public Dictionary<string, string> OrderBy = new Dictionary<string, string>();
+    // public Dictionary<string, string> OrderBy = new Dictionary<string, string>();
+    public List<SortInfo> OrderBy = new();
     public string? ScoringProfile;
     public string? SearchMode;
     public int Limit { get; set; } = 50;
@@ -124,7 +125,8 @@ public class ProjectionQuery
 
     public string SerializeOrderByToQueryString(Dictionary<string, string>? orderBy = null)
     {
-        var ordersToWorkWith = orderBy ?? OrderBy;
+        // NOTE: it doesn't serialize sorting filters to query
+        var ordersToWorkWith = orderBy ?? OrderBy.ToDictionary(k => k.KeyPath, v => v.Order);
 
         List<string> orders = new List<string>();
 
@@ -151,7 +153,9 @@ public class ProjectionQuery
 
             if (orderByParts.Length == 2)
             {
-                OrderBy.Add(orderByParts[0], orderByParts[1]);
+                OrderBy.Add(
+                    new SortInfo { KeyPath = orderByParts[0], Order = orderByParts[1] }
+                );
             }
         }
     }

@@ -68,7 +68,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersStartingWithMatchCase = await ProjectionsRepository.Query(queryStartsWithMatchCase);
-        ordersStartingWithMatchCase.Count.Should().Be(2);
+        ordersStartingWithMatchCase.Records.Count.Should().Be(2);
         
         var queryStartsWithDifferentCase = new ProjectionQuery
         {
@@ -80,7 +80,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersStartingWithDifferentCase = await ProjectionsRepository.Query(queryStartsWithDifferentCase);
-        ordersStartingWithDifferentCase.Count.Should().Be(0);
+        ordersStartingWithDifferentCase.Records.Count.Should().Be(0);
     }
     
     [TestMethod]
@@ -96,7 +96,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersStartingWithMatchCase = await ProjectionsRepository.Query(queryStartsWithMatchCase);
-        ordersStartingWithMatchCase.Count.Should().Be(2);
+        ordersStartingWithMatchCase.Records.Count.Should().Be(2);
         
         var queryStartsWithDifferentCase = new ProjectionQuery
         {
@@ -108,7 +108,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersStartingWithDifferentCase = await ProjectionsRepository.Query(queryStartsWithDifferentCase);
-        ordersStartingWithDifferentCase.Count.Should().Be(0);
+        ordersStartingWithDifferentCase.Records.Count.Should().Be(0);
     }
     
     [TestMethod]
@@ -124,7 +124,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersStartingWithMatchCase = await ProjectionsRepository.Query(queryStartsWithMatchCase);
-        ordersStartingWithMatchCase.Count.Should().Be(2);
+        ordersStartingWithMatchCase.Records.Count.Should().Be(2);
         
         var queryStartsWithDifferentCase = new ProjectionQuery
         {
@@ -136,7 +136,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersStartingWithDifferentCase = await ProjectionsRepository.Query(queryStartsWithDifferentCase);
-        ordersStartingWithDifferentCase.Count.Should().Be(0);
+        ordersStartingWithDifferentCase.Records.Count.Should().Be(0);
     }
     
     [TestMethod]
@@ -152,7 +152,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersStartingWithMatchCase = await ProjectionsRepository.Query(queryStartsWithMatchCase);
-        ordersStartingWithMatchCase.Count.Should().Be(2);
+        ordersStartingWithMatchCase.Records.Count.Should().Be(2);
         
         var queryStartsWithDifferentCase = new ProjectionQuery
         {
@@ -164,7 +164,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersStartingWithDifferentCase = await ProjectionsRepository.Query(queryStartsWithDifferentCase);
-        ordersStartingWithDifferentCase.Count.Should().Be(0);
+        ordersStartingWithDifferentCase.Records.Count.Should().Be(0);
     }
     
     [TestMethod]
@@ -180,7 +180,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersEndingWithMatchCase = await ProjectionsRepository.Query(queryEndsWithMatchCase);
-        ordersEndingWithMatchCase.Count.Should().Be(2);
+        ordersEndingWithMatchCase.Records.Count.Should().Be(2);
         
         var queryEndsWithDifferentCase = new ProjectionQuery
         {
@@ -192,7 +192,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersEndingWithDifferentCase = await ProjectionsRepository.Query(queryEndsWithDifferentCase);
-        ordersEndingWithDifferentCase.Count.Should().Be(0);
+        ordersEndingWithDifferentCase.Records.Count.Should().Be(0);
     }
     
     [TestMethod]
@@ -208,7 +208,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersEndingWithMatchCase = await ProjectionsRepository.Query(queryEndsWithMatchCase);
-        ordersEndingWithMatchCase.Count.Should().Be(2);
+        ordersEndingWithMatchCase.Records.Count.Should().Be(2);
         
         var queryEndsWithDifferentCase = new ProjectionQuery
         {
@@ -220,7 +220,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersEndingWithDifferentCase = await ProjectionsRepository.Query(queryEndsWithDifferentCase);
-        ordersEndingWithDifferentCase.Count.Should().Be(0);
+        ordersEndingWithDifferentCase.Records.Count.Should().Be(0);
     }
     
     [TestMethod]
@@ -236,7 +236,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersEndingWithMatchCase = await ProjectionsRepository.Query(queryEndsWithMatchCase);
-        ordersEndingWithMatchCase.Count.Should().Be(2);
+        ordersEndingWithMatchCase.Records.Count.Should().Be(2);
         
         var queryEndsWithDifferentCase = new ProjectionQuery
         {
@@ -248,7 +248,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersEndingWithDifferentCase = await ProjectionsRepository.Query(queryEndsWithDifferentCase);
-        ordersEndingWithDifferentCase.Count.Should().Be(0);
+        ordersEndingWithDifferentCase.Records.Count.Should().Be(0);
     }
     
     [TestMethod]
@@ -264,7 +264,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersContainingMatchCase = await ProjectionsRepository.Query(queryContainsMatchCase);
-        ordersContainingMatchCase.Count.Should().Be(2);
+        ordersContainingMatchCase.Records.Count.Should().Be(2);
         
         var queryContainingDifferentCase = new ProjectionQuery
         {
@@ -276,7 +276,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersContainingDifferentCase = await ProjectionsRepository.Query(queryContainingDifferentCase);
-        ordersContainingDifferentCase.Count.Should().Be(0);
+        ordersContainingDifferentCase.Records.Count.Should().Be(0);
     }
     
     
@@ -293,7 +293,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersContainingMatchCase = await ProjectionsRepository.Query(queryContainsMatchCase);
-        ordersContainingMatchCase.Count.Should().Be(2);
+        ordersContainingMatchCase.Records.Count.Should().Be(2);
         
         var queryContainingDifferentCase = new ProjectionQuery
         {
@@ -305,6 +305,6 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
 
         // query by name
         var ordersContainingDifferentCase = await ProjectionsRepository.Query(queryContainingDifferentCase);
-        ordersContainingDifferentCase.Count.Should().Be(0);
+        ordersContainingDifferentCase.Records.Count.Should().Be(0);
     }
 }

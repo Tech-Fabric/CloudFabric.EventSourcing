@@ -205,8 +205,8 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
             await ProjectionsRepository.Query(
                 ProjectionQuery.Where<OrderListProjectionItem>(d => d.Name == orderName)
             );
-        orderProjectionFromQuery.Count.Should().Be(1);
-        orderProjectionFromQuery.First().Name.Should().Be(orderName);
+        orderProjectionFromQuery.Records.Count.Should().Be(1);
+        orderProjectionFromQuery.Records.First().Name.Should().Be(orderName);
     }
 
     [TestMethod]
@@ -380,25 +380,106 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
 
         var query = new ProjectionQuery
         {
-            SearchText = "ORDER"
+            SearchText = "ORDER",
+            Limit = 1
         };
 
         // query by name
         var orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(2);
+        orders.TotalCount.Should().Be(2);
+        orders.Records.Count.Should().Be(1);
 
         query.SearchText = "queryable";
+        query.Limit = 50;
 
         orders = await ordersListProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
+        orders.TotalCount.Should().Be(1);
+        orders.Records.Count.Should().Be(1);
 
         // add filter by count
         orders = await ordersListProjectionsRepository.Query(
             ProjectionQuery.Where<OrderListProjectionItem>(x => x.ItemsCount > 1)
         );
-        orders.Count.Should().Be(1);
+        orders.TotalCount.Should().Be(1);
+        orders.Records.Count.Should().Be(1);
 
         await projectionsEngine.StopAsync();
+    }
+    
+    
+    [TestMethod]
+    public async Task TestProjectionsQueryFilterStringMatching()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
+
+
+        var userId = Guid.NewGuid();
+        var userInfo = new EventUserInfo(userId);
+        var items = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            )
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "Qwerty123 order", items, userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, firstOrder);
+
+        // second order will contain only one item
+        var secondOrder = new Order(Guid.NewGuid(), "Order Qwerty123", items.GetRange(0, 1), userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, secondOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        var queryStartsWith = new ProjectionQuery
+        {
+            Filters = new List<Filter>()
+            {
+                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("Qwerty123"))
+            }
+        };
+
+        // query by name
+        var ordersStartingWith = await ordersListProjectionsRepository.Query(queryStartsWith);
+        ordersStartingWith.Records.Count.Should().Be(1);
+        
+        var queryEndsWith = new ProjectionQuery
+        {
+            Filters = new List<Filter>()
+            {
+                Filter.Where<OrderListProjectionItem>(f => f.Name.EndsWith("Qwerty123"))
+            }
+        };
+        
+        var ordersEndingWith = await ordersListProjectionsRepository.Query(queryEndsWith);
+        ordersEndingWith.Records.Count.Should().Be(1);
+        
+        var queryContaining = new ProjectionQuery
+        {
+            Filters = new List<Filter>()
+            {
+                Filter.Where<OrderListProjectionItem>(f => f.Name.Contains("Qwerty123"))
+            }
+        };
+        
+        var ordersContaining = await ordersListProjectionsRepository.Query(queryContaining);
+        ordersContaining.Records.Count.Should().Be(2);
     }
 
     [TestMethod]
@@ -406,6 +487,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
     {
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
         
         var userInfo1 = new EventUserInfo(Guid.NewGuid());
         var userInfo2 = new EventUserInfo(Guid.NewGuid());
@@ -441,19 +523,19 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         };
 
         // query by name
-        var orders = await ProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
-        orders.First().Items.Count.Should().Be(3);
+        var orders = await ordersListProjectionsRepository.Query(query);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().Items.Count.Should().Be(3);
 
         query.SearchText = "dixit";
-        orders = await ProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
-        orders.First().Items.Count.Should().Be(2);
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().Items.Count.Should().Be(2);
 
         query.SearchText = "amy@gmail.com";
-        orders = await ProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
-        orders.First().Items.Count.Should().Be(0);
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().Items.Count.Should().Be(0);
     }
 
     [TestMethod]
@@ -461,6 +543,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
     {
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
 
         var userInfo1 = new EventUserInfo(Guid.NewGuid());
         var userInfo2 = new EventUserInfo(Guid.NewGuid());
@@ -500,9 +583,9 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
             }
         );
 
-        var orders = await ProjectionsRepository.Query(query);
-        orders.Count.Should().Be(1);
-        orders.First().CreatedBy.UserId.Should().Be(userInfo2.UserId);
+        var orders = await ordersListProjectionsRepository.Query(query);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().CreatedBy.UserId.Should().Be(userInfo2.UserId);
 
         // filter by items date
         query.Filters[0] = new Filter
@@ -514,8 +597,8 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
 
         orders = await ProjectionsRepository.Query(query);
 
-        orders.Count.Should().Be(1);
-        orders.First().Items.Count.Should().Be(3);
+        orders.Records.Count.Should().Be(1);
+        orders.Records.First().Items.Count.Should().Be(3);
 
         // filter by items Amount
         query.Filters[0] = new Filter
@@ -525,9 +608,90 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
             Value = 5m
         };
 
-        orders = await ProjectionsRepository.Query(query);
-        orders.Count.Should().Be(2);
-        orders.Any(x => x.Items.Count == 3).Should().BeTrue();
-        orders.Any(x => x.Items.Count == 2).Should().BeTrue();
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.Records.Count.Should().Be(2);
+        orders.Records.Any(x => x.Items.Count == 3).Should().BeTrue();
+        orders.Records.Any(x => x.Items.Count == 2).Should().BeTrue();
+    }
+    
+    
+    [TestMethod]
+    public virtual async Task TestProjectionsNestedObjectsSorting()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
+
+        var userInfo1 = new EventUserInfo(Guid.NewGuid());
+        var userInfo2 = new EventUserInfo(Guid.NewGuid());
+        var userInfo3 = new EventUserInfo(Guid.NewGuid());
+        var firstOrderItems = new List<OrderItem>
+        {
+            new OrderItem(DateTime.UtcNow, "Colonizing Mars", 12.00m),
+            new OrderItem(DateTime.UtcNow, "Patchwork", 999m),
+            new OrderItem(DateTime.UtcNow, "Time Stories", 4.85m)
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "New Years Gifts", firstOrderItems, userInfo1.UserId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo1, firstOrder);
+
+        var secondOrderItems = new List<OrderItem>
+        {
+            new OrderItem(DateTime.UtcNow, "Caverna", 999m),
+            new OrderItem(DateTime.UtcNow, "Dixit", 6.59m)
+        };
+
+        var secondOrder = new Order(Guid.NewGuid(), "Birthday Gifts", secondOrderItems, userInfo2.UserId, "will@gmail.com");
+        await orderRepository.SaveOrder(userInfo2, secondOrder);
+
+        var thirdOrder = new Order(Guid.NewGuid(), "Christmas Gifts", new List<OrderItem>(), userInfo3.UserId, "amy@gmail.com");
+        await orderRepository.SaveOrder(userInfo3, thirdOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        // search by nested Items array
+        var query = new ProjectionQuery
+        {
+            OrderBy = new List<SortInfo>
+            {
+                new SortInfo
+                {
+                    KeyPath = "CreatedBy.Email",
+                    Order = "desc"
+                }
+            }
+        };
+
+        // query by name
+        var orders = await ordersListProjectionsRepository.Query(query);
+        orders.Records.Count.Should().Be(3);
+        orders.Records.ElementAt(0).Id.Should().Be(secondOrder.Id);
+        orders.Records.ElementAt(1).Id.Should().Be(firstOrder.Id);
+        orders.Records.ElementAt(2).Id.Should().Be(thirdOrder.Id);
+
+        // test sorting by array value with filter
+        query.OrderBy = new List<SortInfo>
+        {
+            new SortInfo
+            {
+                KeyPath = "Items.Name",
+                Order = "asc",
+                Filters = new List<SortingFilter>
+                {
+                    new SortingFilter
+                    {
+                        FilterKeyPath = "Items.Amount",
+                        FilterValue = 999m
+                    }
+                }
+            }
+        };
+        
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.Records.ElementAt(0).Id.Should().Be(secondOrder.Id);
+        orders.Records.ElementAt(1).Id.Should().Be(firstOrder.Id);
+        orders.Records.ElementAt(2).Id.Should().Be(thirdOrder.Id);
     }
 }

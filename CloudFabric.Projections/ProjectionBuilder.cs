@@ -112,7 +112,7 @@ public class ProjectionBuilder : IProjectionBuilder
 
         var documents = await repository.Query(projectionQuery, partitionKey, cancellationToken);
 
-        var updateTasks = documents.Select(
+        var updateTasks = documents.Records.Select(
             document =>
             {
                 callback(document);
@@ -244,7 +244,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
 
         var documents = await repository.Query(projectionQuery, partitionKey, cancellationToken);
 
-        var updateTasks = documents.Select(
+        var updateTasks = documents.Records.Select(
             document =>
             {
                 callback(document);

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using CloudFabric.Projections.Models;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Npgsql;
@@ -56,7 +57,7 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<IReadOnlyCollection<TProjectionDocument>> Query(
+    public new async Task<PagedList<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -71,14 +72,20 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
 
         var records = new List<TProjectionDocument>();
 
-        foreach (var dict in recordsDictionary)
+        foreach (var dict in recordsDictionary.Records)
         {
             records.Add(
                 ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
             );
         }
 
-        return records;
+        return new PagedList<TProjectionDocument>
+        {
+            Limit = recordsDictionary.Limit,
+            Offset = recordsDictionary.Offset,
+            TotalCount = recordsDictionary.TotalCount,
+            Records = records
+        };
     }
 }
 
@@ -364,7 +371,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<IReadOnlyCollection<Dictionary<string, object?>>> Query(
+    public async Task<PagedList<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -414,6 +421,11 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         sb.Append(" GROUP BY id");
 
+        // total count query
+        string totalCountQuery = $"SELECT COUNT(*) FROM {string.Join(", ", fromStatements)} WHERE {queryChunk.WhereChunk}";
+        NpgsqlParameter[] totalCountParams = new NpgsqlParameter[queryChunk.Parameters.Count];
+        queryChunk.Parameters.CopyTo(totalCountParams);
+
         sb.Append(" LIMIT @limit");
         queryChunk.Parameters.Add(new NpgsqlParameter("limit", projectionQuery.Limit));
         sb.Append(" OFFSET @offset");
@@ -421,8 +433,9 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         if (projectionQuery.OrderBy.Count > 0)
         {
+            // NOTE: nested sorting is not implemented
             sb.Append(" ORDER BY ");
-            sb.AppendJoin(',', projectionQuery.OrderBy.Select(kv => $"{kv.Key} {kv.Value}"));
+            sb.AppendJoin(',', projectionQuery.OrderBy.Select(kv => $"{kv.KeyPath} {kv.Order}"));
         }
 
         await using var conn = new NpgsqlConnection(_connectionString);
@@ -471,7 +484,23 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                 records.Add(document);
             }
 
-            return records;
+            // clear previous command in order to prevent conflicts
+            cmd.Parameters.Clear();
+            await reader.DisposeAsync();
+            
+            // calculate total count
+            var totalCountCmd = new NpgsqlCommand(totalCountQuery, conn);
+            totalCountCmd.Parameters.AddRange(totalCountParams);
+
+            var totalCount = await totalCountCmd.ExecuteScalarAsync(cancellationToken) as long?;
+
+            return new PagedList<Dictionary<string, object?>>
+            {
+                Limit = projectionQuery.Limit,
+                Offset = projectionQuery.Offset,
+                TotalCount = Convert.ToInt32(totalCount),
+                Records = records
+            };
         }
         catch (NpgsqlException ex)
         {
@@ -494,7 +523,13 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             }
         }
 
-        return new List<Dictionary<string, object?>>();
+        return new PagedList<Dictionary<string, object?>>
+        {
+            Limit = projectionQuery.Limit,
+            Offset = projectionQuery.Offset,
+            TotalCount = 0,
+            Records = new List<Dictionary<string, object?>>()
+        };
     }
 
     private QueryChunk ConstructOneConditionFilter(Filter filter)

@@ -10,7 +10,7 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
     IHandleEvent<TaskCreated>,
     IHandleEvent<TaskCompletedStatusUpdpated>
 {
-    public TaskListsProjectionBuilder(IProjectionRepository<TaskListProjectionItem> repository) : base(repository)
+    public TaskListsProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory) : base(projectionRepositoryFactory)
     {
     }
 

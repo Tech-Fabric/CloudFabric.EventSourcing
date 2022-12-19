@@ -52,7 +52,9 @@ public class UserAccountsService : IUserAccountsService
 
         var emailAlreadyExists = (await _userAccountsProjectionRepository.Query(
             ProjectionQuery.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email)
-        )).FirstOrDefault();
+        ))
+        .Records
+        .FirstOrDefault();
 
         // it may happen that email record was created but then something went wrong and email was left unatached.
         UserAccountEmailAddress? userAccountEmail;
@@ -128,7 +130,9 @@ public class UserAccountsService : IUserAccountsService
         var userAccountEmailAddress = (await _userAccountsProjectionRepository.Query(
             ProjectionQuery.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email),
             PartitionKeys.GetUserAccountEmailAddressPartitionKey()
-        )).FirstOrDefault();
+        ))
+        .Records
+        .FirstOrDefault();
 
         if(userAccountEmailAddress == null) {
             return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");

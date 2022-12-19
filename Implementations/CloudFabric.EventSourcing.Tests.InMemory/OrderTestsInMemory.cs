@@ -55,4 +55,10 @@ public class OrderTestsInMemory : OrderTests
     {
         return;
     }
+    
+    [Ignore]
+    public override async Task TestProjectionsNestedObjectsSorting()
+    {
+        return;
+    }
 }
