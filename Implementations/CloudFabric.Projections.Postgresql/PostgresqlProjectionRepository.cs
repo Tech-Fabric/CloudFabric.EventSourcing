@@ -321,8 +321,13 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
 
         document[nameof(ProjectionDocument.PartitionKey)] = partitionKey;
-
-        var propertyNames = _projectionDocumentSchema.Properties.Select(p => p.PropertyName)
+        
+        var propertiesToInsert = _projectionDocumentSchema.Properties
+            .Where(p => document.Keys.Contains(p.PropertyName)).ToList(); // document may not contain non-required properties,
+                                                                          // we need to exclude them from query
+        
+        var propertyNames = propertiesToInsert
+            .Select(p => p.PropertyName)
             .ToArray();
 
         await using var cmd = new NpgsqlCommand(
@@ -333,9 +338,8 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             , conn
         );
 
-        foreach (var p in _projectionDocumentSchema.Properties)
+        foreach (var p in propertiesToInsert)
         {
-            var propertyType = document[p.PropertyName]?.GetType();
             if (p.IsNestedObject || p.IsNestedArray)
             {
                 document[p.PropertyName] = JsonSerializer.SerializeToDocument(document[p.PropertyName]);
