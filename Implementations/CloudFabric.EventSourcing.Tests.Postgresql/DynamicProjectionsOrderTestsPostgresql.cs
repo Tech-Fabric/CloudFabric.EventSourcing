@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using CloudFabric.EventSourcing.EventStore;
+﻿using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
@@ -10,7 +9,7 @@ namespace CloudFabric.EventSourcing.Tests.Postgresql;
 [TestClass]
 public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTests
 {
-    private readonly Dictionary<string, IProjectionRepository> _projectionsRepositories = new();
+    private ProjectionRepositoryFactory? _projectionRepositoryFactory;
     private PostgresqlEventStore? _eventStore;
     private PostgresqlEventStoreEventObserver? _eventStoreEventsObserver;
 
@@ -19,7 +18,7 @@ public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTes
         if (_eventStore == null)
         {
             _eventStore = new PostgresqlEventStore(
-                "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000",
+                TestsConnectionStrings.CONNECTION_STRING,
                 "orders_events"
             );
             await _eventStore.Initialize();
@@ -28,17 +27,16 @@ public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTes
         return _eventStore;
     }
 
-    protected override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema schema)
+    protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        if (!_projectionsRepositories.ContainsKey(schema.SchemaName))
+        if (_projectionRepositoryFactory == null)
         {
-            _projectionsRepositories[schema.SchemaName] = new PostgresqlProjectionRepository(
-                "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000",
-                schema
+            _projectionRepositoryFactory = new PostgresqlProjectionRepositoryFactory(
+                TestsConnectionStrings.CONNECTION_STRING
             );
         }
 
-        return _projectionsRepositories[schema.SchemaName];
+        return _projectionRepositoryFactory;
     }
 
     protected override IEventsObserver GetEventStoreEventsObserver()
@@ -49,12 +47,5 @@ public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTes
         }
 
         return _eventStoreEventsObserver;
-    }
-
-    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
-    {
-        return new PostgresqlProjectionRepository<ProjectionRebuildState>(
-            "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000"
-        );
     }
 }

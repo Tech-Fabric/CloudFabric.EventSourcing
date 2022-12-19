@@ -8,41 +8,18 @@ using CloudFabric.EventSourcing.Tests.Domain.ValueObjects;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Queries;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests;
 
-public abstract class OrderTests
+public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionItem, OrdersListProjectionBuilder>
 {
-    // Some projection engines take time to catch events and update projection records
-    // (like cosmosdb with changefeed event observer)
-    protected TimeSpan ProjectionsUpdateDelay { get; set; } = TimeSpan.FromMilliseconds(1000);
-    protected abstract Task<IEventStore> GetEventStore();
-    protected abstract IProjectionRepository<T> GetProjectionRepository<T>() where T : ProjectionDocument;
-    
-    protected abstract IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository();
-    protected abstract IEventsObserver GetEventStoreEventsObserver();
-
-    [TestCleanup]
-    public async Task Cleanup()
+    [TestInitialize]
+    public new async Task Initialize()
     {
-        var store = await GetEventStore();
-        await store.DeleteAll();
-
-        try
-        {
-            var projectionRepository = GetProjectionRepository<OrderListProjectionItem>();
-            await projectionRepository.DeleteAll();
-
-            var rebuildStateRepository = GetProjectionRebuildStateRepository();
-            await rebuildStateRepository.DeleteAll();
-        }
-        catch
-        {
-        }
+        await base.Initialize();
     }
-
+    
     [TestMethod]
     public async Task TestPlaceOrder()
     {
@@ -79,8 +56,8 @@ public abstract class OrderTests
         order2.Items.Should().BeEquivalentTo(items);
         order2.Items.Count.Should().Be(3);
     }
-    
-    
+
+
     [TestMethod]
     public async Task TestOrderNotFound()
     {
@@ -88,7 +65,7 @@ public abstract class OrderTests
 
         var act = async () => await orderRepository.LoadOrder(Guid.Empty, PartitionKeys.GetOrderPartitionKey());
 
-        await act.Should().ThrowAsync<EventStore.NotFoundException>();
+        await act.Should().ThrowAsync<NotFoundException>();
     }
 
     [TestMethod]
@@ -156,25 +133,8 @@ public abstract class OrderTests
     [TestMethod]
     public async Task TestPlaceOrderAndAddItemProjections()
     {
-        var loggerFactory = new LoggerFactory();
-
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
-
-        // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
-        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
-
-        // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
-        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
-
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
-        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
-
-
-        await projectionsEngine.StartAsync("TestInstance");
-
 
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
@@ -205,7 +165,7 @@ public abstract class OrderTests
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        var orderProjection = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
+        var orderProjection = await ProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjection != null, nameof(orderProjection) + " != null");
 
         orderProjection.Name.Should().Be(orderName);
@@ -227,14 +187,14 @@ public abstract class OrderTests
         items.Add(addItem);
         items.Add(addItem);
         items.Add(addItem);
-        
+
         var order2 = await orderRepository.LoadOrder(id, PartitionKeys.GetOrderPartitionKey());
         order2.Id.Should().Be(id);
         order2.OrderName.Should().Be(orderName);
         order2.Items.Should().BeEquivalentTo(items);
         order2.Items.Count.Should().Be(7);
 
-        var orderProjection2 = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
+        var orderProjection2 = await ProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjection2 != null, nameof(orderProjection2) + " != null");
 
         orderProjection2.Name.Should().Be(orderName);
@@ -242,14 +202,11 @@ public abstract class OrderTests
         orderProjection2.CreatedBy.UserId.Should().Be(userId);
 
         var orderProjectionFromQuery =
-            await ordersListProjectionsRepository.Query(
+            await ProjectionsRepository.Query(
                 ProjectionQuery.Where<OrderListProjectionItem>(d => d.Name == orderName)
             );
-        orderProjectionFromQuery.TotalCount.Should().Be(1);
         orderProjectionFromQuery.Records.Count.Should().Be(1);
         orderProjectionFromQuery.Records.First().Name.Should().Be(orderName);
-
-        await projectionsEngine.StopAsync();
     }
 
     [TestMethod]
@@ -257,21 +214,6 @@ public abstract class OrderTests
     {
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
-
-        // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
-        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
-
-        // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
-        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
-
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
-        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
-
-
-        await projectionsEngine.StartAsync("RebuildDocumentTestInstance");
-
 
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
@@ -292,55 +234,39 @@ public abstract class OrderTests
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        var firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        var secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        var firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        var secondOrderProjection = await ProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().NotBeNull();
-        
+
         // remove orders
-        await ordersListProjectionsRepository.Delete(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        await ordersListProjectionsRepository.Delete(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        
-        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        await ProjectionsRepository.Delete(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        await ProjectionsRepository.Delete(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
+
+        firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        secondOrderProjection = await ProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
         firstOrderProjection.Should().BeNull();
         secondOrderProjection.Should().BeNull();
 
         // rebuild the firstOrder document
-        await projectionsEngine.RebuildOneAsync(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        await ProjectionsEngine.RebuildOneAsync(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         // check firstOrder document is rebuild and second is not
-        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        secondOrderProjection = await ProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().BeNull();
-
-        await projectionsEngine.StopAsync();
     }
 
     [TestMethod]
     public async Task TestRebuildAllOrdersProjections()
     {
+        string instanceName = "RebuildOrdersTestInstance";
+
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
-
-        // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
-        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
-
-        // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
-        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
-
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
-        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
-
-        string instanceName = "RebuildOrdersTestInstance";
-        
-        await projectionsEngine.StartAsync(instanceName);
-
 
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
@@ -361,23 +287,23 @@ public abstract class OrderTests
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        var firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        var secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        var firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        var secondOrderProjection = await ProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().NotBeNull();
-        
+
         // remove orders
-        await ordersListProjectionsRepository.Delete(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        await ordersListProjectionsRepository.Delete(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        
-        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        await ProjectionsRepository.Delete(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        await ProjectionsRepository.Delete(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
+
+        firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        secondOrderProjection = await ProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
         firstOrderProjection.Should().BeNull();
         secondOrderProjection.Should().BeNull();
 
         // rebuild the firstOrder document
-        await projectionsEngine.RebuildAsync(instanceName, PartitionKeys.GetOrderPartitionKey());
+        await ProjectionsEngine.RebuildAsync(instanceName, PartitionKeys.GetOrderPartitionKey());
 
         // wait for the rebuild state to be indexed
         await Task.Delay(ProjectionsUpdateDelay);
@@ -386,22 +312,18 @@ public abstract class OrderTests
         ProjectionRebuildState rebuildState;
         do
         {
-            rebuildState = await projectionsEngine.GetRebuildState(instanceName, PartitionKeys.GetOrderPartitionKey());
+            rebuildState = await ProjectionsEngine.GetRebuildState(instanceName, PartitionKeys.GetOrderPartitionKey());
             await Task.Delay(10);
-        }
-        while (rebuildState.Status != RebuildStatus.Completed && rebuildState.Status != RebuildStatus.Failed);
-
+        } while (rebuildState.Status != RebuildStatus.Completed && rebuildState.Status != RebuildStatus.Failed);
 
         rebuildState.Status.Should().Be(RebuildStatus.Completed);
 
         // check firstOrder document is rebuild and second is not
-        firstOrderProjection = await ordersListProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
-        secondOrderProjection = await ordersListProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        secondOrderProjection = await ProjectionsRepository.Single(secondOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         firstOrderProjection.Should().NotBeNull();
         secondOrderProjection.Should().NotBeNull();
-
-        await projectionsEngine.StopAsync();
     }
 
     [TestMethod]
@@ -411,14 +333,14 @@ public abstract class OrderTests
         var orderRepository = new OrderRepository(await GetEventStore());
 
         // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
         var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>());
         projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
 
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(GetProjectionRepositoryFactory());
         projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
 
         string instanceName = "ProjectionsQueryInstance";
@@ -483,7 +405,8 @@ public abstract class OrderTests
 
         await projectionsEngine.StopAsync();
     }
-
+    
+    
     [TestMethod]
     public async Task TestProjectionsQueryFilterStringMatching()
     {
@@ -491,19 +414,7 @@ public abstract class OrderTests
         var orderRepository = new OrderRepository(await GetEventStore());
 
         // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
-        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
-
-        // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
-        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
-
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
-        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
-
-        string instanceName = "ProjectionsQueryInstance";
-
-        await projectionsEngine.StartAsync(instanceName);
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
 
 
         var userId = Guid.NewGuid();
@@ -569,8 +480,6 @@ public abstract class OrderTests
         
         var ordersContaining = await ordersListProjectionsRepository.Query(queryContaining);
         ordersContaining.Records.Count.Should().Be(2);
-        
-        await projectionsEngine.StopAsync();
     }
 
     [TestMethod]
@@ -578,23 +487,8 @@ public abstract class OrderTests
     {
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
-
-        // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
-        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
-
-        // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
-        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
-
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
-        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
-
-        string instanceName = "ProjectionsNestedQueryInstance";
-
-        await projectionsEngine.StartAsync(instanceName);
-
-
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
+        
         var userInfo1 = new EventUserInfo(Guid.NewGuid());
         var userInfo2 = new EventUserInfo(Guid.NewGuid());
         var userInfo3 = new EventUserInfo(Guid.NewGuid());
@@ -642,8 +536,6 @@ public abstract class OrderTests
         orders = await ordersListProjectionsRepository.Query(query);
         orders.Records.Count.Should().Be(1);
         orders.Records.First().Items.Count.Should().Be(0);
-
-        await projectionsEngine.StopAsync();
     }
 
     [TestMethod]
@@ -651,22 +543,7 @@ public abstract class OrderTests
     {
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
-
-        // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
-        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
-
-        // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
-        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
-
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
-        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
-
-        string instanceName = "ProjectionsNestedQueryInstance";
-
-        await projectionsEngine.StartAsync(instanceName);
-
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
 
         var userInfo1 = new EventUserInfo(Guid.NewGuid());
         var userInfo2 = new EventUserInfo(Guid.NewGuid());
@@ -697,12 +574,14 @@ public abstract class OrderTests
 
         // filter by creator id
         var query = new ProjectionQuery();
-        query.Filters.Add(new Filter
-        {
-            PropertyName = "CreatedBy.UserId",
-            Operator = FilterOperator.Equal,
-            Value = userInfo2.UserId
-        });
+        query.Filters.Add(
+            new Filter
+            {
+                PropertyName = "CreatedBy.UserId",
+                Operator = FilterOperator.Equal,
+                Value = userInfo2.UserId
+            }
+        );
 
         var orders = await ordersListProjectionsRepository.Query(query);
         orders.Records.Count.Should().Be(1);
@@ -716,7 +595,7 @@ public abstract class OrderTests
             Value = DateTime.UtcNow.AddDays(-1)
         };
 
-        orders = await ordersListProjectionsRepository.Query(query);
+        orders = await ProjectionsRepository.Query(query);
 
         orders.Records.Count.Should().Be(1);
         orders.Records.First().Items.Count.Should().Be(3);
@@ -733,8 +612,6 @@ public abstract class OrderTests
         orders.Records.Count.Should().Be(2);
         orders.Records.Any(x => x.Items.Count == 3).Should().BeTrue();
         orders.Records.Any(x => x.Items.Count == 2).Should().BeTrue();
-
-        await projectionsEngine.StopAsync();
     }
     
     
@@ -745,20 +622,7 @@ public abstract class OrderTests
         var orderRepository = new OrderRepository(await GetEventStore());
 
         // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository<OrderListProjectionItem>();
-        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
-
-        // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
-        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
-
-        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(ordersListProjectionsRepository);
-        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
-
-        string instanceName = "ProjectionsNestedQueryInstance";
-
-        await projectionsEngine.StartAsync(instanceName);
-
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
 
         var userInfo1 = new EventUserInfo(Guid.NewGuid());
         var userInfo2 = new EventUserInfo(Guid.NewGuid());
@@ -829,7 +693,5 @@ public abstract class OrderTests
         orders.Records.ElementAt(0).Id.Should().Be(secondOrder.Id);
         orders.Records.ElementAt(1).Id.Should().Be(firstOrder.Id);
         orders.Records.ElementAt(2).Id.Should().Be(thirdOrder.Id);
-        
-        await projectionsEngine.StopAsync();
     }
 }

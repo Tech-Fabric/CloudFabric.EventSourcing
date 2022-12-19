@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.InMemory\CloudFabric.EventSourcing.EventStore.InMemory.csproj"/>
-    <ProjectReference Include="..\..\CloudFabric.EventSourcing.Tests\CloudFabric.EventSourcing.Tests.csproj"/>
-    <ProjectReference Include="..\..\Implementations\CloudFabric.Projections.InMemory\CloudFabric.Projections.InMemory.csproj"/>
+    <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.InMemory\CloudFabric.EventSourcing.EventStore.InMemory.csproj" />
+    <ProjectReference Include="..\..\CloudFabric.EventSourcing.Tests\CloudFabric.EventSourcing.Tests.csproj" />
+    <ProjectReference Include="..\..\Implementations\CloudFabric.Projections.InMemory\CloudFabric.Projections.InMemory.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -11,9 +11,9 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0"/>
-    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10"/>
-    <PackageReference Include="MSTest.TestFramework" Version="2.2.10"/>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
   </ItemGroup>
 
   <PropertyGroup>

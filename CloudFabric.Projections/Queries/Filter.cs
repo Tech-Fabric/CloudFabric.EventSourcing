@@ -72,10 +72,22 @@ public class Filter
     # region Reflection methods cache
     private static readonly MethodInfo StringStartsWith = typeof(string).GetMethods()
         .First(m => m.Name == "StartsWith" && m.GetParameters().Length == 1);
+    private static readonly MethodInfo StringStartsWithIgnoreCaseArgument = typeof(string).GetMethods()
+        .First(m => m.Name == "StartsWith" && m.GetParameters().Length == 3);
+    private static readonly MethodInfo StringStartsWithStringComparisonArgument = typeof(string).GetMethods()
+        .First(m => m.Name == "StartsWith" && m.GetParameters().Length == 2);
+    
     private static readonly MethodInfo StringEndsWith = typeof(string).GetMethods()
         .First(m => m.Name == "EndsWith" && m.GetParameters().Length == 1);
+    private static readonly MethodInfo StringEndsWithIgnoreCaseArgument = typeof(string).GetMethods()
+        .First(m => m.Name == "EndsWith" && m.GetParameters().Length == 3);
+    private static readonly MethodInfo StringEndsWithStringComparisonArgument = typeof(string).GetMethods()
+        .First(m => m.Name == "EndsWith" && m.GetParameters().Length == 2);
+    
     private static readonly MethodInfo StringContains = typeof(string).GetMethods()
         .First(m => m.Name == "Contains" && m.GetParameters().Length == 1);
+    private static readonly MethodInfo StringContainsStringComparisonArgument = typeof(string).GetMethods()
+        .First(m => m.Name == "Contains" && m.GetParameters().Length == 2);
     #endregion
     
     public (Expression, ParameterExpression) ToExpression<TParameter>(ParameterExpression? parameter = null)
@@ -118,6 +130,9 @@ public class Filter
             FilterOperator.StartsWith => Expression.Call(operand, StringStartsWith, value),
             FilterOperator.EndsWith => Expression.Call(operand, StringEndsWith, value),
             FilterOperator.Contains => Expression.Call(operand, StringContains, value),
+            FilterOperator.StartsWithIgnoreCase => Expression.Call(operand, StringStartsWithStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+            FilterOperator.EndsWithIgnoreCase => Expression.Call(operand, StringEndsWithStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+            FilterOperator.ContainsIgnoreCase => Expression.Call(operand, StringContainsStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
             _ => throw new Exception(
                 $"Cannot create an expression. Filter's operator is either incorrect or not supported: {Operator}"
             )
@@ -285,27 +300,118 @@ public class Filter
                 
                 if (e.Method.Name == "StartsWith" && e.Method.DeclaringType == typeof(string))
                 {
+                    var filterOperator = FilterOperator.StartsWith;
+                    
+                    // this is for public bool StartsWith(string value, StringComparison comparisonType)
+                    // overload
+                    if (e.Arguments.Count == 2)
+                    {
+                        switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
+                        {
+                            case StringComparison.Ordinal:
+                            case StringComparison.CurrentCulture:
+                            case StringComparison.InvariantCulture:
+                                filterOperator = FilterOperator.StartsWith;
+                                break;
+                            case StringComparison.OrdinalIgnoreCase:
+                            case StringComparison.CurrentCultureIgnoreCase:
+                            case StringComparison.InvariantCultureIgnoreCase:
+                                filterOperator = FilterOperator.StartsWithIgnoreCase;
+                                break;
+                        }
+                    }
+                    // this is for public bool StartsWith(string value, bool ignoreCase, CultureInfo? culture)
+                    // overload
+                    else if (e.Arguments.Count == 3)
+                    {
+                        switch ((bool)GetExpressionValue(e.Arguments[1])!)
+                        {
+                            case false:
+                                filterOperator = FilterOperator.StartsWith;
+                                break;
+                            case true:
+                                filterOperator = FilterOperator.StartsWithIgnoreCase;
+                                break;
+                        }
+                    }
+
                     return new Filter()
                     {
-                        Operator = FilterOperator.StartsWith,
+                        Operator = filterOperator,
                         PropertyName = property,
                         Value = GetExpressionValue(e.Arguments.First())
                     };
                 }
                 else if (e.Method.Name == "EndsWith" && e.Method.DeclaringType == typeof(string))
                 {
+                    var filterOperator = FilterOperator.EndsWith;
+                    
+                    // this is for public bool EndsWith(string value, StringComparison comparisonType)
+                    // overload
+                    if (e.Arguments.Count == 2)
+                    {
+                        switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
+                        {
+                            case StringComparison.Ordinal:
+                            case StringComparison.CurrentCulture:
+                            case StringComparison.InvariantCulture:
+                                filterOperator = FilterOperator.EndsWith;
+                                break;
+                            case StringComparison.OrdinalIgnoreCase:
+                            case StringComparison.CurrentCultureIgnoreCase:
+                            case StringComparison.InvariantCultureIgnoreCase:
+                                filterOperator = FilterOperator.EndsWithIgnoreCase;
+                                break;
+                        }
+                    }
+                    // this is for public bool EndsWith(string value, bool ignoreCase, CultureInfo? culture)
+                    // overload
+                    else if (e.Arguments.Count == 3)
+                    {
+                        switch ((bool)GetExpressionValue(e.Arguments[1])!)
+                        {
+                            case false:
+                                filterOperator = FilterOperator.EndsWith;
+                                break;
+                            case true:
+                                filterOperator = FilterOperator.EndsWithIgnoreCase;
+                                break;
+                        }
+                    }
+                    
                     return new Filter()
                     {
-                        Operator = FilterOperator.EndsWith,
+                        Operator = filterOperator,
                         PropertyName = property,
                         Value = GetExpressionValue(e.Arguments.First())
                     };
                 }
                 else if (e.Method.Name == "Contains" && e.Method.DeclaringType == typeof(string))
                 {
+                    var filterOperator = FilterOperator.Contains;
+                    
+                    // this is for public bool StartsWith(string value, StringComparison comparisonType)
+                    // overload
+                    if (e.Arguments.Count == 2)
+                    {
+                        switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
+                        {
+                            case StringComparison.Ordinal:
+                            case StringComparison.CurrentCulture:
+                            case StringComparison.InvariantCulture:
+                                filterOperator = FilterOperator.Contains;
+                                break;
+                            case StringComparison.OrdinalIgnoreCase:
+                            case StringComparison.CurrentCultureIgnoreCase:
+                            case StringComparison.InvariantCultureIgnoreCase:
+                                filterOperator = FilterOperator.ContainsIgnoreCase;
+                                break;
+                        }
+                    }
+                    
                     return new Filter()
                     {
-                        Operator = FilterOperator.Contains,
+                        Operator = filterOperator,
                         PropertyName = property,
                         Value = GetExpressionValue(e.Arguments.First())
                     };

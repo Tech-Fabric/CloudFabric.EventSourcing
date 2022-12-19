@@ -1,18 +1,13 @@
-using System.Diagnostics;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
-using CloudFabric.Projections.ElasticSearch;
-using Microsoft.Extensions.Logging;
+using CloudFabric.Projections.Postgresql;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace CloudFabric.EventSourcing.Tests.ElasticSearch;
+namespace CloudFabric.EventSourcing.Tests.Postgresql;
 
-/// <summary>
-/// Elastic Search projections test with Postgresql event store
-/// </summary>
 [TestClass]
-public class OrderTestsElasticSearch : OrderTests
+public class OrderStringComparisonTestsPostgresql : OrderStringComparisonTests
 {
     private ProjectionRepositoryFactory? _projectionRepositoryFactory;
     private PostgresqlEventStore? _eventStore;
@@ -23,7 +18,7 @@ public class OrderTestsElasticSearch : OrderTests
         if (_eventStore == null)
         {
             _eventStore = new PostgresqlEventStore(
-                "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000",
+                TestsConnectionStrings.CONNECTION_STRING,
                 "orders_events"
             );
             await _eventStore.Initialize();
@@ -31,17 +26,14 @@ public class OrderTestsElasticSearch : OrderTests
 
         return _eventStore;
     }
-
+    
+    
     protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
         if (_projectionRepositoryFactory == null)
         {
-            _projectionRepositoryFactory = new ElasticSearchProjectionRepositoryFactory(
-                "http://127.0.0.1:9200",
-                "",
-                "",
-                "",
-                new LoggerFactory()
+            _projectionRepositoryFactory = new PostgresqlProjectionRepositoryFactory(
+                TestsConnectionStrings.CONNECTION_STRING
             );
         }
 
@@ -56,26 +48,5 @@ public class OrderTestsElasticSearch : OrderTests
         }
 
         return _eventStoreEventsObserver;
-    }
-
-    public async Task LoadTest()
-    {
-        var watch = Stopwatch.StartNew();
-
-        var tasks = new List<Task>();
-
-        for (var i = 0; i < 100; i++)
-        {
-            for (var j = 0; j < 10; j++)
-            {
-                tasks.Add(TestPlaceOrderAndAddItem());
-            }
-        }
-
-        await Task.WhenAll(tasks);
-
-        watch.Stop();
-
-        Console.WriteLine($"It took {watch.Elapsed}!");
     }
 }

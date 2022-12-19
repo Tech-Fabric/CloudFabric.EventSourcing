@@ -10,7 +10,7 @@ namespace CloudFabric.EventSourcing.Tests.ElasticSearch;
 [TestClass]
 public class DynamicProjectionsOrderTestsElasticSearch : DynamicProjectionSchemaTests
 {
-    private readonly Dictionary<string, IProjectionRepository> _projectionsRepositories = new();
+    private ProjectionRepositoryFactory? _projectionRepositoryFactory;
     private PostgresqlEventStore? _eventStore;
     private PostgresqlEventStoreEventObserver? _eventStoreEventsObserver;
 
@@ -28,23 +28,6 @@ public class DynamicProjectionsOrderTestsElasticSearch : DynamicProjectionSchema
         return _eventStore;
     }
 
-    protected override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema schema)
-    {
-        if (!_projectionsRepositories.ContainsKey(schema.SchemaName))
-        {
-            _projectionsRepositories[schema.SchemaName] = new ElasticSearchProjectionRepository(
-                "http://127.0.0.1:9200",
-                "",
-                "",
-                "",
-                schema,
-                new LoggerFactory()
-            );
-        }
-
-        return _projectionsRepositories[schema.SchemaName];
-    }
-
     protected override IEventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
@@ -55,14 +38,19 @@ public class DynamicProjectionsOrderTestsElasticSearch : DynamicProjectionSchema
         return _eventStoreEventsObserver;
     }
 
-    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
+    protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        return new ElasticSearchProjectionRepository<ProjectionRebuildState>(
-            "http://127.0.0.1:9200",
-            "",
-            "",
-            "",
-            new LoggerFactory()
-        );
+        if (_projectionRepositoryFactory == null)
+        {
+            _projectionRepositoryFactory = new ElasticSearchProjectionRepositoryFactory(
+                "http://127.0.0.1:9200",
+                "",
+                "",
+                "",
+                new LoggerFactory()
+            );
+        }
+
+        return _projectionRepositoryFactory;
     }
 }

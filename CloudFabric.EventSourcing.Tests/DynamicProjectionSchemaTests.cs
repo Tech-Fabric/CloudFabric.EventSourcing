@@ -8,45 +8,57 @@ using CloudFabric.EventSourcing.Tests.Domain.ValueObjects;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Queries;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests;
 
-public class OrderListsDynamicProjectionBuilder : ProjectionBuilder, 
+public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
     IHandleEvent<OrderPlaced>,
     IHandleEvent<OrderItemAdded>,
     IHandleEvent<OrderItemRemoved>
 {
-    public OrderListsDynamicProjectionBuilder(IProjectionRepository repository) : base(repository)
+    private readonly ProjectionDocumentSchema _projectionDocumentSchema;
+
+    public OrderListsDynamicProjectionBuilder(
+        ProjectionRepositoryFactory projectionRepositoryFactory,
+        ProjectionDocumentSchema projectionDocumentSchema
+    ) : base(projectionRepositoryFactory)
     {
+        _projectionDocumentSchema = projectionDocumentSchema;
     }
-    
+
     public async Task On(OrderPlaced @event)
     {
-        await UpsertDocument(new Dictionary<string, object?>()
-        {
-            { "Id", @event.Id },
-            { "Name", @event.OrderName },
-            { "ItemsCount", @event.Items.Count }
-        },
-        @event.PartitionKey);
+        await UpsertDocument(
+            _projectionDocumentSchema,
+            new Dictionary<string, object?>()
+            {
+                { "Id", @event.Id },
+                { "Name", @event.OrderName },
+                { "ItemsCount", @event.Items.Count }
+            },
+            @event.PartitionKey
+        );
     }
 
     public async Task On(OrderItemAdded @event)
     {
-        await UpdateDocument(@event.Id, @event.PartitionKey, (orderProjection) =>
-        {
-            orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) + 1;
-        });
+        await UpdateDocument(
+            _projectionDocumentSchema,
+            @event.Id,
+            @event.PartitionKey,
+            (orderProjection) => { orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) + 1; }
+        );
     }
 
     public async Task On(OrderItemRemoved @event)
     {
-        await UpdateDocument(@event.Id, @event.PartitionKey, (orderProjection) =>
-        {
-            orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) - 1;
-        });
+        await UpdateDocument(
+            _projectionDocumentSchema,
+            @event.Id, 
+            @event.PartitionKey, 
+            (orderProjection) => { orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) - 1; }
+        );
     }
 }
 
@@ -56,9 +68,9 @@ public abstract class DynamicProjectionSchemaTests
     // (like cosmosdb with changefeed event observer)
     protected TimeSpan ProjectionsUpdateDelay { get; set; } = TimeSpan.FromMilliseconds(1000);
     protected abstract Task<IEventStore> GetEventStore();
-    protected abstract IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema schema);
-    
-    protected abstract IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository();
+
+    protected abstract ProjectionRepositoryFactory GetProjectionRepositoryFactory();
+
     protected abstract IEventsObserver GetEventStoreEventsObserver();
 
     private const string _projectionsSchemaName = "orders-projections";
@@ -71,13 +83,18 @@ public abstract class DynamicProjectionSchemaTests
 
         try
         {
-            var projectionRepository = GetProjectionRepository(new ProjectionDocumentSchema 
-            {
-                SchemaName = _projectionsSchemaName
-            });
+            var projectionRepository = GetProjectionRepositoryFactory()
+                .GetProjectionRepository(
+                    new ProjectionDocumentSchema
+                    {
+                        SchemaName = _projectionsSchemaName
+                    }
+                );
             await projectionRepository.DeleteAll();
 
-            var rebuildStateRepository = GetProjectionRebuildStateRepository();
+            var rebuildStateRepository = GetProjectionRepositoryFactory()
+                .GetProjectionRepository<ProjectionRebuildState>();
+
             await rebuildStateRepository.DeleteAll();
         }
         catch
@@ -120,13 +137,19 @@ public abstract class DynamicProjectionSchemaTests
         };
 
         // Repository containing projections - `view models` of orders
-        var ordersListProjectionsRepository = GetProjectionRepository(ordersProjectionSchema);
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory()
+            .GetProjectionRepository(ordersProjectionSchema);
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRebuildStateRepository());
+        var projectionsEngine = new ProjectionsEngine(
+            GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>()
+        );
         projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
 
-        var ordersListProjectionBuilder = new OrderListsDynamicProjectionBuilder(ordersListProjectionsRepository);
+        var ordersListProjectionBuilder = new OrderListsDynamicProjectionBuilder(
+            GetProjectionRepositoryFactory(),
+            ordersProjectionSchema
+        );
         projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
 
 
@@ -198,14 +221,14 @@ public abstract class DynamicProjectionSchemaTests
 
         await projectionsEngine.StopAsync();
     }
-    
+
     [TestMethod]
     public async Task TestPlaceOrderAndAddItemtoDynamicProjectionWithCreatingNewProjectionField()
     {
         // todo: same as previous, but with additional step:
         // adding new projection field and then making sure it's added to underlying projection storage (new column in postgresql/new index in elastic etc)
     }
-    
+
     [TestMethod]
     public async Task TestPlaceOrderAndAddItemtoDynamicProjectionWithRemovingProjectionField()
     {

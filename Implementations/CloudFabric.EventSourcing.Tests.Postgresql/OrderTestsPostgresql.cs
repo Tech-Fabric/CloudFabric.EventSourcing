@@ -10,7 +10,7 @@ namespace CloudFabric.EventSourcing.Tests.Postgresql;
 [TestClass]
 public class OrderTestsPostgresql : OrderTests
 {
-    private readonly Dictionary<Type, object> _projectionsRepositories = new();
+    private ProjectionRepositoryFactory? _projectionRepositoryFactory;
     private PostgresqlEventStore? _eventStore;
     private PostgresqlEventStoreEventObserver? _eventStoreEventsObserver;
 
@@ -19,7 +19,7 @@ public class OrderTestsPostgresql : OrderTests
         if (_eventStore == null)
         {
             _eventStore = new PostgresqlEventStore(
-                "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000",
+                TestsConnectionStrings.CONNECTION_STRING,
                 "orders_events"
             );
             await _eventStore.Initialize();
@@ -38,23 +38,16 @@ public class OrderTestsPostgresql : OrderTests
         return _eventStoreEventsObserver;
     }
 
-    protected override IProjectionRepository<T> GetProjectionRepository<T>()
+    protected override ProjectionRepositoryFactory GetProjectionRepositoryFactory()
     {
-        if (!_projectionsRepositories.ContainsKey(typeof(T)))
+        if (_projectionRepositoryFactory == null)
         {
-            _projectionsRepositories[typeof(T)] = new PostgresqlProjectionRepository<T>(
-                "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000"
+            _projectionRepositoryFactory = new PostgresqlProjectionRepositoryFactory(
+                TestsConnectionStrings.CONNECTION_STRING
             );
         }
 
-        return (IProjectionRepository<T>)_projectionsRepositories[typeof(T)];
-    }
-
-    protected override IProjectionRepository<ProjectionRebuildState> GetProjectionRebuildStateRepository()
-    {
-        return new PostgresqlProjectionRepository<ProjectionRebuildState>(
-            "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000"
-        );
+        return _projectionRepositoryFactory;
     }
 
     [TestMethod]

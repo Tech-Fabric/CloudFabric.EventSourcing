@@ -43,6 +43,9 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             var projectionRepository = new PostgresqlProjectionRepository<TDocument>(projectionsConnectionString);
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
+            var repositoryFactory = new PostgresqlProjectionRepositoryFactory(projectionsConnectionString);
+            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            
             // add repository for saving rebuild states
             var projectionStateRepository = new PostgresqlProjectionRepository<ProjectionRebuildState>(projectionsConnectionString);
 
@@ -63,7 +66,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                 }
 
                 projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { projectionRepository })
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
                 );
             }
 

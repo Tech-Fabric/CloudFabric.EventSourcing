@@ -9,7 +9,7 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
     IHandleEvent<TaskTitleUpdated>,
     IHandleEvent<TaskCompletedStatusUpdpated>
 {
-    public TasksProjectionBuilder(IProjectionRepository<TaskProjectionItem> repository) : base(repository)
+    public TasksProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory) : base(projectionRepositoryFactory)
     {
     }
 

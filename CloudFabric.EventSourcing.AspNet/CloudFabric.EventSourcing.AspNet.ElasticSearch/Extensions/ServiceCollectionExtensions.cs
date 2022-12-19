@@ -27,6 +27,15 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
 
             builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
+            var repositoryFactory = new ElasticSearchProjectionRepositoryFactory(
+                uri,
+                username,
+                password,
+                certificateFingerprint,
+                loggerFactory
+            );
+            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            
             // add repository for saving rebuild states
             var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
                 uri,
@@ -53,7 +62,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
                 }
 
                 projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { projectionRepository })
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
                 );
             }
 

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
-        <ProjectReference Include="..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj"/>
+        <ProjectReference Include="..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj" />
     </ItemGroup>
 
     <ItemGroup>
