@@ -64,32 +64,31 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
         public static IEventSourcingBuilder AddRepository<TRepo>(this IEventSourcingBuilder builder)
             where TRepo : class
         {
+            if (builder.EventStore == null)
+            {
+                throw new ArgumentException("Event store is missing");
+            }
+            
             builder.Services.AddSingleton(sp => ActivatorUtilities.CreateInstance<TRepo>(sp, new object[] { builder.EventStore }));
             return builder;
         }
 
-        public static IEventSourcingBuilder AddCosmosDbProjections<TDocument>(
+        // NOTE: projection repositories can't work with different databases for now
+        public static IEventSourcingBuilder AddCosmosDbProjections(
             this IEventSourcingBuilder builder,
             CosmosProjectionRepositoryConnectionInfo projectionsConnectionInfo,
             params Type[] projectionBuildersTypes
-        ) where TDocument : ProjectionDocument
+        )
         {
-            var projectionRepository = new CosmosDbProjectionRepository<TDocument>(
+            var repositoryFactory = new CosmosDbProjectionRepositoryFactory(
                 projectionsConnectionInfo.LoggerFactory,
                 projectionsConnectionInfo.ConnectionString,
                 projectionsConnectionInfo.CosmosClientOptions,
                 projectionsConnectionInfo.DatabaseId,
                 projectionsConnectionInfo.ContainerId
             );
-            builder.Services.AddScoped<IProjectionRepository<TDocument>>((sp) => projectionRepository);
 
-                var repositoryFactory = new CosmosDbProjectionRepositoryFactory(
-                projectionsConnectionInfo.LoggerFactory,
-                projectionsConnectionInfo.ConnectionString,
-                projectionsConnectionInfo.CosmosClientOptions,
-                projectionsConnectionInfo.DatabaseId,
-                projectionsConnectionInfo.ContainerId
-            );
+            // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
             builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
             
             // add repository for saving rebuild states
@@ -112,11 +111,6 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                if (!typeof(ProjectionBuilder<TDocument>).IsAssignableFrom(projectionBuilderType))
-                {
-                    throw new ArgumentException($"Invalid projection builder type: {projectionBuilderType.Name}");
-                }
-
                 projectionsEngine.AddProjectionBuilder(
                     (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
                 );
