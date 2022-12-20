@@ -427,7 +427,12 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         sb.Append(" GROUP BY id");
 
         // total count query
-        string totalCountQuery = $"SELECT COUNT(*) FROM {string.Join(", ", fromStatements)} WHERE {queryChunk.WhereChunk}";
+        string totalCountQuery = $"SELECT COUNT(*) FROM {string.Join(", ", fromStatements)}";
+        if (!string.IsNullOrEmpty(queryChunk.WhereChunk))
+        {
+            totalCountQuery += $" WHERE {queryChunk.WhereChunk}";
+        }
+        
         NpgsqlParameter[] totalCountParams = new NpgsqlParameter[queryChunk.Parameters.Count];
         queryChunk.Parameters.CopyTo(totalCountParams);
 
