@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using CloudFabric.Projections.Models;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Microsoft.Azure.Cosmos;
@@ -59,7 +58,7 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<PagedList<TProjectionDocument>> Query(
+    public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -67,20 +66,22 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
     {
         var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
-        var records = new List<TProjectionDocument>();
+        var records = new List<QueryResultDocument<TProjectionDocument>>();
 
-        foreach (var dict in recordsDictionary.Records)
+        foreach (var doc in recordsDictionary.Records)
         {
             records.Add(
-                ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
+                new QueryResultDocument<TProjectionDocument>
+                {
+                    Document = ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(doc.Document)
+                }
             );
         }
 
-        return new PagedList<TProjectionDocument>
+        return new ProjectionQueryResult<TProjectionDocument>
         {
-            Limit = recordsDictionary.Limit,
-            Offset = recordsDictionary.Offset,
-            TotalCount = recordsDictionary.TotalCount,
+            IndexName = recordsDictionary.IndexName,
+            TotalRecordsFound = recordsDictionary.TotalRecordsFound,
             Records = records
         };
     }
@@ -255,7 +256,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<PagedList<Dictionary<string, object?>>> Query(
+    public async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -334,12 +335,16 @@ public class CosmosDbProjectionRepository : IProjectionRepository
             FeedIterator<int> totalCountIterator = container.GetItemQueryIterator<int>(queryDefinition, null, requestOptions);
             var totalCountResponse = await totalCountIterator.ReadNextAsync();
 
-            return new PagedList<Dictionary<string, object?>>
+            return new ProjectionQueryResult<Dictionary<string, object?>>
             {
-                Limit = projectionQuery.Limit,
-                Offset = projectionQuery.Offset,
-                TotalCount = totalCountResponse.Resource.FirstOrDefault(),
-                Records = results
+                IndexName = _containerId,
+                TotalRecordsFound = totalCountResponse.Resource.FirstOrDefault(),
+                Records = results.Select(x => 
+                    new QueryResultDocument<Dictionary<string, object?>>
+                    {
+                        Document = x
+                    }
+                ).ToList()
             };
         }
         catch (Exception ex)

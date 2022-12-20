@@ -54,7 +54,8 @@ public class UserAccountsService : IUserAccountsService
             ProjectionQuery.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email)
         ))
         .Records
-        .FirstOrDefault();
+        .FirstOrDefault()
+        ?.Document;
 
         // it may happen that email record was created but then something went wrong and email was left unatached.
         UserAccountEmailAddress? userAccountEmail;
@@ -132,7 +133,8 @@ public class UserAccountsService : IUserAccountsService
             PartitionKeys.GetUserAccountEmailAddressPartitionKey()
         ))
         .Records
-        .FirstOrDefault();
+        .FirstOrDefault()
+        ?.Document;
 
         if(userAccountEmailAddress == null) {
             return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");
