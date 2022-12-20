@@ -80,7 +80,7 @@ public class ProjectionsEngine : IProjectionsEngine
         .Records
         .LastOrDefault();
 
-        return rebuildState;
+        return rebuildState.Document;
     }
 
     private async Task HandleEvent(IEvent @event)
@@ -104,6 +104,7 @@ public class ProjectionsEngine : IProjectionsEngine
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
         ))
         .Records
+        .Select(x => x.Document)
         .FirstOrDefault();
         
         if (rebuildState == null)
@@ -126,6 +127,7 @@ public class ProjectionsEngine : IProjectionsEngine
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
         ))
         .Records
+        .Select(x => x.Document)
         .FirstOrDefault();
         
         if (rebuildState == null)

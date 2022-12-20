@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using CloudFabric.Projections.Models;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Npgsql;
@@ -57,7 +56,7 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<PagedList<TProjectionDocument>> Query(
+    public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -70,20 +69,22 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
         
         var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
-        var records = new List<TProjectionDocument>();
+        var records = new List<QueryResultDocument<TProjectionDocument>>();
 
-        foreach (var dict in recordsDictionary.Records)
+        foreach (var doc in recordsDictionary.Records)
         {
             records.Add(
-                ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
+                new QueryResultDocument<TProjectionDocument>
+                {
+                    Document = ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(doc.Document)
+                }
             );
         }
 
-        return new PagedList<TProjectionDocument>
+        return new ProjectionQueryResult<TProjectionDocument>
         {
-            Limit = recordsDictionary.Limit,
-            Offset = recordsDictionary.Offset,
-            TotalCount = recordsDictionary.TotalCount,
+            IndexName = recordsDictionary.IndexName,
+            TotalRecordsFound = recordsDictionary.TotalRecordsFound,
             Records = records
         };
     }
@@ -375,7 +376,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<PagedList<Dictionary<string, object?>>> Query(
+    public async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -498,12 +499,16 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
             var totalCount = await totalCountCmd.ExecuteScalarAsync(cancellationToken) as long?;
 
-            return new PagedList<Dictionary<string, object?>>
+            return new ProjectionQueryResult<Dictionary<string, object?>>
             {
-                Limit = projectionQuery.Limit,
-                Offset = projectionQuery.Offset,
-                TotalCount = Convert.ToInt32(totalCount),
-                Records = records
+                IndexName = TableName,
+                TotalRecordsFound = totalCount.Value,
+                Records = records.Select(x =>
+                    new QueryResultDocument<Dictionary<string, object?>>
+                    {
+                        Document = x
+                    }
+                ).ToList()
             };
         }
         catch (NpgsqlException ex)
@@ -527,12 +532,11 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             }
         }
 
-        return new PagedList<Dictionary<string, object?>>
+        return new ProjectionQueryResult<Dictionary<string, object?>>
         {
-            Limit = projectionQuery.Limit,
-            Offset = projectionQuery.Offset,
-            TotalCount = 0,
-            Records = new List<Dictionary<string, object?>>()
+            IndexName = TableName,
+            TotalRecordsFound = 0,
+            Records = new()
         };
     }
 

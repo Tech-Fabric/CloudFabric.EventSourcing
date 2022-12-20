@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using CloudFabric.Projections.Models;
 using CloudFabric.Projections.Queries;
 
 namespace CloudFabric.Projections.InMemory;
@@ -31,28 +29,30 @@ public class InMemoryProjectionRepository<TProjectionDocument>
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<PagedList<TProjectionDocument>> Query(
+    public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
-        PagedList<Dictionary<string, object?>> recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
+        ProjectionQueryResult<Dictionary<string, object?>> recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
-        var records = new List<TProjectionDocument>();
+        var records = new List<QueryResultDocument<TProjectionDocument>>();
 
-        foreach (var dict in recordsDictionary.Records)
+        foreach (var doc in recordsDictionary.Records)
         {
             records.Add(
-                ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
+                new QueryResultDocument<TProjectionDocument>
+                {
+                    Document = ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(doc.Document)
+                }
             );
         }
 
-        return new PagedList<TProjectionDocument>
+        return new ProjectionQueryResult<TProjectionDocument>
         {
-            Limit = recordsDictionary.Limit,
-            Offset = recordsDictionary.Offset,
-            TotalCount = recordsDictionary.TotalCount,
+            IndexName = recordsDictionary.IndexName,
+            TotalRecordsFound = recordsDictionary.TotalRecordsFound,
             Records = records
         };
     }
@@ -73,7 +73,7 @@ public class InMemoryProjectionRepository : IProjectionRepository
         return Task.FromResult(_storage.GetValueOrDefault((id, partitionKey)) ?? null);
     }
 
-    public Task<PagedList<Dictionary<string, object?>>> Query(
+    public Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default)
@@ -106,18 +106,22 @@ public class InMemoryProjectionRepository : IProjectionRepository
             );
         }
 
-        var totalCount = result.Count();
+        var totalCount = result.LongCount();
 
         result = result.Skip(projectionQuery.Offset)
             .Take(projectionQuery.Limit);
 
         return Task.FromResult(
-            new PagedList<Dictionary<string, object?>>
+            new ProjectionQueryResult<Dictionary<string, object?>>
             {
-                Limit = projectionQuery.Limit,
-                Offset = projectionQuery.Offset,
-                TotalCount = totalCount,
-                Records = result.ToList()
+                IndexName = "InMemory storage",
+                TotalRecordsFound = totalCount,
+                Records = result.Select(x => 
+                    new QueryResultDocument<Dictionary<string, object?>>
+                    {
+                        Document = x
+                    }
+                ).ToList()
             }
         );
     }

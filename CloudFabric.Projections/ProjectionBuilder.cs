@@ -115,9 +115,9 @@ public class ProjectionBuilder : IProjectionBuilder
         var updateTasks = documents.Records.Select(
             document =>
             {
-                callback(document);
+                callback(document.Document!);
 
-                return repository.Upsert(document, partitionKey, cancellationToken);
+                return repository.Upsert(document.Document!, partitionKey, cancellationToken);
             }
         );
 
@@ -247,9 +247,9 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         var updateTasks = documents.Records.Select(
             document =>
             {
-                callback(document);
+                callback(document.Document!);
 
-                return repository.Upsert(document, partitionKey, cancellationToken);
+                return repository.Upsert(document.Document!, partitionKey, cancellationToken);
             }
         );
 

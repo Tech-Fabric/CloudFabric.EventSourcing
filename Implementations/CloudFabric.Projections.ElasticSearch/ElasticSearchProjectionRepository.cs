@@ -1,13 +1,14 @@
 using System.Collections;
-using System.Linq;
-using System.Security.AccessControl;
 using System.Text.Json;
+
+using Microsoft.Extensions.Logging;
+
 using CloudFabric.Projections.ElasticSearch.Helpers;
-using CloudFabric.Projections.Models;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
-using Microsoft.Extensions.Logging;
+
 using Nest;
+
 using SortOrder = Nest.SortOrder;
 
 namespace CloudFabric.Projections.ElasticSearch;
@@ -50,24 +51,26 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
         return Upsert(documentDictionary, partitionKey, cancellationToken);
     }
 
-    public new async Task<PagedList<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
+    public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
-        var records = new List<TProjectionDocument>();
+        var records = new List<QueryResultDocument<TProjectionDocument>>();
 
-        foreach (var dict in recordsDictionary.Records)
+        foreach (var doc in recordsDictionary.Records)
         {
             records.Add(
-                ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(dict)
+                new QueryResultDocument<TProjectionDocument>
+                {
+                    Document = ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(doc.Document)
+                }
             );
         }
 
-        return new PagedList<TProjectionDocument>
+        return new ProjectionQueryResult<TProjectionDocument>
         {
-            Limit = recordsDictionary.Limit,
-            Offset = recordsDictionary.Offset,
-            TotalCount = recordsDictionary.TotalCount,
+            IndexName = recordsDictionary.IndexName,
+            TotalRecordsFound = recordsDictionary.TotalRecordsFound,
             Records = records
         };
     }
@@ -247,7 +250,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<PagedList<Dictionary<string, object?>>> Query(
+    public async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
@@ -273,12 +276,16 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                 }
             );
 
-            return new PagedList<Dictionary<string, object?>>
+            return new ProjectionQueryResult<Dictionary<string, object?>>
             {
-                Limit = projectionQuery.Limit,
-                Offset = projectionQuery.Offset,
-                TotalCount = (int)result.Total,
-                Records = result.Documents.Select(x => DeserializeDictionary(x)).ToList()
+                IndexName = IndexName,
+                TotalRecordsFound = (int)result.Total,
+                Records = result.Documents.Select(x => 
+                    new QueryResultDocument<Dictionary<string, object?>>
+                    {
+                        Document = DeserializeDictionary(x)
+                    }
+                ).ToList()
             };
         }
         catch (Exception ex)
