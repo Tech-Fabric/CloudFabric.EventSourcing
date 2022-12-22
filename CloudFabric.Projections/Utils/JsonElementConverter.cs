@@ -11,63 +11,73 @@ public static class JsonToObjectConverter
 
     public static object? Convert(JsonElement json, ProjectionDocumentPropertySchema propertySchema)
     {
-        if (propertySchema.IsNestedArray)
+        try
         {
-            var array = json.Deserialize<List<JsonElement>>();
-            var resultArray = new List<object?>();
-
-            foreach (var arrayItem in array)
+            if (propertySchema.IsNestedArray)
             {
-                if (propertySchema.ArrayElementType == TypeCode.Object)
-                {
-                    if (propertySchema.NestedObjectProperties.Count == 0)
-                    {
-                        throw new Exception(
-                            $"Invalid nested object configuration for projection property {propertySchema.PropertyName}." +
-                            $"It appears that the property marked with IsNestedArray has array items class " +
-                            $"not decorated with [ProjectionDocumentProperty] attribute."
-                        );
-                    }
-                    
-                    var dictObject = arrayItem.Deserialize<Dictionary<string, JsonElement>>();
-                    var resultObject = new Dictionary<string, object?>();
+                var array = json.Deserialize<List<JsonElement>>();
+                var resultArray = new List<object?>();
 
+                foreach (var arrayItem in array)
+                {
+                    if (propertySchema.ArrayElementType == TypeCode.Object)
+                    {
+                        if (propertySchema.NestedObjectProperties.Count == 0)
+                        {
+                            throw new Exception(
+                                $"Invalid nested object configuration for projection property {propertySchema.PropertyName}." +
+                                $"It appears that the property marked with IsNestedArray has array items class " +
+                                $"not decorated with [ProjectionDocumentProperty] attribute."
+                            );
+                        }
+
+                        var dictObject = arrayItem.Deserialize<Dictionary<string, JsonElement>>();
+                        var resultObject = new Dictionary<string, object?>();
+
+                        foreach (var property in dictObject)
+                        {
+                            resultObject[property.Key] = Convert(
+                                property.Value,
+                                propertySchema.NestedObjectProperties.First(x => x.PropertyName == property.Key)
+                            );
+                        }
+
+                        resultArray.Add(resultObject);
+                    }
+                    else
+                    {
+                        resultArray.Add(DeserializePrimitive(arrayItem, propertySchema.ArrayElementType.Value));
+                    }
+                }
+
+                return resultArray;
+            }
+            else if (propertySchema.IsNestedObject)
+            {
+                var dictObject = json.Deserialize<Dictionary<string, JsonElement>>();
+                var resultObject = new Dictionary<string, object?>();
+
+                if (dictObject != null)
+                {
                     foreach (var property in dictObject)
                     {
                         resultObject[property.Key] = Convert(
-                            property.Value, 
+                            property.Value,
                             propertySchema.NestedObjectProperties.First(x => x.PropertyName == property.Key)
                         );
                     }
+                }
 
-                    resultArray.Add(resultObject);
-                }
-                else
-                {
-                    resultArray.Add(DeserializePrimitive(arrayItem, propertySchema.ArrayElementType.Value));
-                }
+                return resultObject;
             }
-
-            return resultArray;
-        }
-        else if (propertySchema.IsNestedObject)
-        {
-            var dictObject = json.Deserialize<Dictionary<string, JsonElement>>();
-            var resultObject = new Dictionary<string, object?>();
-
-            foreach (var property in dictObject)
+            else
             {
-                resultObject[property.Key] = Convert(
-                    property.Value,
-                    propertySchema.NestedObjectProperties.First(x => x.PropertyName == property.Key)
-                );
+                return DeserializePrimitive(json, propertySchema.PropertyType);
             }
-
-            return resultObject;
         }
-        else
+        catch (Exception ex)
         {
-            return DeserializePrimitive(json, propertySchema.PropertyType);
+            throw new Exception($"Failed to deserialize value {json.ToString()} to attribute {propertySchema}", ex);
         }
     }
 

@@ -329,7 +329,7 @@ public class PostgresqlEventStore : IEventStore
                     $"id uuid, " +
                     $"stream_id uuid, " +
                     $"stream_version integer, " +
-                    $"event_type varchar(200), " +
+                    $"event_type varchar(500), " +
                     $"event_data jsonb, " +
                     $"user_info jsonb, " +
                     $"eventstore_schema_version int NOT NULL" +

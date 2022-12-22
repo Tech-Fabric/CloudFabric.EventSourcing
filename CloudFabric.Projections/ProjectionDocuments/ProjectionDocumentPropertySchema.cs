@@ -24,4 +24,9 @@ public class ProjectionDocumentPropertySchema
     // nested object/array properties schema
     public List<ProjectionDocumentPropertySchema> NestedObjectProperties { get; set; }
 
+
+    public override string ToString()
+    {
+        return $"ProjectionDocumentPropertySchema:{PropertyName}: {PropertyType}";
+    }
 }
