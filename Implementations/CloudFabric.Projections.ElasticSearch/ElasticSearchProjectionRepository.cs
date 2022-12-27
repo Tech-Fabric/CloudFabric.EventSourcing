@@ -394,11 +394,16 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         var filters = ElasticSearchFilterFactory.ConstructFilters(projectionQuery.Filters);
 
         return searchDescriptor.Bool(q =>
-            new BoolQuery()
-            {
-                Should = textQueries,
-                Filter = filters
-            }
+            q.Must(
+                new BoolQuery
+                {
+                    Should = textQueries
+                },
+                new BoolQuery
+                {
+                    Filter = filters
+                }
+            )
         );
     }
 
