@@ -45,10 +45,10 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
+    public Task Upsert(TProjectionDocument document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
-        return Upsert(documentDictionary, partitionKey, cancellationToken);
+        return Upsert(documentDictionary, partitionKey, updatedAt, cancellationToken);
     }
 
     public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
@@ -224,12 +224,13 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         try
         {
             document.TryGetValue("Id", out object? id);
             document[nameof(ProjectionDocument.PartitionKey)] = partitionKey;
+            document[nameof(ProjectionDocument.UpdatedAt)] = updatedAt;
 
             await _client.IndexAsync(
                 new IndexRequest<Dictionary<string, object?>>(document, id: id?.ToString())

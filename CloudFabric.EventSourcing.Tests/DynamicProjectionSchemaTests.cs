@@ -33,11 +33,12 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
             _projectionDocumentSchema,
             new Dictionary<string, object?>()
             {
-                { "Id", @event.Id },
+                { "Id", @event.AggregateId },
                 { "Name", @event.OrderName },
                 { "ItemsCount", @event.Items.Count }
             },
-            @event.PartitionKey
+            @event.PartitionKey,
+            @event.Timestamp
         );
     }
 
@@ -45,8 +46,9 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
     {
         await UpdateDocument(
             _projectionDocumentSchema,
-            @event.Id,
+            @event.AggregateId!.Value,
             @event.PartitionKey,
+            @event.Timestamp,
             (orderProjection) => { orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) + 1; }
         );
     }
@@ -55,10 +57,16 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
     {
         await UpdateDocument(
             _projectionDocumentSchema,
-            @event.Id, 
-            @event.PartitionKey, 
+            @event.AggregateId!.Value, 
+            @event.PartitionKey,
+            @event.Timestamp,
             (orderProjection) => { orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) - 1; }
         );
+    }
+    
+    public async Task On(AggregateUpdatedEvent<Order> @event)
+    {
+        await SetDocumentUpdatedAt(_projectionDocumentSchema, @event.AggregateId!.Value, @event.PartitionKey, @event.Timestamp);
     }
 }
 

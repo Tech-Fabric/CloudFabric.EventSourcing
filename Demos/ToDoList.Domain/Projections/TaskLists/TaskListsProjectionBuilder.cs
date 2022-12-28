@@ -16,22 +16,28 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
 
     public async System.Threading.Tasks.Task On(TaskListCreated @event)
     {
-        await UpsertDocument(new TaskListProjectionItem() {
-            Id = @event.Id,
-            UserAccountId = @event.UserAccountId,
-            Name = @event.Name,
-            UpdatedAt = @event.Timestamp,
-            TasksCount = 0,
-            ClosedTasksCount = 0,
-            OpenTasksCount = 0
-        }, @event.PartitionKey);
+        await UpsertDocument(
+            new TaskListProjectionItem() 
+            {
+                Id = @event.AggregateId!.Value,
+                UserAccountId = @event.UserAccountId,
+                Name = @event.Name,
+                UpdatedAt = @event.Timestamp,
+                TasksCount = 0,
+                ClosedTasksCount = 0,
+                OpenTasksCount = 0
+            },
+            @event.PartitionKey,
+            @event.Timestamp
+        );
     }
 
     public async System.Threading.Tasks.Task On(TaskListNameUpdated @event)
     {
         await UpdateDocument(
-            @event.Id,
+            @event.AggregateId!.Value,
             @event.PartitionKey,
+            @event.Timestamp,
             (projectionDocument) => 
             {
                 projectionDocument.Name = @event.NewName;
@@ -45,6 +51,7 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
         await UpdateDocument(
             @event.TaskListId,
             @event.PartitionKey,
+            @event.Timestamp,
             (projectionDocument) =>
             {
                 projectionDocument.TasksCount += 1;
@@ -57,11 +64,17 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
         await UpdateDocument(
             @event.TaskListId,
             @event.PartitionKey,
+            @event.Timestamp,
             (projectionDocument) => 
             {
                 projectionDocument.OpenTasksCount += @event.IsCompleted ? -1 : 1;
                 projectionDocument.ClosedTasksCount += @event.IsCompleted ? 1 : -1;
             }
         );
+    }
+    
+    public async System.Threading.Tasks.Task On(AggregateUpdatedEvent<TaskList> @event)
+    {
+        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.UpdatedAt);
     }
 }

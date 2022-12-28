@@ -23,10 +23,10 @@ public class InMemoryProjectionRepository<TProjectionDocument>
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
+    public Task Upsert(TProjectionDocument document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
-        return Upsert(documentDictionary, partitionKey, cancellationToken);
+        return Upsert(documentDictionary, partitionKey, updatedAt, cancellationToken);
     }
 
     public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(
@@ -126,13 +126,17 @@ public class InMemoryProjectionRepository : IProjectionRepository
         );
     }
 
-    public Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
+    public Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         var keyValue = document[_projectionDocumentSchema.KeyColumnName];
         if (keyValue == null)
         {
             throw new ArgumentException("document.Id could not be null", _projectionDocumentSchema.KeyColumnName);
         }
+        
+        document.TryGetValue(nameof(ProjectionDocument.Id), out object? id);
+        document[nameof(ProjectionDocument.PartitionKey)] = partitionKey;
+        document[nameof(ProjectionDocument.UpdatedAt)] = updatedAt;
 
         _storage[(Guid.Parse(keyValue.ToString()), partitionKey)] = document;
 

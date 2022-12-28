@@ -38,22 +38,36 @@ public class ProjectionBuilder : IProjectionBuilder
         }
     }
 
+    protected Task SetDocumentUpdatedAt(ProjectionDocumentSchema projectionDocumentSchema, Guid id, string partitionKey, DateTime updatedAt, Action? documentNotFound = null)
+    {
+        return UpdateDocument(
+            projectionDocumentSchema,
+            id,
+            partitionKey,
+            updatedAt,
+            document => Task.CompletedTask,
+            documentNotFound
+        );
+    }
+
     protected Task UpsertDocument(
         ProjectionDocumentSchema projectionDocumentSchema,
         Dictionary<string, object?> document,
         string partitionKey,
+        DateTime updatedAt,
         CancellationToken cancellationToken = default
     )
     {
         return ProjectionRepositoryFactory
             .GetProjectionRepository(projectionDocumentSchema)
-            .Upsert(document, partitionKey, cancellationToken);
+            .Upsert(document, partitionKey, updatedAt, cancellationToken);
     }
 
     protected Task UpdateDocument(
         ProjectionDocumentSchema projectionDocumentSchema,
         Guid id,
         string partitionKey,
+        DateTime updatedAt,
         Action<Dictionary<string, object?>> callback,
         Action? documentNotFound = null,
         CancellationToken cancellationToken = default
@@ -63,6 +77,7 @@ public class ProjectionBuilder : IProjectionBuilder
             projectionDocumentSchema,
             id,
             partitionKey,
+            updatedAt,
             document =>
             {
                 callback(document);
@@ -77,6 +92,7 @@ public class ProjectionBuilder : IProjectionBuilder
         ProjectionDocumentSchema projectionDocumentSchema,
         Guid id,
         string partitionKey,
+        DateTime updatedAt,
         Func<Dictionary<string, object?>, Task> callback,
         Action? documentNotFound = null,
         CancellationToken cancellationToken = default
@@ -95,7 +111,7 @@ public class ProjectionBuilder : IProjectionBuilder
         {
             await callback(document);
 
-            await repository.Upsert(document, partitionKey, cancellationToken);
+            await repository.Upsert(document, partitionKey, updatedAt, cancellationToken);
         }
     }
 
@@ -103,6 +119,7 @@ public class ProjectionBuilder : IProjectionBuilder
         ProjectionDocumentSchema projectionDocumentSchema,
         ProjectionQuery projectionQuery,
         string partitionKey,
+        DateTime updatedAt,
         Action<Dictionary<string, object?>> callback,
         CancellationToken cancellationToken = default
     )
@@ -117,7 +134,7 @@ public class ProjectionBuilder : IProjectionBuilder
             {
                 callback(document.Document!);
 
-                return repository.Upsert(document.Document!, partitionKey, cancellationToken);
+                return repository.Upsert(document.Document!, partitionKey, updatedAt, cancellationToken);
             }
         );
 
@@ -174,16 +191,28 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         }
     }
 
-    protected Task UpsertDocument(TDocument document, string partitionKey, CancellationToken cancellationToken = default)
+    protected Task SetDocumentUpdatedAt(Guid id, string partitionKey, DateTime updatedAt, Action? documentNotFound = null)
+    {
+        return UpdateDocument(
+            id,
+            partitionKey,
+            updatedAt,
+            document => Task.CompletedTask,
+            documentNotFound
+        );
+    }
+
+    protected Task UpsertDocument(TDocument document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         return ProjectionRepositoryFactory
             .GetProjectionRepository<TDocument>()
-            .Upsert(document, partitionKey, cancellationToken);
+            .Upsert(document, partitionKey, updatedAt, cancellationToken);
     }
 
     protected Task UpdateDocument(
         Guid id,
         string partitionKey,
+        DateTime updatedAt,
         Action<TDocument> callback,
         Action? documentNotFound = null,
         CancellationToken cancellationToken = default
@@ -192,6 +221,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         return UpdateDocument(
             id,
             partitionKey,
+            updatedAt,
             document =>
             {
                 callback(document);
@@ -205,6 +235,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
     private async Task UpdateDocument(
         Guid id,
         string partitionKey,
+        DateTime updatedAt,
         Func<TDocument, Task> callback,
         Action? documentNotFound = null,
         CancellationToken cancellationToken = default
@@ -228,13 +259,14 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         {
             await callback(document);
 
-            await repository.Upsert(document, partitionKey, cancellationToken);
+            await repository.Upsert(document, partitionKey, updatedAt, cancellationToken);
         }
     }
 
     protected async Task UpdateDocuments(
         ProjectionQuery projectionQuery,
         string partitionKey,
+        DateTime updatedAt,
         Action<TDocument> callback,
         CancellationToken cancellationToken = default
     )
@@ -249,7 +281,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
             {
                 callback(document.Document!);
 
-                return repository.Upsert(document.Document!, partitionKey, cancellationToken);
+                return repository.Upsert(document.Document!, partitionKey, updatedAt, cancellationToken);
             }
         );
 

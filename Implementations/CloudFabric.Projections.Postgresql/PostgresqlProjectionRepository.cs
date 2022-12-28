@@ -40,7 +40,7 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
+    public Task Upsert(TProjectionDocument document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         if (document == null)
         {
@@ -53,7 +53,7 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
         }
         
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
-        return Upsert(documentDictionary, partitionKey, cancellationToken);
+        return Upsert(documentDictionary, partitionKey, updatedAt, cancellationToken);
     }
 
     public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(
@@ -298,7 +298,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         if (document == null)
         {
@@ -322,6 +322,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
 
         document[nameof(ProjectionDocument.PartitionKey)] = partitionKey;
+        document[nameof(ProjectionDocument.UpdatedAt)] = updatedAt;
         
         var propertiesToInsert = _projectionDocumentSchema.Properties
             .Where(p => document.Keys.Contains(p.PropertyName)).ToList(); // document may not contain non-required properties,
@@ -364,7 +365,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             {
                 await HandleUndefinedTableException(conn, cancellationToken);
 
-                await Upsert(document, partitionKey, cancellationToken);
+                await Upsert(document, partitionKey, updatedAt, cancellationToken);
             }
             else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {

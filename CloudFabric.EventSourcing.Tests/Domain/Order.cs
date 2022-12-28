@@ -47,7 +47,7 @@ public class Order : AggregateBase
 
     public void On(OrderPlaced @event)
     {
-        Id = @event.Id;
+        Id = @event.AggregateId!.Value;
         OrderName = @event.OrderName;
         Items = new ReadOnlyCollection<OrderItem>(@event.Items);
         CreatedById = @event.CreatedById;
