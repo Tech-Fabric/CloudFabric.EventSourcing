@@ -12,4 +12,8 @@ public class ProjectionDocument
     [JsonPropertyName("partitionKey")]
     [ProjectionDocumentProperty(IsFilterable = true)]
     public string? PartitionKey { get; set; }
+    
+    [JsonPropertyName("updatedAt")]
+    [ProjectionDocumentProperty(IsFilterable = true)]
+    public DateTime UpdatedAt { get; set; }
 }

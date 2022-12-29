@@ -60,7 +60,9 @@ public class ProjectionsEngine : IProjectionsEngine
             PartitionKey = partitionKey,
             InstanceName = instanceName,
             Status = RebuildStatus.Running
-        }, partitionKey);
+        }, 
+        partitionKey,
+        DateTime.UtcNow);
 
         // run in background
         _observer.LoadAndHandleEventsAsync(instanceName, partitionKey, dateFrom, OnRebuildCompleted, OnRebuildFailed);
@@ -96,6 +98,45 @@ public class ProjectionsEngine : IProjectionsEngine
         {
             await projectionBuilder.ApplyEvent(@event); 
         }
+        
+        #region Apply AggregateUpdatedEvent to projection builders
+        
+        if (!@event.AggregateId.HasValue)
+        {
+            return;
+        }
+        
+        var aggregateType = Type.GetType(@event.AggregateType);
+        var aggregateUpdatedEventType = typeof(AggregateUpdatedEvent<>).MakeGenericType(aggregateType);
+
+        var buildersWithAggregateUpdatedEvent = _projectionBuilders.Where(
+            p => !p.HandledEventTypes.Contains(@event.GetType()) && p.HandledEventTypes.Contains(aggregateUpdatedEventType)
+        );
+
+        var dynamicBuildersWithAggregateUpdatedEvent = _dynamicProjectionBuilders.Where(
+            p => !p.HandledEventTypes.Contains(@event.GetType()) && p.HandledEventTypes.Contains(aggregateUpdatedEventType)
+        );
+
+        if (buildersWithAggregateUpdatedEvent.Any() || dynamicBuildersWithAggregateUpdatedEvent.Any())
+        {
+            var aggregateUpdatedEvent = (IEvent)Activator.CreateInstance(aggregateUpdatedEventType)!;
+            aggregateUpdatedEvent.AggregateId = @event.AggregateId;
+            aggregateUpdatedEvent.PartitionKey = @event.PartitionKey;
+            aggregateUpdatedEvent.AggregateType = @event.AggregateType;
+            aggregateUpdatedEventType.GetProperty(nameof(AggregateUpdatedEvent<object>.UpdatedAt))!.SetValue(aggregateUpdatedEvent, @event.Timestamp);
+
+            foreach (var projectionBuilder in buildersWithAggregateUpdatedEvent)
+            {
+                await projectionBuilder.ApplyEvent(aggregateUpdatedEvent);
+            }
+
+            foreach (var projectionBuilder in dynamicBuildersWithAggregateUpdatedEvent)
+            {
+                await projectionBuilder.ApplyEvent(aggregateUpdatedEvent);
+            }
+        }
+
+        #endregion
     }
 
     private async Task OnRebuildCompleted(string instanceName, string partitionKey)
@@ -118,7 +159,7 @@ public class ProjectionsEngine : IProjectionsEngine
         
         rebuildState.Status = RebuildStatus.Completed;
 
-        await _projectionsStateRepository.Upsert(rebuildState, partitionKey);
+        await _projectionsStateRepository.Upsert(rebuildState, partitionKey, DateTime.UtcNow);
     }
 
     private async Task OnRebuildFailed(string instanceName, string partitionKey, string errorMessage)
@@ -142,6 +183,6 @@ public class ProjectionsEngine : IProjectionsEngine
         rebuildState.Status = RebuildStatus.Failed;
         rebuildState.ErrorMessage = errorMessage;
 
-        await _projectionsStateRepository.Upsert(rebuildState, partitionKey);
+        await _projectionsStateRepository.Upsert(rebuildState, partitionKey, DateTime.UtcNow);
     }
 }

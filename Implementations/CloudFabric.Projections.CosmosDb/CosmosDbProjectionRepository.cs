@@ -52,10 +52,10 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, string partitionKey, CancellationToken cancellationToken = default)
+    public Task Upsert(TProjectionDocument document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
-        return Upsert(documentDictionary, partitionKey, cancellationToken);
+        return Upsert(documentDictionary, partitionKey, updatedAt, cancellationToken);
     }
 
     public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(
@@ -218,14 +218,16 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, CancellationToken cancellationToken = default)
+    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         if (document[_projectionDocumentSchema.KeyColumnName] == null)
         {
             throw new ArgumentException("document primary key cannot be null", _projectionDocumentSchema.KeyColumnName);
         }
 
-        document["PartitionKey"] = partitionKey;
+        document.TryGetValue(nameof(ProjectionDocument.Id), out object? id);
+        document[nameof(ProjectionDocument.PartitionKey)] = partitionKey;
+        document[nameof(ProjectionDocument.UpdatedAt)] = updatedAt;
 
         var sw = Stopwatch.StartNew();
 

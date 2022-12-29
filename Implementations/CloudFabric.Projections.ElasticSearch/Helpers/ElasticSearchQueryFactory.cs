@@ -14,7 +14,7 @@ public static class ElasticSearchQueryFactory
             {
                 Filter = new List<QueryContainer>()
                 {
-                    new QueryStringQuery() { Query = searchText }
+                    new QueryStringQuery() { Query = searchText, Type = TextQueryType.Phrase }
                 }
             }
         };
@@ -91,7 +91,7 @@ public static class ElasticSearchQueryFactory
             {
                 Filter = new List<QueryContainer>()
                 {
-                    new QueryStringQuery() { Query = searchText }
+                    new QueryStringQuery() { Query = searchText, Type = TextQueryType.Phrase }
                 }
             });
         }

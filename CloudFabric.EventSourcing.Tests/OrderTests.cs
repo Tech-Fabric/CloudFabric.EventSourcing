@@ -618,4 +618,57 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         orders.Records.ElementAt(1).Document!.Id.Should().Be(firstOrder.Id);
         orders.Records.ElementAt(2).Document!.Id.Should().Be(thirdOrder.Id);
     }
+
+    [TestMethod]
+    public virtual async Task TestProjectionDocumentUpdatedAt()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        // Repository containing projections - `view models` of orders
+        var ordersListProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<OrderListProjectionItem>();
+        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
+
+        // Projections engine - takes events from events observer and passes them to multiple projection builders
+        var projectionsEngine = new ProjectionsEngine(GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>());
+        projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
+
+        var ordersListProjectionBuilder = new OrdersListProjectionBuilder(GetProjectionRepositoryFactory());
+        projectionsEngine.AddProjectionBuilder(ordersListProjectionBuilder);
+
+        string instanceName = "ProjectionsQueryInstance";
+
+        await projectionsEngine.StartAsync(instanceName);
+
+
+        var userId = Guid.NewGuid();
+        var userInfo = new EventUserInfo(userId);
+
+        var order = new Order(Guid.NewGuid(), "First test order", new List<OrderItem>(), userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, order);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        var orders = await ordersListProjectionsRepository.Query(new ProjectionQuery());
+        orders.TotalRecordsFound.Should().Be(1);
+        orders.Records.First().Document!.UpdatedAt.ToString().Should().Be(order.UpdatedAt.ToString());
+
+        order.AddItem(
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            )
+        );
+
+        await orderRepository.SaveOrder(userInfo, order);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        orders = await ordersListProjectionsRepository.Query(new ProjectionQuery());
+        orders.TotalRecordsFound.Should().Be(1);
+        orders.Records.First().Document!.UpdatedAt.ToString().Should().Be(order.UpdatedAt.ToString());
+
+        await projectionsEngine.StopAsync();
+    }
 }

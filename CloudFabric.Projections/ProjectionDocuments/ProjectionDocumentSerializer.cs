@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections;
 
 namespace CloudFabric.Projections;
@@ -97,7 +98,7 @@ public static class ProjectionDocumentSerializer
             }
             else if (propertyInfo.PropertyType == typeof(DateTime?) || propertyInfo.PropertyType == typeof(DateTime))
             {
-                value = DateTime.TryParse(value?.ToString(), out var parsedValue)
+                value = DateTime.TryParse(value?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsedValue)
                     ? parsedValue
                     : null;
             }

@@ -43,14 +43,14 @@ public class UserAccountEmailAddress : AggregateBase
 
     public void On(UserAccountEmailRegistered @event)
     {
-        Id = @event.Id;
+        Id = @event.AggregateId!.Value;
         EmailAddress = @event.EmailAddress;
         ConfirmedAt = null;
     }
 
     public void On(UserAccountEmailAssigned @event)
     {
-        UserAccountId = @event.UserAccountId;
+        UserAccountId = @event.AggregateId!.Value;
     }
 
     public void On(UserAccountEmailAddressChanged @event)
