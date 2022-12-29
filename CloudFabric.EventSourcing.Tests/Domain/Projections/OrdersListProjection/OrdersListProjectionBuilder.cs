@@ -80,6 +80,6 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
 
     public async Task On(AggregateUpdatedEvent<Order> @event)
     {
-        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.Timestamp);
+        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.UpdatedAt);
     }
 }

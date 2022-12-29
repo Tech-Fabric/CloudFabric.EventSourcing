@@ -58,6 +58,6 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
     
     public async System.Threading.Tasks.Task On(AggregateUpdatedEvent<Task> @event)
     {
-        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.Timestamp);
+        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.UpdatedAt);
     }
 }

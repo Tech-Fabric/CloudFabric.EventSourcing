@@ -29,6 +29,7 @@ public class Order : AggregateBase
     /// </summary>
     public ReadOnlyCollection<OrderItem> Items { get; private set; }
     public Guid CreatedById { get; private set; }
+    public DateTime UpdatedAt { get; set; }
 
     public void AddItem(OrderItem item)
     {
@@ -51,6 +52,7 @@ public class Order : AggregateBase
         OrderName = @event.OrderName;
         Items = new ReadOnlyCollection<OrderItem>(@event.Items);
         CreatedById = @event.CreatedById;
+        UpdatedAt = @event.Timestamp;
     }
 
     public void On(OrderItemAdded @event)
@@ -59,6 +61,7 @@ public class Order : AggregateBase
         var items = new List<OrderItem>(Items) { @event.Item };
         // set to list with new item
         Items = items.AsReadOnly();
+        UpdatedAt = @event.Timestamp;
     }
 
     public void On(OrderItemRemoved @event)
@@ -68,6 +71,7 @@ public class Order : AggregateBase
         items.AddRange(Items.Where(x => x.Name != @event.Name));
         // set to list without item
         Items = items.AsReadOnly();
+        UpdatedAt = @event.Timestamp;
     }
 
     #endregion
