@@ -61,10 +61,13 @@ public static class JsonToObjectConverter
                 {
                     foreach (var property in dictObject)
                     {
-                        resultObject[property.Key] = Convert(
-                            property.Value,
-                            propertySchema.NestedObjectProperties.First(x => x.PropertyName == property.Key)
-                        );
+                        if (propertySchema.NestedObjectProperties.Any(x => x.PropertyName == property.Key))
+                        {
+                            resultObject[property.Key] = Convert(
+                                property.Value,
+                                propertySchema.NestedObjectProperties.First(x => x.PropertyName == property.Key)
+                            );
+                        }
                     }
                 }
 

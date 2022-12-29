@@ -310,7 +310,17 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
             if (propertySchema != null)
             {
-                newDictionary[kv.Key] = DeserializeDictionaryItem(kv.Value, propertySchema);
+                try
+                {
+                    newDictionary[kv.Key] = DeserializeDictionaryItem(kv.Value, propertySchema);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(
+                        $"Failed to deserialize dictionary item for property {propertySchema.PropertyName}:{propertySchema.PropertyType}, " +
+                        $"value: {kv.Value}", ex
+                    );
+                }
             }
         }
 
@@ -319,7 +329,11 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
     private object? DeserializeDictionaryItem(object? item, ProjectionDocumentPropertySchema propertySchema)
     {
-        if (item is JsonElement valueAsJsonElement)
+        if (item == null)
+        {
+            return null;
+        }
+        else if (item is JsonElement valueAsJsonElement)
         {
             return JsonToObjectConverter.Convert(valueAsJsonElement, propertySchema);
         }
@@ -331,6 +345,10 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         else if (propertySchema.PropertyType == TypeCode.Int32)
         {
             return Convert.ToInt32(item);
+        }
+        else if (propertySchema.PropertyType == TypeCode.Decimal)
+        {
+            return Convert.ToDecimal(item);
         }
         else if (propertySchema.IsNestedObject)
         {
