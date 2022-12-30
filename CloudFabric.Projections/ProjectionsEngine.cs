@@ -52,8 +52,23 @@ public class ProjectionsEngine : IProjectionsEngine
         _dynamicProjectionBuilders.Add(projectionBuilder);
     }
 
-    public async Task RebuildAsync(string instanceName, string partitionKey, DateTime? dateFrom = null)
+    /// <summary>
+    /// Starts rebuilding of a projection. Note that this method returns instantly and rebuild continues in the background.
+    /// use `GetRebuildState` method to track the progress.
+    /// </summary>
+    /// <param name="instanceName">
+    /// The name of current rebuild processor. Can be any string.
+    /// Used to identify and track different rebuild processes.</param>
+    /// <param name="partitionKey">Partition of events to process</param>
+    /// <param name="dateFrom"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public async Task StartRebuildAsync(string instanceName, string partitionKey, DateTime? dateFrom = null)
     {
+        if (_observer == null)
+        {
+            throw new InvalidOperationException("SetEventsObserver should be called before RebuildAsync");
+        }
+        
         await _projectionsStateRepository.Upsert(new ProjectionRebuildState
         {
             Id = Guid.NewGuid(),
@@ -70,10 +85,15 @@ public class ProjectionsEngine : IProjectionsEngine
 
     public async Task RebuildOneAsync(Guid documentId, string partitionKey)
     {
+        if (_observer == null)
+        {
+            throw new InvalidOperationException("SetEventsObserver should be called before RebuildAsync");
+        }
+        
         await _observer.LoadAndHandleEventsForDocumentAsync(documentId, partitionKey);
     }
 
-    public async Task<ProjectionRebuildState> GetRebuildState(string instanceName, string partitionKey)
+    public async Task<ProjectionRebuildState?> GetRebuildState(string instanceName, string partitionKey)
     {
         var rebuildState = (await _projectionsStateRepository.Query(
             ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName),
@@ -82,7 +102,7 @@ public class ProjectionsEngine : IProjectionsEngine
         .Records
         .LastOrDefault();
 
-        return rebuildState.Document;
+        return rebuildState?.Document;
     }
 
     private async Task HandleEvent(IEvent @event)

@@ -303,7 +303,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         secondOrderProjection.Should().BeNull();
 
         // rebuild the firstOrder document
-        await ProjectionsEngine.RebuildAsync(instanceName, PartitionKeys.GetOrderPartitionKey());
+        await ProjectionsEngine.StartRebuildAsync(instanceName, PartitionKeys.GetOrderPartitionKey());
 
         // wait for the rebuild state to be indexed
         await Task.Delay(ProjectionsUpdateDelay);
