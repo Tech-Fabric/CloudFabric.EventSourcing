@@ -109,7 +109,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         _client = new ElasticClient(connectionSettings);
 
         // create an index
-        _indexer = new ElasticSearchIndexer(uri, username, password, certificateFingerprint);
+        _indexer = new ElasticSearchIndexer(uri, username, password, certificateFingerprint, loggerFactory);
         _indexer.CreateOrUpdateIndex(IndexName, projectionDocumentSchema).Wait();
     }
 
