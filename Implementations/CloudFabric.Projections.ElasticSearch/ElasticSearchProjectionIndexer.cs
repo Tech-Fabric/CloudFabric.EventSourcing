@@ -1,17 +1,23 @@
+using System.Text.Json;
 using CloudFabric.Projections.Constants;
+using Microsoft.Extensions.Logging;
 using Nest;
 
 namespace CloudFabric.Projections.ElasticSearch;
 public class ElasticSearchIndexer
 {
     private readonly ElasticClient _client;
+    private readonly ILogger<ElasticSearchIndexer> _logger;
 
     public ElasticSearchIndexer(string uri,
         string username,
         string password,
-        string certificateFingerprint
+        string certificateFingerprint,
+        LoggerFactory loggerFactory
     )
     {
+        _logger = loggerFactory.CreateLogger<ElasticSearchIndexer>();
+        
         var connectionSettings = new ConnectionSettings(new Uri(uri));
         connectionSettings.BasicAuthentication(username, password);
         connectionSettings.CertificateFingerprint(certificateFingerprint);
@@ -76,7 +82,14 @@ public class ElasticSearchIndexer
             Properties = properties
         };
 
-        await _client.MapAsync(putMappingRequest);
+        var mappingPropertiesRequest = JsonSerializer.Serialize(properties.Values);
+        _logger.LogInformation($"ES Indexer Request: {mappingPropertiesRequest}");
+        
+        var mappingResponse = await _client.MapAsync(putMappingRequest);
+        if (!mappingResponse.IsValid)
+        {
+            _logger.LogError($"ES Indexer mapping error: {JsonSerializer.Serialize(mappingResponse.ServerError?.Error)}");
+        }
     }
 
     private IProperties GetPropertiesDescriptors(ProjectionDocumentSchema projectionDocumentSchema)
