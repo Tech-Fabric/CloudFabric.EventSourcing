@@ -5,7 +5,7 @@ namespace CloudFabric.EventSourcing.EventStore;
 [DebuggerStepThrough]
 public record Event : IEvent
 {
-    public Guid? AggregateId { get; set; }
+    public Guid AggregateId { get; set; }
     
     public DateTime Timestamp { get; init; } = DateTime.UtcNow;
 

@@ -29,7 +29,7 @@ public static class ProjectionDocumentSerializer
                     {
                         List<object?> list = new();
 
-                        foreach (var listElem in (value as IList))
+                        foreach (var listElem in ((value as IList)!))
                         {
                             var genericListType = propertyInfo.PropertyType.GenericTypeArguments[0];
                             if (!genericListType.IsClass || genericListType == typeof(string))
@@ -39,7 +39,7 @@ public static class ProjectionDocumentSerializer
                             else
                             {
                                 var arrayElement = typeof(ProjectionDocumentSerializer)
-                                    .GetMethod(nameof(SerializeToDictionary))
+                                    .GetMethod(nameof(SerializeToDictionary))!
                                     .MakeGenericMethod(genericListType)
                                     .Invoke(null, new object[] { listElem });
 
@@ -52,7 +52,7 @@ public static class ProjectionDocumentSerializer
                     else if (propertyInfo.PropertyType != typeof(string))
                     {
                         value = typeof(ProjectionDocumentSerializer)
-                            .GetMethod(nameof(SerializeToDictionary))
+                            .GetMethod(nameof(SerializeToDictionary))!
                             .MakeGenericMethod(propertyInfo.PropertyType)
                             .Invoke(null, new object[] { value });
                     }
@@ -96,7 +96,7 @@ public static class ProjectionDocumentSerializer
                     ? parsedValue
                     : null;
             }
-            else if (propertyInfo.PropertyType == typeof(DateTime?) || propertyInfo.PropertyType == typeof(DateTime))
+            else if ((propertyInfo.PropertyType == typeof(DateTime?) || propertyInfo.PropertyType == typeof(DateTime)) && value is not DateTime)
             {
                 value = DateTime.TryParse(value?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsedValue)
                     ? parsedValue
