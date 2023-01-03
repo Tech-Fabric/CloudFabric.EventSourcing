@@ -797,7 +797,8 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                 // fieldType = "jsonb";
                 //
                 // break;
-                TypeCode.DateTime => "timestamp",
+                TypeCode.DateTime => "timestamp with time zone", // This does not mean it stores timezone information, it only stores UTC,
+                                                                 // read more here: https://www.npgsql.org/doc/types/datetime.html#timestamps-and-timezones
                 _ => throw new Exception(
                     $"Postgresql Projection Repository provider doesn't support type {property.PropertyType} for property {property.PropertyName}."
                 ),

@@ -16,7 +16,7 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
 
     public async Task On(OrderItemAdded @event)
     {
-        await UpdateDocument(@event.AggregateId!.Value,
+        await UpdateDocument(@event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (orderProjection) => 
@@ -34,7 +34,7 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
 
     public async Task On(OrderItemRemoved @event)
     {
-        await UpdateDocument(@event.AggregateId!.Value,
+        await UpdateDocument(@event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (orderProjection) =>
@@ -54,7 +54,7 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
     {
         var projectionItem = new OrderListProjectionItem()
         {
-            Id = @event.AggregateId!.Value,
+            Id = @event.AggregateId,
             Name = @event.OrderName,
             ItemsCount = @event.Items.Count
         };
@@ -80,6 +80,6 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
 
     public async Task On(AggregateUpdatedEvent<Order> @event)
     {
-        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.UpdatedAt);
+        await SetDocumentUpdatedAt(@event.AggregateId, @event.PartitionKey, @event.UpdatedAt);
     }
 }

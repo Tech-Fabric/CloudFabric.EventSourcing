@@ -46,7 +46,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
     {
         await UpdateDocument(
             _projectionDocumentSchema,
-            @event.AggregateId!.Value,
+            @event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (orderProjection) => { orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) + 1; }
@@ -57,7 +57,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
     {
         await UpdateDocument(
             _projectionDocumentSchema,
-            @event.AggregateId!.Value, 
+            @event.AggregateId, 
             @event.PartitionKey,
             @event.Timestamp,
             (orderProjection) => { orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) - 1; }
@@ -66,7 +66,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
     
     public async Task On(AggregateUpdatedEvent<Order> @event)
     {
-        await SetDocumentUpdatedAt(_projectionDocumentSchema, @event.AggregateId!.Value, @event.PartitionKey, @event.Timestamp);
+        await SetDocumentUpdatedAt(_projectionDocumentSchema, @event.AggregateId, @event.PartitionKey, @event.Timestamp);
     }
 }
 
