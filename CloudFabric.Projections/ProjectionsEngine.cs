@@ -120,12 +120,7 @@ public class ProjectionsEngine : IProjectionsEngine
         }
         
         #region Apply AggregateUpdatedEvent to projection builders
-        
-        if (!@event.AggregateId.HasValue)
-        {
-            return;
-        }
-        
+
         var aggregateType = Type.GetType(@event.AggregateType);
         var aggregateUpdatedEventType = typeof(AggregateUpdatedEvent<>).MakeGenericType(aggregateType);
 
