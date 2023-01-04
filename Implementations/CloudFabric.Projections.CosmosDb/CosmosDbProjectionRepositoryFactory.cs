@@ -5,14 +5,14 @@ namespace CloudFabric.Projections.CosmosDb;
 
 public class CosmosDbProjectionRepositoryFactory : ProjectionRepositoryFactory
 {
-    private readonly LoggerFactory _loggerFactory;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly string _connectionString;
     private readonly CosmosClientOptions _cosmosClientOptions;
     private readonly string _databaseId;
     private readonly string _containerId;
 
     public CosmosDbProjectionRepositoryFactory(
-        LoggerFactory loggerFactory,
+        ILoggerFactory loggerFactory,
         string connectionString,
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
