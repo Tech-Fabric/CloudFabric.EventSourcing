@@ -5,7 +5,7 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb;
 
 public class CosmosProjectionRepositoryConnectionInfo
 {
-    public LoggerFactory LoggerFactory { get; set; }
+    public ILoggerFactory LoggerFactory { get; set; }
 
     public string ConnectionString { get; set; }
 

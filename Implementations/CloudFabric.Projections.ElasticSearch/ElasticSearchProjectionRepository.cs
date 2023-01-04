@@ -21,7 +21,7 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
         string username,
         string password,
         string certificateFingerprint,
-        LoggerFactory loggerFactory
+        ILoggerFactory loggerFactory
     ) : base(
         uri,
         username,
@@ -91,7 +91,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         string password,
         string certificateFingerprint,
         ProjectionDocumentSchema projectionDocumentSchema,
-        LoggerFactory loggerFactory
+        ILoggerFactory loggerFactory
     )
     {
         _projectionDocumentSchema = projectionDocumentSchema;

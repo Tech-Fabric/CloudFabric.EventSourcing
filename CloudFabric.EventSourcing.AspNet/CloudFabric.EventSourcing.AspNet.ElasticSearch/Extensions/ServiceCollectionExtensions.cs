@@ -15,7 +15,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             string username,
             string password,
             string certificateFingerprint,
-            LoggerFactory loggerFactory,
+            ILoggerFactory loggerFactory,
             params Type[] projectionBuildersTypes
         )
         {

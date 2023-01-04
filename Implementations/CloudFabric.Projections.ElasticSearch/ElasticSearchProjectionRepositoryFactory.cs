@@ -8,14 +8,14 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
     private readonly string _username;
     private readonly string _password;
     private readonly string _certificateThumbprint;
-    private readonly LoggerFactory _loggerFactory;
+    private readonly ILoggerFactory _loggerFactory;
     
     public ElasticSearchProjectionRepositoryFactory(
         string uri,
         string username,
         string password,
         string certificateFingerprint,
-        LoggerFactory loggerFactory
+        ILoggerFactory loggerFactory
     )
     {
         _uri = uri;

@@ -13,7 +13,7 @@ public class ElasticSearchIndexer
         string username,
         string password,
         string certificateFingerprint,
-        LoggerFactory loggerFactory
+        ILoggerFactory loggerFactory
     )
     {
         _logger = loggerFactory.CreateLogger<ElasticSearchIndexer>();

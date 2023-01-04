@@ -27,7 +27,7 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
     where TProjectionDocument : ProjectionDocument
 {
     public CosmosDbProjectionRepository(
-        LoggerFactory loggerFactory,
+        ILoggerFactory loggerFactory,
         string connectionString,
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
@@ -103,7 +103,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
     };
 
     public CosmosDbProjectionRepository(
-        LoggerFactory loggerFactory,
+        ILoggerFactory loggerFactory,
         string connectionString,
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
@@ -119,7 +119,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
     }
 
     public CosmosDbProjectionRepository(
-        LoggerFactory loggerFactory,
+        ILoggerFactory loggerFactory,
         CosmosClient client,
         string databaseId,
         string containerId
