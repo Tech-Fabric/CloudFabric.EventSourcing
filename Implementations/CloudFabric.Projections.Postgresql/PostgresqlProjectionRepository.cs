@@ -570,10 +570,9 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
             if (isArray == true)
             {
-                queryChunk.AdditionalFromSelects.Add(
-                    $"jsonb_array_elements({nestedPath.First()}) with ordinality " +
-                    $"{nestedPath.First()}_array({nestedPath.First()}_array_item, position)"
-                );
+                var fromSelect = $"jsonb_array_elements({nestedPath.First()}) with ordinality " +
+                                 $"{nestedPath.First()}_array({nestedPath.First()}_array_item, position)";
+                queryChunk.AdditionalFromSelects.Add(fromSelect);    
                 propertyName = $"{nestedPath.First()}_array.{nestedPath.First()}_array_item->>{string.Join("->>", nestedPath.Skip(1).Select(n => $"'{n}'"))}";
             }
             else
@@ -710,7 +709,9 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             var filterQueryChunk = ConstructConditionFilter(f);
             whereClauses.Add(filterQueryChunk.WhereChunk);
             queryChunk.Parameters.AddRange(filterQueryChunk.Parameters);
-            queryChunk.AdditionalFromSelects.AddRange(filterQueryChunk.AdditionalFromSelects);
+            //Don't add duplicates
+            queryChunk.AdditionalFromSelects.AddRange(filterQueryChunk.AdditionalFromSelects
+                .Except(queryChunk.AdditionalFromSelects));
         }
 
         queryChunk.WhereChunk = string.Join(" AND ", whereClauses);
