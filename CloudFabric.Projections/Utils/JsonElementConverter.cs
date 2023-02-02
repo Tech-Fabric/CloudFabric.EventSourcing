@@ -13,7 +13,11 @@ public static class JsonToObjectConverter
     {
         try
         {
-            if (propertySchema.IsNestedArray)
+            if (json.ValueKind == JsonValueKind.Null)
+            {
+                return null;
+            }
+            else if (propertySchema.IsNestedArray)
             {
                 var array = json.Deserialize<List<JsonElement>>() ?? new List<JsonElement>();
                 var resultArray = new List<object?>();
