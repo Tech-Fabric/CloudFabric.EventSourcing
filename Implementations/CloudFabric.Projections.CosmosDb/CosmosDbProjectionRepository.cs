@@ -291,8 +291,12 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         sb.Append(whereClause);
         sb.Append(" OFFSET @offset");
         parameters.Add(new CosmosDbSqlParameter("offset", projectionQuery.Offset));
-        sb.Append(" LIMIT @limit");
-        parameters.Add(new CosmosDbSqlParameter("limit", projectionQuery.Limit));
+
+        if (projectionQuery.Limit.HasValue)
+        {
+            sb.Append(" LIMIT @limit");
+            parameters.Add(new CosmosDbSqlParameter("limit", projectionQuery.Limit.Value));
+        }
 
         if (projectionQuery.OrderBy.Count > 0)
         {
@@ -320,7 +324,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
 
             var iterator = container.GetItemQueryIterator<Dictionary<string, object?>>(queryDefinition, null, requestOptions);
 
-            while (iterator.HasMoreResults && results.Count < projectionQuery.Limit)
+            while (iterator.HasMoreResults && (!projectionQuery.Limit.HasValue || results.Count < projectionQuery.Limit))
             {
                 var batchResults = await ExecuteWithRetries(c => iterator.ReadNextAsync(c), cancellationToken);
                 results.AddRange(batchResults.Select(DeserializeDictionary));

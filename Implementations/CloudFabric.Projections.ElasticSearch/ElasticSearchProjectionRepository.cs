@@ -266,7 +266,11 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                     request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
                     request = request.Sort(s => ConstructSort(s, projectionQuery));
                     request = request.Skip(projectionQuery.Offset);
-                    request = request.Take(projectionQuery.Limit);
+
+                    if (projectionQuery.Limit.HasValue)
+                    {
+                        request = request.Take(projectionQuery.Limit.Value);
+                    }
 
                     if (!string.IsNullOrEmpty(partitionKey))
                     {
