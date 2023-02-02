@@ -15,7 +15,7 @@ public static class JsonToObjectConverter
         {
             if (propertySchema.IsNestedArray)
             {
-                var array = json.Deserialize<List<JsonElement>>();
+                var array = json.Deserialize<List<JsonElement>>() ?? new List<JsonElement>();
                 var resultArray = new List<object?>();
 
                 foreach (var arrayItem in array)
