@@ -369,11 +369,11 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "First test order", items, userId, "john@gmail.com");
+        var firstOrder = new Order(Guid.NewGuid(), "First test order", items, userId, null);
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
         // second order will contain only one item
-        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1), userId, "john@gmail.com");
+        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1), userId, null);
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
