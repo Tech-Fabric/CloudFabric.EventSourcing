@@ -437,8 +437,12 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         NpgsqlParameter[] totalCountParams = new NpgsqlParameter[queryChunk.Parameters.Count];
         queryChunk.Parameters.CopyTo(totalCountParams);
 
-        sb.Append(" LIMIT @limit");
-        queryChunk.Parameters.Add(new NpgsqlParameter("limit", projectionQuery.Limit));
+        if (projectionQuery.Limit.HasValue)
+        {
+            sb.Append(" LIMIT @limit");
+            queryChunk.Parameters.Add(new NpgsqlParameter("limit", projectionQuery.Limit.Value));
+        }
+        
         sb.Append(" OFFSET @offset");
         queryChunk.Parameters.Add(new NpgsqlParameter("offset", projectionQuery.Offset));
 

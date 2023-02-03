@@ -10,7 +10,9 @@ public class ProjectionQuery
     public List<SortInfo> OrderBy = new();
     public string? ScoringProfile;
     public string? SearchMode;
-    public int Limit { get; set; } = 50;
+
+    // Limit is nullable to have a possibility to retrieve all the records
+    public int? Limit { get; set; }
     public int Offset { get; set; } = 0;
     public string SearchText { get; set; } = "*";
 

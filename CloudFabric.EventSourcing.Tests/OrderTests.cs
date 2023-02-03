@@ -390,7 +390,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         orders.Records.Count.Should().Be(1);
 
         query.SearchText = "queryable";
-        query.Limit = 50;
+        query.Limit = null;
 
         orders = await ordersListProjectionsRepository.Query(query);
         orders.TotalRecordsFound.Should().Be(1);

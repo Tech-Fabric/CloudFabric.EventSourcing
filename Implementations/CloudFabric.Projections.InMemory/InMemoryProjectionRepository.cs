@@ -108,8 +108,12 @@ public class InMemoryProjectionRepository : IProjectionRepository
 
         var totalCount = result.LongCount();
 
-        result = result.Skip(projectionQuery.Offset)
-            .Take(projectionQuery.Limit);
+        result = result.Skip(projectionQuery.Offset);
+
+        if (projectionQuery.Limit.HasValue)
+        {
+            result = result.Take(projectionQuery.Limit.Value);
+        }
 
         return Task.FromResult(
             new ProjectionQueryResult<Dictionary<string, object?>>
