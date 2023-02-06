@@ -33,7 +33,7 @@ public class UserAccount : AggregateBase
 
     public void On(UserAccountRegistered @event)
     {
-        Id = @event.AggregateId!.Value;
+        Id = @event.AggregateId;
         FirstName = @event.FirstName;
         HashedPassword = @event.HashedPassword;
     }

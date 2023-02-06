@@ -19,7 +19,7 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
         await UpsertDocument(
             new TaskListProjectionItem() 
             {
-                Id = @event.AggregateId!.Value,
+                Id = @event.AggregateId,
                 UserAccountId = @event.UserAccountId,
                 Name = @event.Name,
                 UpdatedAt = @event.Timestamp,
@@ -35,7 +35,7 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
     public async System.Threading.Tasks.Task On(TaskListNameUpdated @event)
     {
         await UpdateDocument(
-            @event.AggregateId!.Value,
+            @event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (projectionDocument) => 
@@ -75,6 +75,6 @@ public class TaskListsProjectionBuilder : ProjectionBuilder<TaskListProjectionIt
     
     public async System.Threading.Tasks.Task On(AggregateUpdatedEvent<TaskList> @event)
     {
-        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.UpdatedAt);
+        await SetDocumentUpdatedAt(@event.AggregateId, @event.PartitionKey, @event.UpdatedAt);
     }
 }

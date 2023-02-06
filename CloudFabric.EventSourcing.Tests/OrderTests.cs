@@ -389,7 +389,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         orders.TotalRecordsFound.Should().Be(2);
         orders.Records.Count.Should().Be(1);
 
-        query.SearchText = "queryable";
+        query.SearchText = "econ";
         query.Limit = null;
 
         orders = await ordersListProjectionsRepository.Query(query);
@@ -456,7 +456,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         orders.Records.Count.Should().Be(1);
         orders.Records.First().Document!.Items.Count.Should().Be(2);
 
-        query.SearchText = "amy@gmail.com";
+        query.SearchText = "my@gmail.co";
         orders = await ordersListProjectionsRepository.Query(query);
         orders.Records.Count.Should().Be(1);
         orders.Records.First().Document!.Items.Count.Should().Be(0);

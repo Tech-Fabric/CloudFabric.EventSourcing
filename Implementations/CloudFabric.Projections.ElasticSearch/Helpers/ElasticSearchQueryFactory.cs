@@ -14,14 +14,14 @@ public static class ElasticSearchQueryFactory
             {
                 Filter = new List<QueryContainer>()
                 {
-                    new QueryStringQuery() { Query = searchText, Type = TextQueryType.Phrase }
+                    new QueryStringQuery() { Query = $"*{ searchText }*", Type = TextQueryType.Phrase }
                 }
             }
         };
 
         // create nested queries
         queries.AddRange(
-            ConstructNestedQueries(projectionDocumentSchema, searchText)
+            ConstructNestedQueries(projectionDocumentSchema, $"*{ searchText }*")
         );
 
         return queries;

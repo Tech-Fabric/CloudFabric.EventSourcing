@@ -18,7 +18,7 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
         await UpsertDocument(
             new TaskProjectionItem() 
             {
-                Id = @event.AggregateId!.Value,
+                Id = @event.AggregateId,
                 Title = @event.Title,
                 Description = @event.Description,
                 UserAccountId = @event.UserAccountId,
@@ -33,7 +33,7 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
     public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated @event)
     {
         await UpdateDocument(
-            @event.AggregateId!.Value,
+            @event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (projectionDocument) =>
@@ -46,7 +46,7 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
     public async System.Threading.Tasks.Task On(TaskTitleUpdated @event)
     {
         await UpdateDocument(
-            @event.AggregateId!.Value,
+            @event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (projectionDocument) => 
@@ -58,6 +58,6 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
     
     public async System.Threading.Tasks.Task On(AggregateUpdatedEvent<Task> @event)
     {
-        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.UpdatedAt);
+        await SetDocumentUpdatedAt(@event.AggregateId, @event.PartitionKey, @event.UpdatedAt);
     }
 }

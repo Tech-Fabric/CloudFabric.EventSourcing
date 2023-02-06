@@ -19,7 +19,7 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
         await UpsertDocument(
             new UserAccountsProjectionItem()
             {
-                Id = @event.AggregateId!.Value,
+                Id = @event.AggregateId,
                 FirstName = @event.FirstName,
             },
             @event.PartitionKey,
@@ -30,7 +30,7 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
     public async System.Threading.Tasks.Task On(UserAccountEmailAddressChanged @event)
     {
         await UpdateDocument(
-            @event.AggregateId!.Value,
+            @event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (projectionDocument) =>
@@ -43,7 +43,7 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
     public async System.Threading.Tasks.Task On(UserAccountEmailAddressConfirmed @event)
     {
         await UpdateDocument(
-            @event.AggregateId!.Value,
+            @event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (projectionDocument) =>
@@ -56,7 +56,7 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
     public async System.Threading.Tasks.Task On(UserAccountEmailAssigned @event)
     {
         await UpdateDocument(
-            @event.AggregateId!.Value,
+            @event.AggregateId,
             @event.PartitionKey,
             @event.Timestamp,
             (projectionDocument) =>
@@ -68,6 +68,6 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
     
     public async System.Threading.Tasks.Task On(AggregateUpdatedEvent<UserAccount> @event)
     {
-        await SetDocumentUpdatedAt(@event.AggregateId!.Value, @event.PartitionKey, @event.UpdatedAt);
+        await SetDocumentUpdatedAt(@event.AggregateId, @event.PartitionKey, @event.UpdatedAt);
     }
 }
