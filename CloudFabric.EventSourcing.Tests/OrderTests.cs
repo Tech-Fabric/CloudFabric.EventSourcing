@@ -369,11 +369,11 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "First test order", items, userId, null);
+        var firstOrder = new Order(Guid.NewGuid(), "First queryable order", items, userId, null);
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
         // second order will contain only one item
-        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1), userId, null);
+        var secondOrder = new Order(Guid.NewGuid(), "Second queryable with additional parameter order", items.GetRange(0, 1), userId, null);
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
@@ -389,7 +389,14 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         orders.TotalRecordsFound.Should().Be(2);
         orders.Records.Count.Should().Be(1);
 
-        query.SearchText = "econ";
+        query.SearchText = "order quer";
+        query.Limit = null;
+
+        orders = await ordersListProjectionsRepository.Query(query);
+        orders.TotalRecordsFound.Should().Be(2);
+        orders.Records.Count.Should().Be(2);
+
+        query.SearchText = "with queryable Second add";
         query.Limit = null;
 
         orders = await ordersListProjectionsRepository.Query(query);
@@ -443,7 +450,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         // search by nested Items array
         var query = new ProjectionQuery
         {
-            SearchText = "stories"
+            SearchText = "stories tim"
         };
 
         // query by name
@@ -456,7 +463,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         orders.Records.Count.Should().Be(1);
         orders.Records.First().Document!.Items.Count.Should().Be(2);
 
-        query.SearchText = "my@gmail.co";
+        query.SearchText = "amy@gmail.co";
         orders = await ordersListProjectionsRepository.Query(query);
         orders.Records.Count.Should().Be(1);
         orders.Records.First().Document!.Items.Count.Should().Be(0);
