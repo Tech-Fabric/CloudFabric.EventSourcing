@@ -385,7 +385,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         };
 
         // query by name
-        var orders = await ordersListProjectionsRepository.Query(query);
+        var orders = await ordersListProjectionsRepository.Query(query);        
         orders.TotalRecordsFound.Should().Be(2);
         orders.Records.Count.Should().Be(1);
 
@@ -393,6 +393,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         query.Limit = null;
 
         orders = await ordersListProjectionsRepository.Query(query);
+        await Task.Delay(ProjectionsUpdateDelay);
         orders.TotalRecordsFound.Should().Be(2);
         orders.Records.Count.Should().Be(2);
 
