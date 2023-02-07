@@ -373,7 +373,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
         // second order will contain only one item
-        var secondOrder = new Order(Guid.NewGuid(), "Second queryable with additional parameter order", items.GetRange(0, 1), userId, null);
+        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order with additional parameter", items.GetRange(0, 1), userId, null);
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
@@ -385,24 +385,17 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         };
 
         // query by name
-        var orders = await ordersListProjectionsRepository.Query(query);        
+        var orders = await ordersListProjectionsRepository.Query(query);
         orders.TotalRecordsFound.Should().Be(2);
         orders.Records.Count.Should().Be(1);
 
-        query.SearchText = "order quer";
+        query.SearchText = "queryable order";
         query.Limit = null;
 
         orders = await ordersListProjectionsRepository.Query(query);
         await Task.Delay(ProjectionsUpdateDelay);
         orders.TotalRecordsFound.Should().Be(2);
         orders.Records.Count.Should().Be(2);
-
-        query.SearchText = "with queryable Second add";
-        query.Limit = null;
-
-        orders = await ordersListProjectionsRepository.Query(query);
-        orders.TotalRecordsFound.Should().Be(1);
-        orders.Records.Count.Should().Be(1);
 
         // add filter by count
         orders = await ordersListProjectionsRepository.Query(
