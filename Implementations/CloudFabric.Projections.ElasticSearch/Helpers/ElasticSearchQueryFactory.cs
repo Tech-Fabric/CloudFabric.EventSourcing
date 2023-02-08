@@ -5,7 +5,7 @@ namespace CloudFabric.Projections.ElasticSearch.Helpers;
 
 public static class ElasticSearchQueryFactory
 {
-    // Use 30 as default value for limiting maximum number of positions allowed between matching tokens for phrases.
+    // Use PhraseSlop number as default value for limiting maximum number of positions allowed between matching tokens for phrases.
     // Transposed terms have a slop of 2
     public static List<QueryContainer> ConstructSearchQuery(ProjectionDocumentSchema projectionDocumentSchema, string searchText)
     {
