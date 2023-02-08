@@ -17,9 +17,9 @@ public static class ElasticSearchQueryFactory
                 Filter = new List<QueryContainer>()
                 {
                     new QueryStringQuery() {
-                        Query = $"*{searchText}*" ,
-                        Type = TextQueryType.Phrase,
-                        AnalyzeWildcard = true,      
+                        Query = searchText,
+                        Type = TextQueryType.PhrasePrefix,
+                        AllowLeadingWildcard = false,
                         DefaultOperator = Operator.And,
                         PhraseSlop = 20
                     }
@@ -100,9 +100,9 @@ public static class ElasticSearchQueryFactory
                 Filter = new List<QueryContainer>()
                 {
                     new QueryStringQuery() {
-                        Query = $"*{searchText}*" ,
-                        Type = TextQueryType.Phrase,
-                        AnalyzeWildcard = true,
+                        Query = searchText,
+                        Type = TextQueryType.PhrasePrefix,
+                        AllowLeadingWildcard = false,
                         DefaultOperator = Operator.And,
                         PhraseSlop = 20
                     }
