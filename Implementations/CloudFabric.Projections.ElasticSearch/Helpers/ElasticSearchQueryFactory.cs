@@ -17,11 +17,11 @@ public static class ElasticSearchQueryFactory
                 Filter = new List<QueryContainer>()
                 {
                     new QueryStringQuery() {
-                        Query = searchText,
-                        Type = TextQueryType.PhrasePrefix,
-                        AllowLeadingWildcard = false,      
+                        Query = $"*{searchText}*" ,
+                        Type = TextQueryType.Phrase,
+                        AnalyzeWildcard = true,      
                         DefaultOperator = Operator.And,
-                        PhraseSlop = 30
+                        PhraseSlop = 20
                     }
                 }
             }
@@ -100,11 +100,11 @@ public static class ElasticSearchQueryFactory
                 Filter = new List<QueryContainer>()
                 {
                     new QueryStringQuery() {
-                        Query = searchText,
-                        Type = TextQueryType.PhrasePrefix,
-                        AllowLeadingWildcard = false,
+                        Query = $"*{searchText}*" ,
+                        Type = TextQueryType.Phrase,
+                        AnalyzeWildcard = true,
                         DefaultOperator = Operator.And,
-                        PhraseSlop = 30
+                        PhraseSlop = 20
                     }
                 },
             });
