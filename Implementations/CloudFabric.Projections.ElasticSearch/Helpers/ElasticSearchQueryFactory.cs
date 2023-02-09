@@ -5,6 +5,8 @@ namespace CloudFabric.Projections.ElasticSearch.Helpers;
 
 public static class ElasticSearchQueryFactory
 {
+    // Use PhraseSlop number as default value for limiting maximum number of positions allowed between matching tokens for phrases.
+    // Transposed terms have a slop of 2
     public static List<QueryContainer> ConstructSearchQuery(ProjectionDocumentSchema projectionDocumentSchema, string searchText)
     {
         // create 1st-layer query
@@ -14,7 +16,13 @@ public static class ElasticSearchQueryFactory
             {
                 Filter = new List<QueryContainer>()
                 {
-                    new QueryStringQuery() { Query = searchText, Type = TextQueryType.Phrase }
+                    new QueryStringQuery() {
+                        Query = searchText,
+                        Type = TextQueryType.PhrasePrefix,
+                        AllowLeadingWildcard = false,
+                        DefaultOperator = Operator.And,
+                        PhraseSlop = 20
+                    }
                 }
             }
         };
@@ -91,8 +99,14 @@ public static class ElasticSearchQueryFactory
             {
                 Filter = new List<QueryContainer>()
                 {
-                    new QueryStringQuery() { Query = searchText, Type = TextQueryType.Phrase }
-                }
+                    new QueryStringQuery() {
+                        Query = searchText,
+                        Type = TextQueryType.PhrasePrefix,
+                        AllowLeadingWildcard = false,
+                        DefaultOperator = Operator.And,
+                        PhraseSlop = 20
+                    }
+                },
             });
         }
 

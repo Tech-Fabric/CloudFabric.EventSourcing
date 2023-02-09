@@ -29,7 +29,7 @@ public class TaskList : AggregateBase
 
     public void On(TaskListCreated @event)
     {
-        Id = @event.AggregateId!.Value;
+        Id = @event.AggregateId;
         UserAccountId = @event.UserAccountId;
         Name = @event.Name;
     }

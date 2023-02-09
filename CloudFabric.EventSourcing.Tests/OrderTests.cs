@@ -369,11 +369,11 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
             )
         };
 
-        var firstOrder = new Order(Guid.NewGuid(), "First test order", items, userId, null);
+        var firstOrder = new Order(Guid.NewGuid(), "First queryable order", items, userId, null);
         await orderRepository.SaveOrder(userInfo, firstOrder);
 
         // second order will contain only one item
-        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order", items.GetRange(0, 1), userId, null);
+        var secondOrder = new Order(Guid.NewGuid(), "Second queryable order with additional parameter", items.GetRange(0, 1), userId, null);
         await orderRepository.SaveOrder(userInfo, secondOrder);
 
         await Task.Delay(ProjectionsUpdateDelay);
@@ -389,12 +389,13 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         orders.TotalRecordsFound.Should().Be(2);
         orders.Records.Count.Should().Be(1);
 
-        query.SearchText = "queryable";
+        query.SearchText = "queryable order";
         query.Limit = null;
 
         orders = await ordersListProjectionsRepository.Query(query);
-        orders.TotalRecordsFound.Should().Be(1);
-        orders.Records.Count.Should().Be(1);
+        await Task.Delay(ProjectionsUpdateDelay);
+        orders.TotalRecordsFound.Should().Be(2);
+        orders.Records.Count.Should().Be(2);
 
         // add filter by count
         orders = await ordersListProjectionsRepository.Query(
@@ -443,7 +444,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         // search by nested Items array
         var query = new ProjectionQuery
         {
-            SearchText = "stories"
+            SearchText = "stories tim"
         };
 
         // query by name
@@ -456,7 +457,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         orders.Records.Count.Should().Be(1);
         orders.Records.First().Document!.Items.Count.Should().Be(2);
 
-        query.SearchText = "amy@gmail.com";
+        query.SearchText = "amy@gmail.co";
         orders = await ordersListProjectionsRepository.Query(query);
         orders.Records.Count.Should().Be(1);
         orders.Records.First().Document!.Items.Count.Should().Be(0);

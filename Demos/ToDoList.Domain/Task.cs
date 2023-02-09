@@ -41,7 +41,7 @@ public class Task : AggregateBase
 
     public void On(TaskCreated @event)
     {
-        Id = @event.AggregateId!.Value;
+        Id = @event.AggregateId;
         Title = @event.Title;
         Description = @event.Description;
     }
