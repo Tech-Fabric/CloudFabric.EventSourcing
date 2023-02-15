@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using CloudFabric.Projections.Attributes;
 
 namespace CloudFabric.Projections;
@@ -8,13 +9,40 @@ public static class ProjectionDocumentSchemaFactory
     public static ProjectionDocumentSchema FromTypeWithAttributes<T>()
     {
         var schema = new ProjectionDocumentSchema();
-
-        schema.SchemaName = ProjectionDocumentAttribute.GetIndexName<T>();
+        
         schema.Properties = ProjectionDocumentAttribute.GetAllProjectionProperties<T>()
             .Select(p => GetPropertySchema(p.Key, p.Value.DocumentPropertyAttribute, p.Value.NestedDictionary))
             .ToList();
 
+        schema.SchemaName = $"{typeof(T).Name}_{GetPropertiesUniqueHash(schema.Properties)}";
+        
         return schema;
+    }
+    
+    public static string GetPropertiesUniqueHash(List<ProjectionDocumentPropertySchema> properties)
+    {
+        StringBuilder sb = new StringBuilder();
+
+        foreach (var prop in properties)
+        {
+            sb.Append(prop.PropertyName);
+            sb.Append(prop.PropertyType);
+
+            foreach (var attributeProperty in prop.GetType().GetProperties())
+            {
+                if (attributeProperty.Name != "TypeId")
+                {
+                    sb.Append(attributeProperty.Name);
+                    sb.Append(attributeProperty.GetValue(prop));
+                }
+            }
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        using System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
+        var hashBytes = md5.ComputeHash(bytes);
+
+        return $"{Convert.ToHexString(hashBytes)}";
     }
 
     private static ProjectionDocumentPropertySchema GetPropertySchema(

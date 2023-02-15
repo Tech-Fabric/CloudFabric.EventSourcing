@@ -25,7 +25,7 @@ public abstract class ProjectionRepositoryFactory
     
     protected IProjectionRepository? GetFromCache(ProjectionDocumentSchema schema)
     {
-        var name = schema.SchemaName;
+        var name = $"{schema.SchemaName}_{ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(schema.Properties)}";
         
         if (_repositories.ContainsKey(name))
         {
@@ -37,7 +37,7 @@ public abstract class ProjectionRepositoryFactory
 
     protected void SetToCache(ProjectionDocumentSchema schema, IProjectionRepository repository)
     {
-        var name = schema.SchemaName;
+        var name = $"{schema.SchemaName}_{ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(schema.Properties)}";
 
         _repositories[name] = repository;
     }
