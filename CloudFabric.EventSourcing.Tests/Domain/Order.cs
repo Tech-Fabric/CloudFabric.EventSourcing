@@ -38,9 +38,11 @@ public class Order : AggregateBase
 
     public void RemoveItem(string name)
     {
-        if (Items.Any(x => x.Name == name))
+        var item = Items.FirstOrDefault(x => x.Name == name);
+        
+        if (item != null)
         {
-            Apply(new OrderItemRemoved(Id, name, PartitionKey));
+            Apply(new OrderItemRemoved(Id, item, PartitionKey));
         }
     }
 
@@ -68,7 +70,7 @@ public class Order : AggregateBase
     {
         // build new list
         var items = new List<OrderItem>();
-        items.AddRange(Items.Where(x => x.Name != @event.Name));
+        items.AddRange(Items.Where(x => x.Name != @event.Item.Name));
         // set to list without item
         Items = items.AsReadOnly();
         UpdatedAt = @event.Timestamp;

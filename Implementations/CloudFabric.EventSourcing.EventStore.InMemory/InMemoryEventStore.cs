@@ -11,11 +11,11 @@ public class EventAddedEventArgs : EventArgs
 public class InMemoryEventStore : IEventStore
 {
     private readonly Dictionary<(Guid StreamId, string PartitionKey), List<string>> _eventsContainer;
+    private readonly List<Func<IEvent, Task>> _eventAddedEventHandlers = new();
 
     public InMemoryEventStore(
         Dictionary<(Guid StreamId, string PartitionKey), List<string>> eventsContainer
     )
-
     {
         _eventsContainer = eventsContainer;
     }
@@ -25,6 +25,16 @@ public class InMemoryEventStore : IEventStore
         return Task.CompletedTask;
     }
 
+    public void SubscribeToEventAdded(Func<IEvent, Task> handler)
+    {
+        _eventAddedEventHandlers.Add(handler);
+    }
+
+    public void UnsubscribeFromEventAdded(Func<IEvent, Task> handler)
+    {
+        _eventAddedEventHandlers.Remove(handler);
+    }
+    
     public Task DeleteAll()
     {
         _eventsContainer.Clear();
@@ -135,12 +145,6 @@ public class InMemoryEventStore : IEventStore
             foreach (var wrapper in wrappers)
             {
                 stream.Add(JsonSerializer.Serialize(wrapper, EventSerializerOptions.Options));
-
-                EventHandler<EventAddedEventArgs> handler = EventAdded;
-                if (handler != null)
-                {
-                    handler(this, new EventAddedEventArgs() { Event = wrapper.GetEvent() });
-                }
             }
 
             if (!_eventsContainer.ContainsKey((streamId, partitionKey)))
@@ -152,11 +156,17 @@ public class InMemoryEventStore : IEventStore
                 _eventsContainer[(streamId, partitionKey)] = stream;
             }
         }
+        
+        foreach (var e in events)
+        {
+            foreach (var h in _eventAddedEventHandlers)
+            {
+                await h(e);
+            }
+        }
 
         return true;
     }
-
-    public event EventHandler<EventAddedEventArgs> EventAdded;
 
     private async Task<List<EventWrapper>> LoadOrderedEventWrappers(Guid streamId, string partitionKey)
     {

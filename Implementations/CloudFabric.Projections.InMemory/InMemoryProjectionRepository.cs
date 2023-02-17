@@ -61,16 +61,32 @@ public class InMemoryProjectionRepository<TProjectionDocument>
 public class InMemoryProjectionRepository : IProjectionRepository
 {
     private readonly ProjectionDocumentSchema _projectionDocumentSchema;
-    private readonly Dictionary<(Guid Id, string PartitionKey), Dictionary<string, object?>> _storage = new();
+
+    /// <summary>
+    /// Data storage 
+    /// </summary>                     Schema name         Item Id and PartitionKey                  Item properties and values
+    private static readonly Dictionary<string, Dictionary<(Guid Id, string PartitionKey), Dictionary<string, object?>>> Storage = new();
 
     public InMemoryProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
         _projectionDocumentSchema = projectionDocumentSchema;
     }
 
+    public Task EnsureIndex(CancellationToken cancellationToken = default)
+    {
+        if (!Storage.ContainsKey(_projectionDocumentSchema.SchemaName))
+        {
+            Storage[_projectionDocumentSchema.SchemaName] = new();
+        }
+        
+        return Task.CompletedTask;
+    }
+
     public Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(_storage.GetValueOrDefault((id, partitionKey)) ?? null);
+        var storage = Storage[_projectionDocumentSchema.SchemaName];
+        
+        return Task.FromResult(storage.GetValueOrDefault((id, partitionKey)) ?? null);
     }
 
     public Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
@@ -78,7 +94,9 @@ public class InMemoryProjectionRepository : IProjectionRepository
         string? partitionKey = null,
         CancellationToken cancellationToken = default)
     {
-        var result = _storage
+        var storage = Storage[_projectionDocumentSchema.SchemaName];
+        
+        var result = storage
             .Where(x => string.IsNullOrEmpty(partitionKey) || x.Key.PartitionKey == partitionKey)
             .ToDictionary(k => k.Key, v => v.Value)
             .Values
@@ -142,31 +160,33 @@ public class InMemoryProjectionRepository : IProjectionRepository
         document[nameof(ProjectionDocument.PartitionKey)] = partitionKey;
         document[nameof(ProjectionDocument.UpdatedAt)] = updatedAt;
 
-        _storage[(Guid.Parse(keyValue.ToString()), partitionKey)] = document;
+        Storage[_projectionDocumentSchema.SchemaName][(Guid.Parse(keyValue.ToString()), partitionKey)] = document;
 
         return Task.CompletedTask;
     }
 
     public Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        _storage.Remove((id, partitionKey));
+        Storage[_projectionDocumentSchema.SchemaName].Remove((id, partitionKey));
         return Task.CompletedTask;
     }
 
     public Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
+        var storage = Storage[_projectionDocumentSchema.SchemaName];
+        
         if (string.IsNullOrEmpty(partitionKey))
         {
-            _storage.Clear();
+            storage.Clear();
         }
         else
         {
-            var objectsToRemove = _storage.Where(x => x.Key.PartitionKey == partitionKey)
+            var objectsToRemove = storage.Where(x => x.Key.PartitionKey == partitionKey)
                 .Select(x => x.Key);
 
             foreach (var objectToRemove in objectsToRemove)
             {
-                _storage.Remove(objectToRemove);
+                storage.Remove(objectToRemove);
             }
         }
 

@@ -25,6 +25,7 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
         var store = await GetEventStore();
         // Repository containing projections - `view models` of orders
         ProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<TProjectionDocument>();
+        await ProjectionsRepository.EnsureIndex();
         var repositoryEventsObserver = GetEventStoreEventsObserver();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders

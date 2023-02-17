@@ -39,7 +39,7 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
             @event.Timestamp,
             (orderProjection) =>
             {
-                var item = orderProjection.Items.FirstOrDefault(x => x.Name == @event.Name);
+                var item = orderProjection.Items.FirstOrDefault(x => x.Name == @event.Item.Name);
 
                 if (item != null)
                 {

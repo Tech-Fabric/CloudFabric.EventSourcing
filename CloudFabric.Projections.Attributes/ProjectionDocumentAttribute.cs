@@ -6,34 +6,6 @@ namespace CloudFabric.Projections.Attributes;
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public class ProjectionDocumentAttribute : Attribute
 {
-    public static string GetIndexName<TProjectionDocument>()
-    {
-        var properties = GetAllProjectionProperties<TProjectionDocument>();
-
-        StringBuilder sb = new StringBuilder();
-
-        foreach (var prop in properties.Keys)
-        {
-            sb.Append(prop.Name);
-            sb.Append(prop.PropertyType.Name);
-
-            foreach (var attributeProperty in properties[prop].GetType().GetProperties())
-            {
-                if (attributeProperty.Name != "TypeId")
-                {
-                    sb.Append(attributeProperty.Name);
-                    sb.Append(attributeProperty.GetValue(properties[prop]));
-                }
-            }
-        }
-
-        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
-        using System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
-        var hashBytes = md5.ComputeHash(bytes);
-
-        return $"{typeof(TProjectionDocument).Name}_{Convert.ToHexString(hashBytes)}";
-    }
-
     public static string? GetKeyPropertyName<T>()
     {
         PropertyInfo[] props = typeof(T).GetProperties();

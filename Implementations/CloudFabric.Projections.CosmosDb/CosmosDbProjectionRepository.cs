@@ -131,6 +131,11 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         _containerId = containerId;
     }
 
+    public Task EnsureIndex(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
     public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);

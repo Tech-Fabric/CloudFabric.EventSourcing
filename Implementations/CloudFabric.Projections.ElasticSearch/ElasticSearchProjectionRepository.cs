@@ -110,7 +110,6 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
         // create an index
         _indexer = new ElasticSearchIndexer(uri, username, password, certificateFingerprint, loggerFactory);
-        _indexer.CreateOrUpdateIndex(IndexName, projectionDocumentSchema).Wait();
     }
 
     public string IndexName
@@ -137,6 +136,11 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
             return _keyPropertyName;
         }
+    }
+
+    public async Task EnsureIndex(CancellationToken cancellationToken = default)
+    {
+        await _indexer.CreateOrUpdateIndex(IndexName, _projectionDocumentSchema);
     }
 
     public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
@@ -499,5 +503,4 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
         return sortDescriptor;
     }
-    // }
 }

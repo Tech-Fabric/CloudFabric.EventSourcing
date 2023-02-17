@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using CloudFabric.Projections.Exceptions;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Npgsql;
@@ -146,6 +148,43 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
     }
 
+    public async Task EnsureIndex(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var record = await Query(new ProjectionQuery(), null, cancellationToken);
+        }
+        catch (InvalidProjectionSchemaException ex)
+        {
+            await using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync(cancellationToken);
+            
+            // TODO: we need much better table schema updates which includes saving projection document schema
+            // alongside with the table  itself, retrieving it, comparing and updating  table  accordingly
+            if ((ex.InnerException as NpgsqlException)?.SqlState == PostgresErrorCodes.UndefinedTable)
+            {
+                await HandleUndefinedTableException(conn, cancellationToken);
+
+                await EnsureIndex(cancellationToken);
+            }
+            else if ((ex.InnerException as NpgsqlException)?.SqlState == PostgresErrorCodes.UndefinedColumn)
+            {
+                var tableNameRegex = new Regex("[^\"]+\"([^\"]+)+\"[^\"]+", RegexOptions.None, TimeSpan.FromMilliseconds(1));
+                var tableMissingMessage = (ex.InnerException as NpgsqlException)?.Message;
+
+                var result = tableNameRegex.Match(tableMissingMessage);
+                var tableName = result.Groups[1].Value;
+                await HandleUndefinedColumnException(conn, tableName, cancellationToken);
+                
+                await EnsureIndex(cancellationToken);
+            }
+            else
+            {
+                throw;
+            }
+        }
+    }
+
     public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         if (id == Guid.Empty)
@@ -231,16 +270,14 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
         catch (NpgsqlException ex)
         {
-            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable || ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
-                await HandleUndefinedTableException(conn, cancellationToken);
-
-                return await Single(id, partitionKey, cancellationToken);
+                throw new InvalidProjectionSchemaException(ex);
             }
-            else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
+            else 
             {
-                throw new InvalidOperationException(
-                    $"Something went terribly wrong and table for index \"{TableName}\" does not have one of the columns. Please delete that table and wait, it will be created automatically.",
+                throw new Exception(
+                    $"Something went terribly wrong while updating/inserting document in \"{TableName}\".",
                     ex
                 );
             }
@@ -361,16 +398,14 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
         catch (NpgsqlException ex)
         {
-            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable || ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
-                await HandleUndefinedTableException(conn, cancellationToken);
-
-                await Upsert(document, partitionKey, updatedAt, cancellationToken);
+                throw new InvalidProjectionSchemaException(ex);
             }
-            else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
+            else 
             {
                 throw new Exception(
-                    $"Something went terribly wrong and table for index \"{TableName}\" does not have one of the columns. Please delete that table and wait, it will be created automatically.",
+                    $"Something went terribly wrong while updating/inserting document in \"{TableName}\".",
                     ex
                 );
             }
@@ -523,31 +558,18 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
         catch (NpgsqlException ex)
         {
-            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable || ex.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
-                await HandleUndefinedTableException(conn, cancellationToken);
-
-                await Query(projectionQuery, partitionKey, cancellationToken);
+                throw new InvalidProjectionSchemaException(ex);
             }
-            else if (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
+            else 
             {
                 throw new Exception(
                     $"Something went terribly wrong while querying \"{TableName}\".",
                     ex
                 );
             }
-            else
-            {
-                throw;
-            }
         }
-
-        return new ProjectionQueryResult<Dictionary<string, object?>>
-        {
-            IndexName = TableName,
-            TotalRecordsFound = 0,
-            Records = new()
-        };
     }
 
     private QueryChunk ConstructOneConditionFilter(Filter filter)
@@ -757,6 +779,33 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
     }
 
+    private async Task HandleUndefinedColumnException(NpgsqlConnection conn, string columnName, CancellationToken cancellationToken)
+    {
+        var property = _projectionDocumentSchema.Properties
+            .FirstOrDefault(p => p.PropertyName.ToLower() == columnName.ToLower());
+
+        if (property == null)
+        {
+            return;
+        }
+
+        var columnSql = ConstructColumnCreateStatementForProperty(property);
+
+        var commandText = $"ALTER TABLE \"{TableName}\" ADD COLUMN {columnSql}";
+        
+        await using var createTableCommand = new NpgsqlCommand(commandText, conn);
+        try
+        {
+            await createTableCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception createTableException)
+        {
+            var exception = new Exception($"Failed to alter table to add new column {columnName} for projection \"{TableName}\"", createTableException);
+            exception.Data.Add("commandText", commandText);
+            throw exception;
+        }
+    }
+    
     private string ConstructCreateTableCommandText()
     {
         var commandText = new StringBuilder();
