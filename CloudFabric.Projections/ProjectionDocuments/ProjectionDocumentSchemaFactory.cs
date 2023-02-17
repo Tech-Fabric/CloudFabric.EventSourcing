@@ -21,26 +21,29 @@ public static class ProjectionDocumentSchemaFactory
     
     public static string GetPropertiesUniqueHash(List<ProjectionDocumentPropertySchema> properties)
     {
-        StringBuilder sb = new StringBuilder();
-
+        var hash = new System.IO.Hashing.XxHash32();
+        
         foreach (var prop in properties)
         {
-            sb.Append(prop.PropertyName);
-            sb.Append(prop.PropertyType);
+            hash.Append(Encoding.UTF8.GetBytes(prop.PropertyName));
+            hash.Append(Encoding.UTF8.GetBytes(prop.PropertyType.ToString()));
 
             foreach (var attributeProperty in prop.GetType().GetProperties())
             {
                 if (attributeProperty.Name != "TypeId")
                 {
-                    sb.Append(attributeProperty.Name);
-                    sb.Append(attributeProperty.GetValue(prop));
+                    hash.Append(Encoding.UTF8.GetBytes(attributeProperty.Name));
+                    var value = attributeProperty.GetValue(prop);
+
+                    if (value != null)
+                    {
+                        hash.Append(Encoding.UTF8.GetBytes(value.ToString() ?? string.Empty));
+                    }
                 }
             }
         }
-
-        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
-        using System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
-        var hashBytes = md5.ComputeHash(bytes);
+        
+        var hashBytes = hash.GetCurrentHash();
 
         return $"{Convert.ToHexString(hashBytes)}";
     }
