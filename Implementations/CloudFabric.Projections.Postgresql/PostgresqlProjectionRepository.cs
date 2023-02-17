@@ -169,7 +169,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             }
             else if ((ex.InnerException as NpgsqlException)?.SqlState == PostgresErrorCodes.UndefinedColumn)
             {
-                var tableNameRegex = new Regex("[^\"]+\"([^\"]+)+\"[^\"]+");
+                var tableNameRegex = new Regex("[^\"]+\"([^\"]+)+\"[^\"]+", RegexOptions.None, TimeSpan.FromMilliseconds(1));
                 var tableMissingMessage = (ex.InnerException as NpgsqlException)?.Message;
 
                 var result = tableNameRegex.Match(tableMissingMessage);
