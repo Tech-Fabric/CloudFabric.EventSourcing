@@ -38,7 +38,12 @@ public class ElasticSearchIndexer
     {
         if (string.IsNullOrWhiteSpace(indexName))
         {
-            throw new Exception($"Missing required parameter: {nameof(indexName)}");
+            throw new ArgumentException($"Missing required parameter: {nameof(indexName)}");
+        }
+
+        if (projectionDocumentSchema.Properties.Count == 0)
+        {
+            throw new ArgumentException($"Index should not be empty, it requires at least one property");
         }
 
         var response = await _client.Indices.ExistsAsync(

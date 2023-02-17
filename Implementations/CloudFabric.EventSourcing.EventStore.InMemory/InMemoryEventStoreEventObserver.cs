@@ -20,13 +20,13 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
 
     public Task StartAsync(string instanceName)
     {
-        _eventStore.EventAdded += async (sender, args) => await EventStoreOnEventAdded(sender, args);
+        _eventStore.SubscribeToEventAdded(EventStoreOnEventAdded);
         return Task.CompletedTask;
     }
 
     public Task StopAsync()
     {
-        //_eventStore.EventAdded -= EventStoreOnEventAdded;
+        _eventStore.UnsubscribeFromEventAdded(EventStoreOnEventAdded);
         return Task.CompletedTask;
     }
 
@@ -45,8 +45,7 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
             foreach (var @event in events)
             {
                 await EventStoreOnEventAdded(
-                    this,
-                    new EventAddedEventArgs { Event = @event }
+                    @event
                 );
             }
         }
@@ -66,14 +65,20 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
         foreach (var @event in stream.Events)
         {
             await EventStoreOnEventAdded(
-                this,
-                new EventAddedEventArgs { Event = @event }
+                @event
             );
         }
     }
-
-    private async Task EventStoreOnEventAdded(object? sender, EventAddedEventArgs e)
+    
+    
+    private async Task EventStoreOnEventAdded(IEvent e)
     {
-        await _eventHandler(e.Event);
+        if (_eventHandler == null)
+        {
+            throw new InvalidOperationException(
+                "Can't process an event: no eventHandler was set. Please call SetEventHandler before calling StartAsync.");
+        }
+
+        await _eventHandler(e);
     }
 }

@@ -29,14 +29,21 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
 
     public async Task On(OrderPlaced @event)
     {
+        var document = new Dictionary<string, object?>()
+        {
+            { "Id", @event.AggregateId },
+            { "Name", @event.OrderName },
+            { "ItemsCount", @event.Items.Count }
+        };
+        
+        if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "TotalPrice"))
+        {
+            document["TotalPrice"] = (decimal)@event.Items.Sum(i => i.Amount);
+        }
+        
         await UpsertDocument(
             _projectionDocumentSchema,
-            new Dictionary<string, object?>()
-            {
-                { "Id", @event.AggregateId },
-                { "Name", @event.OrderName },
-                { "ItemsCount", @event.Items.Count }
-            },
+            document,
             @event.PartitionKey,
             @event.Timestamp
         );
@@ -60,7 +67,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
                     {
                         orderProjection.Add("TotalPrice", 0m);
                     }
-                    orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0) + @event.Item.Amount;
+                    orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0m) + @event.Item.Amount;
                 }
             }
         );
@@ -80,7 +87,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
                 // This is a test projection builder and the goal is to simulate addition/removal of a projection field.
                 if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "TotalPrice"))
                 {
-                    orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0) - @event.Item.Amount;
+                    orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0m) - @event.Item.Amount;
                 }
             }
         );
@@ -192,6 +199,8 @@ public abstract class DynamicProjectionSchemaTests
         
         var (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjection(orderRepositoryEventsObserver, ordersProjectionSchema);
 
+        await ordersListProjectionsRepository.EnsureIndex();
+        
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
         var id = Guid.NewGuid();
@@ -295,6 +304,8 @@ public abstract class DynamicProjectionSchemaTests
         };
 
         var (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjection(orderRepositoryEventsObserver, ordersProjectionSchema);
+
+        await ordersListProjectionsRepository.EnsureIndex();
         
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
@@ -356,6 +367,8 @@ public abstract class DynamicProjectionSchemaTests
         
         (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjection(orderRepositoryEventsObserver, ordersProjectionSchema);
 
+        await ordersListProjectionsRepository.EnsureIndex();
+        
         var addItem = new OrderItem(DateTime.UtcNow, "Twilight Struggle", 6.95m);
         order.AddItem(addItem);
 
@@ -363,8 +376,6 @@ public abstract class DynamicProjectionSchemaTests
 
         await Task.Delay(ProjectionsUpdateDelay);
 
-        items.Add(addItem);
-        
         var orderProjectionWithNewSchemaTotalPrice = await ordersListProjectionsRepository
             .Single(id, PartitionKeys.GetOrderPartitionKey());
         Debug.Assert(orderProjectionWithNewSchemaTotalPrice != null, nameof(orderProjectionWithNewSchemaTotalPrice) + " != null");
@@ -380,7 +391,7 @@ public abstract class DynamicProjectionSchemaTests
         var query = new ProjectionQuery();
         query.Filters = new List<Filter>()
         {
-            new Filter("TotalPrice", FilterOperator.Greater, 6)
+            new Filter("TotalPrice", FilterOperator.Greater, 6m)
         };
 
         var searchResult = await ordersListProjectionsRepository.Query(query);
@@ -406,10 +417,10 @@ public abstract class DynamicProjectionSchemaTests
         Debug.Assert(orderProjectionWithNewSchemaTotalPriceAfterRebuild != null, nameof(orderProjectionWithNewSchemaTotalPriceAfterRebuild) + " != null");
 
         orderProjectionWithNewSchemaTotalPriceAfterRebuild["Id"].Should().Be(order.Id);
-        orderProjectionWithNewSchemaTotalPriceAfterRebuild["ItemsCount"].Should().Be(items.Count);
+        orderProjectionWithNewSchemaTotalPriceAfterRebuild["ItemsCount"].Should().Be(5);
         
         // Projections were rebuilt, that means TotalPrice should have all items summed up
-        orderProjectionWithNewSchemaTotalPriceAfterRebuild["TotalPrice"].Should().Be(18.95m);
+        orderProjectionWithNewSchemaTotalPriceAfterRebuild["TotalPrice"].Should().Be(42.39m);
     }
 
     [TestMethod]

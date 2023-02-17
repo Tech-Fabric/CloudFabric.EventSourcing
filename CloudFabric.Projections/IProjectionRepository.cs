@@ -4,6 +4,7 @@ namespace CloudFabric.Projections;
 
 public interface IProjectionRepository
 {
+    Task EnsureIndex(CancellationToken cancellationToken = default);
     Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default);
     Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default);
     Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default);

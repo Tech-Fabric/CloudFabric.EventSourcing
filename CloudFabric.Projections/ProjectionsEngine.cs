@@ -68,6 +68,8 @@ public class ProjectionsEngine : IProjectionsEngine
         {
             throw new InvalidOperationException("SetEventsObserver should be called before RebuildAsync");
         }
+
+        await _projectionsStateRepository.EnsureIndex();
         
         await _projectionsStateRepository.Upsert(new ProjectionRebuildState
         {

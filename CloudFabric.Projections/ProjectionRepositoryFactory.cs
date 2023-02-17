@@ -2,7 +2,7 @@ namespace CloudFabric.Projections;
 
 public abstract class ProjectionRepositoryFactory
 {
-    private readonly Dictionary<string, object> _repositories = new Dictionary<string, object>();
+    protected readonly Dictionary<string, object> _repositories = new Dictionary<string, object>();
 
     protected IProjectionRepository<TProjectionDocument>? GetFromCache<TProjectionDocument>() where TProjectionDocument : ProjectionDocument
     {
@@ -16,14 +16,14 @@ public abstract class ProjectionRepositoryFactory
         return null;
     }
 
-    protected void SetToCache<TProjectionDocument>(IProjectionRepository<TProjectionDocument> repository) where TProjectionDocument : ProjectionDocument
+    protected virtual void SetToCache<TProjectionDocument>(IProjectionRepository<TProjectionDocument> repository) where TProjectionDocument : ProjectionDocument
     {
         var name = typeof(TProjectionDocument).FullName!;
 
         _repositories[name] = repository;
     }
     
-    protected IProjectionRepository? GetFromCache(ProjectionDocumentSchema schema)
+    protected virtual IProjectionRepository? GetFromCache(ProjectionDocumentSchema schema)
     {
         var name = $"{schema.SchemaName}_{ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(schema.Properties)}";
         
@@ -35,7 +35,7 @@ public abstract class ProjectionRepositoryFactory
         return null;
     }
 
-    protected void SetToCache(ProjectionDocumentSchema schema, IProjectionRepository repository)
+    protected virtual void SetToCache(ProjectionDocumentSchema schema, IProjectionRepository repository)
     {
         var name = $"{schema.SchemaName}_{ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(schema.Properties)}";
 
