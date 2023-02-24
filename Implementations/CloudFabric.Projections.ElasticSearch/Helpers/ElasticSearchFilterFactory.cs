@@ -130,7 +130,7 @@ public static class ElasticSearchFilterFactory
 
     private static string ConstructOneConditionFilter(Queries.Filter filter)
     {
-        if (string.IsNullOrEmpty(filter.PropertyName))
+        if (string.IsNullOrEmpty(filter.PropertyName) || filter.PropertyName == "*")
         {
             return "";
         }
