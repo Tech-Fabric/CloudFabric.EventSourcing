@@ -20,21 +20,4 @@ public class FilterConnector
     public string Logic { get; init; }
 
     public Filter Filter { get; init; }
-
-    public object Serialize()
-    {
-        var obj = new
-        {
-            l = Logic,
-            f = Filter.Serialize()
-        };
-
-        return obj;
-    }
-
-    public static FilterConnector Deserialize(dynamic obj)
-    {
-        var fc = new FilterConnector(obj.l, Projections.Queries.Filter.Deserialize(obj.f));
-        return fc;
-    }
 }

@@ -62,7 +62,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("Qwer"))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.StartsWith("Qwer"))
             }
         };
 
@@ -74,7 +74,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer"))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer"))
             }
         };
 
@@ -90,7 +90,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", StringComparison.OrdinalIgnoreCase))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", StringComparison.OrdinalIgnoreCase))
             }
         };
 
@@ -102,7 +102,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", StringComparison.Ordinal))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", StringComparison.Ordinal))
             }
         };
 
@@ -118,7 +118,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", true, CultureInfo.InvariantCulture))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", true, CultureInfo.InvariantCulture))
             }
         };
 
@@ -130,7 +130,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", false, CultureInfo.InvariantCulture))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", false, CultureInfo.InvariantCulture))
             }
         };
 
@@ -146,7 +146,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", StringComparison.InvariantCultureIgnoreCase))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", StringComparison.InvariantCultureIgnoreCase))
             }
         };
 
@@ -158,7 +158,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", StringComparison.InvariantCulture))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.StartsWith("qwer", StringComparison.InvariantCulture))
             }
         };
 
@@ -174,7 +174,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.EndsWith("Ty123"))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.EndsWith("Ty123"))
             }
         };
 
@@ -186,7 +186,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123"))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123"))
             }
         };
 
@@ -202,7 +202,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123", true, CultureInfo.InvariantCulture))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123", true, CultureInfo.InvariantCulture))
             }
         };
 
@@ -214,7 +214,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123", false, CultureInfo.InvariantCulture))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123", false, CultureInfo.InvariantCulture))
             }
         };
 
@@ -230,7 +230,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123", StringComparison.InvariantCultureIgnoreCase))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123", StringComparison.InvariantCultureIgnoreCase))
             }
         };
 
@@ -242,7 +242,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123", StringComparison.InvariantCulture))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.EndsWith("ty123", StringComparison.InvariantCulture))
             }
         };
 
@@ -258,7 +258,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.Contains("rTy"))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.Contains("rTy"))
             }
         };
 
@@ -270,7 +270,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.Contains("rty"))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.Contains("rty"))
             }
         };
 
@@ -287,7 +287,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.Contains("rty", StringComparison.InvariantCultureIgnoreCase))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.Contains("rty", StringComparison.InvariantCultureIgnoreCase))
             }
         };
 
@@ -299,7 +299,7 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         {
             Filters = new List<Filter>()
             {
-                Filter.Where<OrderListProjectionItem>(f => f.Name.Contains("rty", StringComparison.InvariantCulture))
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name.Contains("rty", StringComparison.InvariantCulture))
             }
         };
 

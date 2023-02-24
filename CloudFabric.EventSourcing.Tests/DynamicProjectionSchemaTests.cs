@@ -258,7 +258,7 @@ public abstract class DynamicProjectionSchemaTests
 
         var orderProjectionFromQuery =
             await ordersListProjectionsRepository.Query(
-                ProjectionQuery.Where<OrderListProjectionItem>(d => d.Name == orderName)
+                ProjectionQueryExpressionExtensions.Where<OrderListProjectionItem>(d => d.Name == orderName)
             );
         orderProjectionFromQuery.TotalRecordsFound.Should().Be(1);
         orderProjectionFromQuery.Records.Count.Should().Be(1);
