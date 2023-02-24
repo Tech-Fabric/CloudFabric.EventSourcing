@@ -70,7 +70,7 @@ public static class FilterQueryStringExtensions
         return $"{(string.IsNullOrEmpty(filter.PropertyName) ? "*" : SanitizeValue(filter.PropertyName))}" +
             $"|{(string.IsNullOrEmpty(filter.Operator) ? "*" : filter.Operator)}" +
             $"|{System.Net.WebUtility.UrlEncode(valueSerialized)}" +
-            $"|{filter.Visible}" +
+            $"|{(filter.Visible ? 'T' : 'F')}" +
             $"|{System.Net.WebUtility.UrlEncode(filter.Tag)}" +
             $"|{filtersSerialized}";
     }
@@ -95,7 +95,7 @@ public static class FilterQueryStringExtensions
         var value = f.Substring(operatorEnd + 1, valueEnd - operatorEnd - 1);
 
         var visibleEnd = f.IndexOf("|", valueEnd + 1, StringComparison.Ordinal);
-        var visible = bool.Parse(f.Substring(valueEnd + 1, visibleEnd - valueEnd - 1));
+        var visible = f.Substring(valueEnd + 1, visibleEnd - valueEnd - 1) == "T";
 
         var tagEnd = f.IndexOf("|", visibleEnd + 1, StringComparison.Ordinal);
         var tag = f.Substring(visibleEnd + 1, tagEnd - visibleEnd - 1);
