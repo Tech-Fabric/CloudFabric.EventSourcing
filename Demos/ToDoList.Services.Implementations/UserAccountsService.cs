@@ -51,7 +51,7 @@ public class UserAccountsService : IUserAccountsService
         }
 
         var emailAlreadyExists = (await _userAccountsProjectionRepository.Query(
-            ProjectionQuery.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email)
+                ProjectionQueryExpressionExtensions.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email)
         ))
         .Records
         .FirstOrDefault()
@@ -129,7 +129,7 @@ public class UserAccountsService : IUserAccountsService
         }
 
         var userAccountEmailAddress = (await _userAccountsProjectionRepository.Query(
-            ProjectionQuery.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email),
+                ProjectionQueryExpressionExtensions.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email),
             PartitionKeys.GetUserAccountEmailAddressPartitionKey()
         ))
         .Records

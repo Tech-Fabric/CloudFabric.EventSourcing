@@ -98,7 +98,7 @@ public class ProjectionsEngine : IProjectionsEngine
     public async Task<ProjectionRebuildState?> GetRebuildState(string instanceName, string partitionKey)
     {
         var rebuildState = (await _projectionsStateRepository.Query(
-            ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName),
+            ProjectionQueryExpressionExtensions.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName),
             partitionKey: partitionKey
         ))
         .Records
@@ -159,7 +159,7 @@ public class ProjectionsEngine : IProjectionsEngine
     private async Task OnRebuildCompleted(string instanceName, string partitionKey)
     {
         var rebuildState = (await _projectionsStateRepository.Query(
-            ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
+            ProjectionQueryExpressionExtensions.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
         ))
         .Records
         .Select(x => x.Document)
@@ -182,7 +182,7 @@ public class ProjectionsEngine : IProjectionsEngine
     private async Task OnRebuildFailed(string instanceName, string partitionKey, string errorMessage)
     {
         var rebuildState = (await _projectionsStateRepository.Query(
-            ProjectionQuery.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
+            ProjectionQueryExpressionExtensions.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
         ))
         .Records
         .Select(x => x.Document)
