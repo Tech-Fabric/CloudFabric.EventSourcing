@@ -471,7 +471,14 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         
         NpgsqlParameter[] totalCountParams = new NpgsqlParameter[queryChunk.Parameters.Count];
         queryChunk.Parameters.CopyTo(totalCountParams);
-
+        
+        if (projectionQuery.OrderBy.Count > 0)
+        {
+            // NOTE: nested sorting is not implemented
+            sb.Append(" ORDER BY ");
+            sb.AppendJoin(',', projectionQuery.OrderBy.Select(kv => $"{kv.KeyPath} {kv.Order}"));
+        }
+        
         if (projectionQuery.Limit.HasValue)
         {
             sb.Append(" LIMIT @limit");
@@ -481,21 +488,22 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         sb.Append(" OFFSET @offset");
         queryChunk.Parameters.Add(new NpgsqlParameter("offset", projectionQuery.Offset));
 
-        if (projectionQuery.OrderBy.Count > 0)
-        {
-            // NOTE: nested sorting is not implemented
-            sb.Append(" ORDER BY ");
-            sb.AppendJoin(',', projectionQuery.OrderBy.Select(kv => $"{kv.KeyPath} {kv.Order}"));
-        }
-
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
-
-        var cmd = new NpgsqlCommand(sb.ToString(), conn);
-        cmd.Parameters.AddRange(queryChunk.Parameters.ToArray());
-
+        
         try
         {
+            // calculate total count
+            var totalCountCmd = new NpgsqlCommand(totalCountQuery, conn);
+            totalCountCmd.Parameters.AddRange(totalCountParams);
+
+            var totalCount = await totalCountCmd.ExecuteScalarAsync(cancellationToken) as long?;
+            totalCountCmd.Parameters.Clear();
+            totalCountCmd.Dispose();
+
+            var cmd = new NpgsqlCommand(sb.ToString(), conn);
+            cmd.Parameters.AddRange(queryChunk.Parameters.ToArray());
+
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
             var records = new List<Dictionary<string, object?>>();
@@ -533,17 +541,12 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
                 records.Add(document);
             }
-
+            
+            await reader.DisposeAsync();
             // clear previous command in order to prevent conflicts
             cmd.Parameters.Clear();
-            await reader.DisposeAsync();
+            cmd.Dispose();
             
-            // calculate total count
-            var totalCountCmd = new NpgsqlCommand(totalCountQuery, conn);
-            totalCountCmd.Parameters.AddRange(totalCountParams);
-
-            var totalCount = await totalCountCmd.ExecuteScalarAsync(cancellationToken) as long?;
-
             return new ProjectionQueryResult<Dictionary<string, object?>>
             {
                 IndexName = TableName,
@@ -580,7 +583,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         var propertyName = filter.PropertyName;
         var propertyParameterName = filter.PropertyName;
 
-        if (string.IsNullOrEmpty(propertyName))
+        if (string.IsNullOrEmpty(propertyName) || propertyName == "*")
         {
             return queryChunk;
         }
@@ -700,7 +703,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
         foreach (var f in filter.Filters)
         {
-            if (!string.IsNullOrEmpty(q.WhereChunk))
+            if (!string.IsNullOrEmpty(queryChunk.WhereChunk))
             {
                 queryChunk.WhereChunk += $" {f.Logic} ";
             }
@@ -714,6 +717,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
 
             var innerFilterQueryChunk = ConstructConditionFilter(f.Filter);
             queryChunk.WhereChunk += innerFilterQueryChunk.WhereChunk;
+            queryChunk.Parameters.AddRange(innerFilterQueryChunk.Parameters);
 
             if (wrapWithParentheses)
             {

@@ -117,7 +117,7 @@ public class TaskListsService : ITaskListsService
         CancellationToken cancellationToken
     )
     {
-        var projectionQuery = ProjectionQuery.Where<TaskProjectionItem>(
+        var projectionQuery = ProjectionQueryExpressionExtensions.Where<TaskProjectionItem>(
             t => t.UserAccountId == _userInfo.UserId && t.TaskListId == taskListId
         );
         projectionQuery.SearchText = search;
@@ -140,7 +140,7 @@ public class TaskListsService : ITaskListsService
         CancellationToken cancellationToken
     )
     {
-        var projectionQuery = ProjectionQuery.Where<TaskListProjectionItem>(t => t.UserAccountId == _userInfo.UserId);
+        var projectionQuery = ProjectionQueryExpressionExtensions.Where<TaskListProjectionItem>(t => t.UserAccountId == _userInfo.UserId);
         projectionQuery.SearchText = search;
         projectionQuery.Limit = limit;
         projectionQuery.Offset = offset;

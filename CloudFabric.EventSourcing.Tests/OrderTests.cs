@@ -203,7 +203,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
 
         var orderProjectionFromQuery =
             await ProjectionsRepository.Query(
-                ProjectionQuery.Where<OrderListProjectionItem>(d => d.Name == orderName)
+                ProjectionQueryExpressionExtensions.Where<OrderListProjectionItem>(d => d.Name == orderName)
             );
         orderProjectionFromQuery.Records.Count.Should().Be(1);
         orderProjectionFromQuery.Records.First().Document!.Name.Should().Be(orderName);
@@ -399,7 +399,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
 
         // add filter by count
         orders = await ordersListProjectionsRepository.Query(
-            ProjectionQuery.Where<OrderListProjectionItem>(x => x.ItemsCount > 1)
+            ProjectionQueryExpressionExtensions.Where<OrderListProjectionItem>(x => x.ItemsCount > 1)
         );
         orders.TotalRecordsFound.Should().Be(1);
         orders.Records.Count.Should().Be(1);
