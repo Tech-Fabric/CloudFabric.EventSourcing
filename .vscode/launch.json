@@ -32,6 +32,22 @@
             "env": {
                 "ASPNETCORE_URLS": "http://localhost:60000"
             }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Jest Tests",
+            "program": "${workspaceRoot}/CloudFabric.Projections.Clients.Ts/node_modules/jest/bin/jest.js",
+            "args": [
+                "-i"
+            ],
+            //"preLaunchTask": "build",
+            "internalConsoleOptions": "openOnSessionStart",
+            "cwd": "${workspaceRoot}/CloudFabric.Projections.Clients.Ts",
+            "outFiles": [
+                "${workspaceRoot}/CloudFabric.Projections.Clients.Ts/lib/**/*"
+            ],
+            //"envFile": "${workspaceRoot}/.env"
         }
     ],
     "compounds": [
