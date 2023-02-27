@@ -1,4 +1,4 @@
-using CloudFabric.Projections.Extensions;
+using CloudFabric.Projections.ElasticSearch.Extensions;
 using CloudFabric.Projections.Queries;
 using Nest;
 
@@ -18,7 +18,7 @@ public static class ElasticSearchQueryFactory
                 Filter = new List<QueryContainer>()
                 {
                     new QueryStringQuery() {
-                        Query = searchText.EscapeCharacters(),
+                        Query = searchText.EscapeElasticUnsupportedCharacters(),
                         Type = TextQueryType.PhrasePrefix,
                         AllowLeadingWildcard = false,
                         DefaultOperator = Operator.And,
@@ -46,7 +46,7 @@ public static class ElasticSearchQueryFactory
         foreach (var prop in nestedSearchableProperties)
         {
             queries.Add(
-                CreateNestedQuery(prop, prop.PropertyName, searchText.EscapeCharacters())
+                CreateNestedQuery(prop, prop.PropertyName, searchText.EscapeElasticUnsupportedCharacters())
             );
         }
 
@@ -101,7 +101,7 @@ public static class ElasticSearchQueryFactory
                 Filter = new List<QueryContainer>()
                 {
                     new QueryStringQuery() {
-                        Query = searchText.EscapeCharacters(),
+                        Query = searchText.EscapeElasticUnsupportedCharacters(),
                         Type = TextQueryType.PhrasePrefix,
                         AllowLeadingWildcard = false,
                         DefaultOperator = Operator.And,
