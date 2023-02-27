@@ -1,3 +1,4 @@
+using CloudFabric.Projections.ElasticSearch.Extensions;
 using CloudFabric.Projections.Queries;
 using Nest;
 
@@ -141,7 +142,7 @@ public static class ElasticSearchFilterFactory
         }
 
         var filterOperator = "";
-        var filterValue = filter.Value.ToString();
+        var filterValue = filter.Value.ToString().EscapeElasticUnsupportedCharacters();
 
         switch (filter.Operator)
         {
