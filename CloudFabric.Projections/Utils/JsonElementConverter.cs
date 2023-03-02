@@ -22,7 +22,7 @@ public static class JsonToObjectConverter
                 if (propertySchema.ArrayElementType == null)
                 {
                     throw new ArgumentNullException(
-                $"Property schema for {propertySchema.PropertyName} has a type of Array but does not have ArrayElementType"
+                    $"Property schema for {propertySchema.PropertyName} has a type of Array but does not have ArrayElementType"
                     );
                 }
                 

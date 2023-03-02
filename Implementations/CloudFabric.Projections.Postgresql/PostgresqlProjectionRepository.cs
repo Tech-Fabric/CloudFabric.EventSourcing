@@ -4,7 +4,6 @@ using System.Text.RegularExpressions;
 using CloudFabric.Projections.Exceptions;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace CloudFabric.Projections.Postgresql;
@@ -590,13 +589,14 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
 
         var nestedPath = propertyName.Split('.');
-        // Nested array check.
-        // From query perspective both nested object and nested array item lookup look same: user.id = 1 or users.id = 1
-        // so we need to use schema definition to find out whether it's an array. Because for arrays the query will be completely different. 
-        var isArray = _projectionDocumentSchema.Properties
-            .FirstOrDefault(p => p.PropertyName == nestedPath.First())?.IsNestedArray;
         if (nestedPath.Length > 1)
         {
+            // Nested array check.
+            // From query perspective both nested object and nested array item lookup look same: user.id = 1 or users.id = 1
+            // so we need to use schema definition to find out whether it's an array. Because for arrays the query will be completely different. 
+            var isArray = _projectionDocumentSchema.Properties
+                .FirstOrDefault(p => p.PropertyName == nestedPath.First())?.IsNestedArray;
+
             if (isArray == true)
             {
                 var fromSelect = $"jsonb_array_elements({nestedPath.First()}) with ordinality " +

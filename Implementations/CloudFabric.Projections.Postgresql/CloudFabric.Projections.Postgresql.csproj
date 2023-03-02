@@ -18,10 +18,4 @@
         <PackageReference Include="Npgsql" Version="6.0.4" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Reference Include="Microsoft.Extensions.Logging">
-        <HintPath>..\..\..\..\..\..\..\.nuget\packages\microsoft.extensions.logging\6.0.0\lib\netstandard2.1\Microsoft.Extensions.Logging.dll</HintPath>
-      </Reference>
-    </ItemGroup>
-
 </Project>
