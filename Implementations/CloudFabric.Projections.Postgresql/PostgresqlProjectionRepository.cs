@@ -643,8 +643,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                 filterOperator = "ILIKE";
                 break;
             case FilterOperator.ArrayContains:
-                filterOperator = "@>";
-                filter.Value = new string[] { filter.Value.ToString() };
+                filterOperator = "?";
                 break;
         }
 

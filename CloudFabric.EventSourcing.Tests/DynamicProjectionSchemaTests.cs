@@ -341,18 +341,22 @@ public abstract class DynamicProjectionSchemaTests
                 DateTime.UtcNow,
                 "Dixit",
                 6.59m
-            ),
+            )
+        };
+
+        var order = new Order(id, orderName, items, userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, order);
+
+        var orderTimeStories = new Order(Guid.NewGuid(), "Second Order - Time Stories", new List<OrderItem>()
+        {
             new OrderItem(
                 DateTime.UtcNow,
                 "Time Stories",
                 4.85m
             )
-        };
-
-        var order = new Order(id, orderName, items, userId, "john@gmail.com");
-
-        await orderRepository.SaveOrder(userInfo, order);
-
+        }, userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, orderTimeStories);
+        
         await Task.Delay(ProjectionsUpdateDelay);
 
         var orderProjection = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
@@ -368,8 +372,10 @@ public abstract class DynamicProjectionSchemaTests
             query, PartitionKeys.GetOrderPartitionKey()
         );
 
-        orderProjectionLookupByTag.Records.First().Document["Name"].Should().Be(orderName);
-        orderProjectionLookupByTag.Records.First().Document["ItemsCount"].Should().Be(4);
+        orderProjectionLookupByTag.Records.Count.Should().Be(1);
+        
+        orderProjectionLookupByTag.Records.First().Document!["Name"].Should().Be(orderName);
+        orderProjectionLookupByTag.Records.First().Document!["ItemsCount"].Should().Be(2);
 
         var orderProjectionFromQuery =
             await ordersListProjectionsRepository.Query(
@@ -479,7 +485,7 @@ public abstract class DynamicProjectionSchemaTests
             IsFilterable = true,
             PropertyType = TypeCode.Decimal
         });
-        
+
         (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjection(orderRepositoryEventsObserver, ordersProjectionSchema);
 
         await ordersListProjectionsRepository.EnsureIndex();
