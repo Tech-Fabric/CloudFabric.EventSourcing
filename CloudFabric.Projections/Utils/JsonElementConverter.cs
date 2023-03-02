@@ -19,6 +19,13 @@ public static class JsonToObjectConverter
             }
             else if (propertySchema.IsNestedArray)
             {
+                if (propertySchema.ArrayElementType == null)
+                {
+                    throw new ArgumentNullException(
+                $"Property schema for {propertySchema.PropertyName} has a type of Array but does not have ArrayElementType"
+                    );
+                }
+                
                 var array = json.Deserialize<List<JsonElement>>() ?? new List<JsonElement>();
                 var resultArray = new List<object?>();
 
