@@ -41,6 +41,11 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
             document["TotalPrice"] = (decimal)@event.Items.Sum(i => i.Amount);
         }
         
+        if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "Tags"))
+        {
+            document["Tags"] = @event.Items.Select(i => i.Name);
+        }
+        
         await UpsertDocument(
             _projectionDocumentSchema,
             document,
@@ -68,6 +73,15 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
                         orderProjection.Add("TotalPrice", 0m);
                     }
                     orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0m) + @event.Item.Amount;
+                }
+                
+                if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "Tags"))
+                {
+                    if (!orderProjection.ContainsKey("Tags"))
+                    {
+                        orderProjection.Add("Tags", new List<string>());
+                    }
+                    (orderProjection["Tags"] as List<object>)?.Add(@event.Item.Name);
                 }
             }
         );
@@ -164,7 +178,7 @@ public abstract class DynamicProjectionSchemaTests
     }
     
     [TestMethod]
-    public async Task TestPlaceOrderAndAddItemtoDynamicProjection()
+    public async Task TestPlaceOrderAndAddItemToDynamicProjection()
     {
         // Event sourced repository storing streams of events. Main source of truth for orders.
         var orderRepository = new OrderRepository(await GetEventStore());
@@ -266,9 +280,116 @@ public abstract class DynamicProjectionSchemaTests
 
         await projectionsEngine.StopAsync();
     }
+    
+    [TestMethod]
+    public async Task TestArrayAttributeDynamicProjection()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+        var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
+
+        var ordersProjectionSchema = new ProjectionDocumentSchema()
+        {
+            SchemaName = _projectionsSchemaName,
+            Properties = new List<ProjectionDocumentPropertySchema>()
+            {
+                new ProjectionDocumentPropertySchema()
+                {
+                    PropertyName = "Id",
+                    IsKey = true,
+                    PropertyType = TypeCode.Object
+                },
+                new ProjectionDocumentPropertySchema()
+                {
+                    PropertyName = "Name",
+                    IsFilterable = true,
+                    IsSearchable = true,
+                    PropertyType = TypeCode.String
+                },
+                new ProjectionDocumentPropertySchema()
+                {
+                    PropertyName = "ItemsCount",
+                    IsFilterable = true,
+                    PropertyType = TypeCode.Int32
+                },
+                new ProjectionDocumentPropertySchema()
+                {
+                    PropertyName = "Tags",
+                    IsFilterable = true,
+                    IsNestedArray = true,
+                    ArrayElementType = TypeCode.String
+                }
+            }
+        };
+        
+        var (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjection(orderRepositoryEventsObserver, ordersProjectionSchema);
+
+        await ordersListProjectionsRepository.EnsureIndex();
+        
+        var userId = Guid.NewGuid();
+        var userInfo = new EventUserInfo(userId);
+        var id = Guid.NewGuid();
+        var orderName = "New Year's Gifts";
+        var items = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Colonizing Mars",
+                12.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Dixit",
+                6.59m
+            )
+        };
+
+        var order = new Order(id, orderName, items, userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, order);
+
+        var orderTimeStories = new Order(Guid.NewGuid(), "Second Order - Time Stories", new List<OrderItem>()
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Time Stories",
+                4.85m
+            )
+        }, userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, orderTimeStories);
+        
+        await Task.Delay(ProjectionsUpdateDelay);
+
+        var orderProjection = await ordersListProjectionsRepository.Single(id, PartitionKeys.GetOrderPartitionKey());
+        Debug.Assert(orderProjection != null, nameof(orderProjection) + " != null");
+        
+        var query = new ProjectionQuery();
+        query.Filters = new List<Filter>()
+        {
+            new Filter("Tags", FilterOperator.ArrayContains, "Dixit")
+        };
+        
+        var orderProjectionLookupByTag = await ordersListProjectionsRepository.Query(
+            query, PartitionKeys.GetOrderPartitionKey()
+        );
+
+        orderProjectionLookupByTag.Records.Count.Should().Be(1);
+        
+        orderProjectionLookupByTag.Records.First().Document!["Name"].Should().Be(orderName);
+        orderProjectionLookupByTag.Records.First().Document!["ItemsCount"].Should().Be(2);
+
+        var orderProjectionFromQuery =
+            await ordersListProjectionsRepository.Query(
+                ProjectionQueryExpressionExtensions.Where<OrderListProjectionItem>(d => d.Name == orderName)
+            );
+        orderProjectionFromQuery.TotalRecordsFound.Should().Be(1);
+        orderProjectionFromQuery.Records.Count.Should().Be(1);
+        orderProjectionFromQuery.Records.First().Document["Name"].Should().Be(orderName);
+
+        await projectionsEngine.StopAsync();
+    }
 
     [TestMethod]
-    public async Task TestPlaceOrderAndAddItemtoDynamicProjectionWithCreatingNewProjectionField()
+    public async Task TestPlaceOrderAndAddItemToDynamicProjectionWithCreatingNewProjectionField()
     {
         // Step 1 - store one order and confirm it's projection is created
         
@@ -364,7 +485,7 @@ public abstract class DynamicProjectionSchemaTests
             IsFilterable = true,
             PropertyType = TypeCode.Decimal
         });
-        
+
         (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjection(orderRepositoryEventsObserver, ordersProjectionSchema);
 
         await ordersListProjectionsRepository.EnsureIndex();

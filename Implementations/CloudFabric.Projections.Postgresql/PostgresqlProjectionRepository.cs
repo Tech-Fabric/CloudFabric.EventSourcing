@@ -642,6 +642,9 @@ public class PostgresqlProjectionRepository : IProjectionRepository
             case FilterOperator.ContainsIgnoreCase:
                 filterOperator = "ILIKE";
                 break;
+            case FilterOperator.ArrayContains:
+                filterOperator = "?";
+                break;
         }
 
         if (filter.Value is Guid)

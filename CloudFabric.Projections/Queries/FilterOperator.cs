@@ -14,4 +14,5 @@ public static class FilterOperator
     public const string StartsWithIgnoreCase = "string-starts-with-ignore-case";
     public const string EndsWithIgnoreCase = "string-ends-with-ignore-case";
     public const string ContainsIgnoreCase = "string-contains-ignore-case";
+    public const string ArrayContains = "array-contains";
 }

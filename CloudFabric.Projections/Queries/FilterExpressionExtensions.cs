@@ -37,6 +37,10 @@ public static class FilterExpressionExtensions {
         .First(m => m.Name == "Contains" && m.GetParameters().Length == 1);
     private static readonly MethodInfo StringContainsStringComparisonArgument = typeof(string).GetMethods()
         .First(m => m.Name == "Contains" && m.GetParameters().Length == 2);
+    private static readonly MethodInfo ArrayIndexOf = typeof(Array).GetMethods()
+        .First(m => m.Name == "IndexOf" && m.GetParameters().Length == 2);
+
+    private static readonly MethodInfo EnumerableToArray = typeof(System.Linq.Enumerable).GetMethod("ToArray");
     #endregion
 
     public static (Expression, ParameterExpression) ToExpression<TParameter>(this Filter filter, ParameterExpression? parameter = null)
@@ -92,6 +96,7 @@ public static class FilterExpressionExtensions {
             FilterOperator.StartsWithIgnoreCase => Expression.Call(operand, StringStartsWithStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
             FilterOperator.EndsWithIgnoreCase => Expression.Call(operand, StringEndsWithStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
             FilterOperator.ContainsIgnoreCase => Expression.Call(operand, StringContainsStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+            FilterOperator.ArrayContains => ConstructArrayContainsExpressionFromFilter(property, value),
             _ => throw new Exception(
                 $"Cannot create an expression. Filter's operator is either incorrect or not supported: {filter.Operator}"
             )
@@ -114,6 +119,16 @@ public static class FilterExpressionExtensions {
         }
 
         return (thisExpression, parameter);
+    }
+
+    private static Expression ConstructArrayContainsExpressionFromFilter(Expression arrayProperty, Expression value)
+    {
+        // Array.IndexOf((storage.First().Value["Tags"] as IEnumerable<string>).ToArray(), "Dixit")
+        var castExpression = Expression.Convert(arrayProperty, typeof(IEnumerable<>).MakeGenericType(value.Type));
+        var toArrayMethodCallExpression = Expression.Call(EnumerableToArray.MakeGenericMethod(value.Type), castExpression);
+        var indexOfMethodCallExpression = Expression.Call(ArrayIndexOf, (Expression)toArrayMethodCallExpression, value);
+
+        return Expression.GreaterThan(indexOfMethodCallExpression, Expression.Constant(-1));
     }
 
     public static Filter Where<T>(Expression<Func<T, bool>> expression, string tag = "")

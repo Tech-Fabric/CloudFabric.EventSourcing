@@ -146,6 +146,10 @@ public static class ElasticSearchFilterFactory
 
         switch (filter.Operator)
         {
+            case FilterOperator.ArrayContains:
+                filterOperator = ":";
+                filterValue = $"{filterValue}";
+                break;
             case FilterOperator.Contains:
                 filterOperator = ":";
                 filterValue = $"*{filterValue}*";
