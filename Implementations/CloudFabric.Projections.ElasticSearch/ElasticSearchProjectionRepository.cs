@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using CloudFabric.Projections.ElasticSearch.Helpers;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
-
+using Elasticsearch.Net;
 using Nest;
 
 using SortOrder = Nest.SortOrder;
@@ -239,7 +239,8 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
             await _client.IndexAsync(
                 new IndexRequest<Dictionary<string, object?>>(document, id: id?.ToString())
                 {
-                    Routing = new Routing(partitionKey)
+                    Routing = new Routing(partitionKey),
+                    Refresh = Refresh.False
                 },
                 cancellationToken
             );

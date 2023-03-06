@@ -1,6 +1,7 @@
 using CloudFabric.Projections.ElasticSearch.Extensions;
 using CloudFabric.Projections.Queries;
 using Nest;
+using Filter = CloudFabric.Projections.Queries.Filter;
 
 namespace CloudFabric.Projections.ElasticSearch.Helpers;
 
@@ -141,6 +142,7 @@ public static class ElasticSearchFilterFactory
             return ConstructDateTimeOneConditionFilter(filter);
         }
 
+        var propertyName = filter.PropertyName;
         var filterOperator = "";
         var filterValue = filter.Value.ToString().EscapeElasticUnsupportedCharacters();
 
@@ -157,6 +159,7 @@ public static class ElasticSearchFilterFactory
             case FilterOperator.ContainsIgnoreCase:
                 filterOperator = ":";
                 filterValue = $"*{filterValue}*";
+                propertyName += ".case-insensitive";
                 break;
             case FilterOperator.StartsWith:
                 filterOperator = ":";
@@ -165,6 +168,7 @@ public static class ElasticSearchFilterFactory
             case FilterOperator.StartsWithIgnoreCase:
                 filterOperator = ":";
                 filterValue = $"{filterValue}*";
+                propertyName += ".case-insensitive";
                 break;
             case FilterOperator.EndsWith:
                 filterOperator = ":";
@@ -173,10 +177,16 @@ public static class ElasticSearchFilterFactory
             case FilterOperator.EndsWithIgnoreCase:
                 filterOperator = ":";
                 filterValue = $"*{filterValue}";
+                propertyName += ".case-insensitive";
                 break;
             case FilterOperator.NotEqual:
             case FilterOperator.Equal:
                 filterOperator = ":";
+                if (filter.Value is string)
+                {
+                    // for filter conditions we need exact match
+                    filterValue = $"\"{filterValue}\"";
+                }
                 break;
             case FilterOperator.Greater:
                 filterOperator = ":>";
@@ -192,12 +202,10 @@ public static class ElasticSearchFilterFactory
                 break;
         }
 
-        
-
-        var condition = $"{filter.PropertyName}{filterOperator}{filterValue}";
+        var condition = $"{propertyName}{filterOperator}{filterValue}";
         if (filter.Value == null)
         {
-            condition = $"({condition} OR (!(_exists_:{filter.PropertyName})))";
+            condition = $"({condition} OR (!(_exists_:{propertyName})))";
         }
 
         if (filter.Operator == FilterOperator.NotEqual)

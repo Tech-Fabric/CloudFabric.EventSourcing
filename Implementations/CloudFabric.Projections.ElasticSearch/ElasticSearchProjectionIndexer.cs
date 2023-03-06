@@ -56,7 +56,7 @@ public class ElasticSearchIndexer
                 .Settings(s => s
                     .Analysis(analysis => analysis
                         .Analyzers(analyzers => analyzers
-                            .Custom("keyword-custom", c => c
+                            .Custom("case-insensitive-analyzer", c => c
                                 .Tokenizer("keyword")
                                 .Filters("lowercase")
                             )
@@ -185,12 +185,24 @@ public class ElasticSearchIndexer
                                     .Analyzer(analyzer)
                                     .SearchAnalyzer(searchAnalyzer)
                                 )
+                                .Text(kw => kw
+                                    .Name("case-insensitive")
+                                    .Analyzer("case-insensitive-analyzer")
+                                )
                             );
                     });
                 }
                 else
                 {
-                    properties = properties.Keyword(p => p.Name(prop.PropertyName));
+                    properties = properties.Keyword(p => 
+                        p.Name(prop.PropertyName)
+                            .Fields(f => f
+                                .Text(kw => kw
+                                    .Name("case-insensitive")
+                                    .Analyzer("case-insensitive-analyzer")
+                                )
+                            )
+                    );
                 }
                 break;
             case TypeCode.DateTime:

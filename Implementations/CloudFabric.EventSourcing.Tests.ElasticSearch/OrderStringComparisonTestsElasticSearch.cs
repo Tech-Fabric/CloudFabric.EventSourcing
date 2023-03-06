@@ -56,41 +56,4 @@ public class OrderStringComparisonTestsElasticSearch : OrderStringComparisonTest
 
         return _eventStoreEventsObserver;
     }
-
-    [TestMethod]
-    public async Task TestProjectionsQueryFilterStringContainsCaseInsensitive()
-    {
-        return;
-    }
-
-    [TestMethod]
-    public async Task TestProjectionsQueryFilterStringEndsWithCaseInSensitiveIgnoreCaseArgument()
-    {
-        return;
-    }
-
-    [TestMethod]
-    public async Task TestProjectionsQueryFilterStringEndsWithCaseInSensitiveStringComparisonEnumInvariantCultureIgnoreCase()
-    {
-        return;
-    }
-
-
-    [TestMethod]
-    public async Task TestProjectionsQueryFilterStringStartsWithCaseInsensitiveIgnoreCaseArgument()
-    {
-        return;
-    }
-
-    [TestMethod]
-    public async Task TestProjectionsQueryFilterStringStartsWithCaseInsensitiveStringComparisonEnumInvariantCultureIgnoreCase()
-    {
-        return;
-    }
-
-    [TestMethod]
-    public async Task TestProjectionsQueryFilterStringStartsWithCaseInsensitiveStringComparisonEnumOrdinal()
-    {
-        return;
-    }
 }
