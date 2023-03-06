@@ -307,4 +307,55 @@ public abstract class OrderStringComparisonTests: TestsBaseWithProjections<Order
         var ordersContainingDifferentCase = await ProjectionsRepository.Query(queryContainingDifferentCase);
         ordersContainingDifferentCase.Records.Count.Should().Be(0);
     }
+    
+    
+    [TestMethod]
+    public async Task TestProjectionsQueryFilterMultipleWordsExactMatch()
+    {
+        // Event sourced repository storing streams of events. Main source of truth for orders.
+        var orderRepository = new OrderRepository(await GetEventStore());
+
+        var userId = Guid.NewGuid();
+        var userInfo = new EventUserInfo(userId);
+        var items = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Test",
+                111.00m
+            )
+        };
+
+        var firstOrder = new Order(Guid.NewGuid(), "Order number one", items, userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, firstOrder);
+
+        // second order will contain only one item
+        var secondOrder = new Order(Guid.NewGuid(), "Order number two", items.GetRange(0, 1), userId, "john@gmail.com");
+        await orderRepository.SaveOrder(userInfo, secondOrder);
+
+        await Task.Delay(ProjectionsUpdateDelay);
+        
+        var queryNotCompleteShouldNotHaveResults = new ProjectionQuery
+        {
+            Filters = new List<Filter>()
+            {
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name == "Order number")
+            }
+        };
+
+        // query by name
+        var ordersShouldNotBeFound = await ProjectionsRepository.Query(queryNotCompleteShouldNotHaveResults);
+        ordersShouldNotBeFound.Records.Count.Should().Be(0);
+        
+        var queryExact = new ProjectionQuery
+        {
+            Filters = new List<Filter>()
+            {
+                FilterExpressionExtensions.Where<OrderListProjectionItem>(f => f.Name == "Order number one")
+            }
+        };
+
+        var orderFoundExactMatch = await ProjectionsRepository.Query(queryExact);
+        orderFoundExactMatch.Records.Count.Should().Be(1);
+    }
 }
