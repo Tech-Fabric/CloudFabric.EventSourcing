@@ -1,10 +1,12 @@
+using System.Security.Cryptography;
+using System.Text;
 using CloudFabric.EventSourcing.EventStore;
 
 namespace CloudFabric.EventSourcing.Domain;
 
 /// <summary>
 /// See Martin Fowler's definition on aggregates. In addition to that, our aggregates consist of events stream 
-/// and don't have a state storage - they are constructred from list of events passed into constructor.
+/// and don't have a state storage - they are constructed from list of events passed into constructor.
 /// 
 /// All modifications (mutations) to a state are made by triggering events.
 /// 
@@ -39,6 +41,39 @@ public abstract class AggregateBase
             RaiseEvent(@event);
             Version += 1;
         }
+    }
+
+    /// <summary>
+    /// Aggregate's id is always a Guid.
+    /// 
+    /// That is not always handy when we need an aggregate with unique identifier as it's id.
+    /// Good example is UserEmailAddress domain aggregate. We need to be able to query database by email address string,
+    /// but the only way to query an aggregate is by Guid.
+    ///
+    /// For such situations we would override UserEmailAddress.Id and make it return the value of HashStringToGuid(emailAddress).
+    ///
+    /// When querying we can simply create a new instance of an aggregate and use it's id.
+    ///
+    /// </summary>
+    /// <example>
+    /// public override Guid Id
+    /// {
+    ///    get => HashStringToGuid(emailAddress)
+    /// }
+    /// </example>
+    ///
+    /// /// <example>
+    /// var emailLookup = new UserEmailAddress("test@test.com");
+    /// var existingEmailAddress = emailAddressRepository.Load(emailLookup.Id);
+    /// </example>
+    /// <param name="stringToHash"></param>
+    /// <returns></returns>
+    public static Guid HashStringToGuid(string stringToHash)
+    {
+        var md5 = HashAlgorithm.Create("MD5");
+        var hashedBytes = md5!.ComputeHash(Encoding.UTF8.GetBytes(stringToHash));
+
+        return new Guid(hashedBytes);
     }
 
     /// <summary>
