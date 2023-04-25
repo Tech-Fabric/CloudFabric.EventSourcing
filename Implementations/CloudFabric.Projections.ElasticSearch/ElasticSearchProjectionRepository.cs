@@ -7,6 +7,7 @@ using CloudFabric.Projections.ElasticSearch.Helpers;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Elasticsearch.Net;
+
 using Nest;
 
 using SortOrder = Nest.SortOrder;
@@ -16,23 +17,24 @@ namespace CloudFabric.Projections.ElasticSearch;
 public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSearchProjectionRepository, IProjectionRepository<TProjectionDocument>
     where TProjectionDocument : ProjectionDocument
 {
-    public ElasticSearchProjectionRepository(
-        string uri,
-        string username,
-        string password,
-        string certificateFingerprint,
+    public ElasticSearchProjectionRepository(ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
         ILoggerFactory loggerFactory
-    ) : base(
-        uri,
-        username,
-        password,
-        certificateFingerprint,
+    ) : base(basicAuthConnectionSettings,
         ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>(),
         loggerFactory
     )
     {
     }
 
+    public ElasticSearchProjectionRepository(ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings,
+        ILoggerFactory loggerFactory
+    ) : base(apiKeyAuthConnectionSettings,
+        ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>(),
+        loggerFactory
+    )
+    {
+    }
+    
     public new async Task<TProjectionDocument?> Single(Guid id, string partitionKey, CancellationToken cancellationToken)
     {
         var document = await base.Single(id, partitionKey, cancellationToken);
@@ -85,11 +87,23 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     private readonly ElasticSearchIndexer _indexer;
     private readonly ILogger<ElasticSearchProjectionRepository> _logger;
 
-    public ElasticSearchProjectionRepository(
-        string uri,
-        string username,
-        string password,
-        string certificateFingerprint,
+    public ElasticSearchProjectionRepository(ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, 
+        ProjectionDocumentSchema projectionDocumentSchema, ILoggerFactory loggerFactory)
+    {
+        _projectionDocumentSchema = projectionDocumentSchema;
+        _logger = loggerFactory.CreateLogger<ElasticSearchProjectionRepository>();
+        var connectionSettings = new ConnectionSettings(apiKeyAuthConnectionSettings.CloudId, new ApiKeyAuthenticationCredentials(apiKeyAuthConnectionSettings.ApiKeyId,
+                apiKeyAuthConnectionSettings.ApiKey))
+            .ThrowExceptions()
+            .DefaultIndex(IndexName)
+            .DefaultFieldNameInferrer(x => x);
+        
+        _client = new ElasticClient(connectionSettings);
+
+        _indexer = new ElasticSearchIndexer(apiKeyAuthConnectionSettings, loggerFactory);
+    }
+
+    public ElasticSearchProjectionRepository(ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
         ProjectionDocumentSchema projectionDocumentSchema,
         ILoggerFactory loggerFactory
     )
@@ -97,19 +111,18 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         _projectionDocumentSchema = projectionDocumentSchema;
         _logger = loggerFactory.CreateLogger<ElasticSearchProjectionRepository>();
 
-        var connectionSettings = new ConnectionSettings(new Uri(uri));
-        connectionSettings.BasicAuthentication(username, password);
-        connectionSettings.CertificateFingerprint(certificateFingerprint);
-        connectionSettings.DefaultIndex(IndexName);
-        connectionSettings.ThrowExceptions();
-
+        var connectionSettings = new ConnectionSettings(new Uri(basicAuthConnectionSettings.Uri))
+            .BasicAuthentication(basicAuthConnectionSettings.Username, basicAuthConnectionSettings.Password)
+            .CertificateFingerprint(basicAuthConnectionSettings.CertificateThumbprint)
+            .DefaultIndex(IndexName)
+            .ThrowExceptions()
         // means that we do not change property names when indexing (like pascal case to camel case)
-        connectionSettings.DefaultFieldNameInferrer(x => x);
+            .DefaultFieldNameInferrer(x => x);
 
         _client = new ElasticClient(connectionSettings);
 
         // create an index
-        _indexer = new ElasticSearchIndexer(uri, username, password, certificateFingerprint, loggerFactory);
+        _indexer = new ElasticSearchIndexer(basicAuthConnectionSettings, loggerFactory);
     }
 
     public string IndexName

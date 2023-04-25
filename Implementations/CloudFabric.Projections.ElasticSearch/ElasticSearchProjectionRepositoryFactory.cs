@@ -1,30 +1,28 @@
+using Elasticsearch.Net;
 using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.Projections.ElasticSearch;
 
 public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFactory
 {
-    private readonly string _uri;
-    private readonly string _username;
-    private readonly string _password;
-    private readonly string _certificateThumbprint;
     private readonly ILoggerFactory _loggerFactory;
-    
+    private readonly ElasticSearchBasicAuthConnectionSettings? _basicAuthConnectionSettings;
+    private readonly ElasticSearchApiKeyAuthConnectionSettings? _apiKeyAuthConnectionSettings;
     public ElasticSearchProjectionRepositoryFactory(
-        string uri,
-        string username,
-        string password,
-        string certificateFingerprint,
+        ElasticSearchBasicAuthConnectionSettings connectionSettings,
         ILoggerFactory loggerFactory
     )
     {
-        _uri = uri;
-        _username = username;
-        _password = password;
-        _certificateThumbprint = certificateFingerprint;
+        _basicAuthConnectionSettings = connectionSettings;
         _loggerFactory = loggerFactory;
     }
-    
+
+    public ElasticSearchProjectionRepositoryFactory(ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, ILoggerFactory loggerFactory)
+    {
+        _loggerFactory = loggerFactory;
+        _apiKeyAuthConnectionSettings = apiKeyAuthConnectionSettings;
+    }
+
     public override IProjectionRepository<TProjectionDocument> GetProjectionRepository<TProjectionDocument>()
     {
         var cached = GetFromCache<TProjectionDocument>();
@@ -32,17 +30,26 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
         {
             return cached;
         }
-        
-        var repository = new ElasticSearchProjectionRepository<TProjectionDocument>(
-            _uri,
-            _username,
-            _password,
-            _certificateThumbprint,
-            _loggerFactory
-        );
-        
-        SetToCache<TProjectionDocument>(repository);
-        return repository;
+
+        IProjectionRepository<TProjectionDocument>? repository = null;
+        if (_basicAuthConnectionSettings != null)
+        {
+            repository = new ElasticSearchProjectionRepository<TProjectionDocument>(_basicAuthConnectionSettings,
+                _loggerFactory
+            );
+        }
+        else if (_apiKeyAuthConnectionSettings != null)
+        {
+            repository = new ElasticSearchProjectionRepository<TProjectionDocument>(_apiKeyAuthConnectionSettings, _loggerFactory);
+        }
+
+        if (repository != null)
+        {
+            SetToCache(repository);
+            return repository;
+        }
+
+        throw new Exception("Missed Elastic connection settings");
     }
 
     public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
@@ -53,16 +60,26 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
             return cached;
         }
         
-        var repository = new ElasticSearchProjectionRepository(
-            _uri,
-            _username,
-            _password,
-            _certificateThumbprint,
-            projectionDocumentSchema,
-            _loggerFactory
-        );
-        
-        SetToCache(projectionDocumentSchema, repository);
-        return repository;
+        IProjectionRepository? repository = null;
+        if (_basicAuthConnectionSettings != null)
+        {
+            repository = new ElasticSearchProjectionRepository(_basicAuthConnectionSettings,
+                projectionDocumentSchema,
+                _loggerFactory
+            );
+        }
+        else if (_apiKeyAuthConnectionSettings != null)
+        {
+            repository = new ElasticSearchProjectionRepository(_apiKeyAuthConnectionSettings,
+                projectionDocumentSchema,
+                _loggerFactory);
+        }
+
+        if (repository != null)
+        {
+            SetToCache(projectionDocumentSchema, repository);
+            return repository;
+        }
+        throw new Exception("Missed Elastic connection settings");
     }
 }

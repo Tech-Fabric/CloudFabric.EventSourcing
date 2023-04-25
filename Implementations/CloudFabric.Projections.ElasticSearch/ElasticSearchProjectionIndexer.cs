@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CloudFabric.Projections.Constants;
+using Elasticsearch.Net;
 using Microsoft.Extensions.Logging;
 using Nest;
 
@@ -9,26 +10,34 @@ public class ElasticSearchIndexer
     private readonly ElasticClient _client;
     private readonly ILogger<ElasticSearchIndexer> _logger;
 
-    public ElasticSearchIndexer(string uri,
-        string username,
-        string password,
-        string certificateFingerprint,
+    public ElasticSearchIndexer(ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, ILoggerFactory loggerFactory)
+    {
+        _logger = loggerFactory.CreateLogger<ElasticSearchIndexer>();
+        var connectionSettings = new ConnectionSettings(apiKeyAuthConnectionSettings.CloudId, new ApiKeyAuthenticationCredentials(apiKeyAuthConnectionSettings.ApiKeyId,
+                apiKeyAuthConnectionSettings.ApiKey))
+            .ThrowExceptions()
+            .DefaultFieldNameInferrer(x => x);
+        _client = new ElasticClient(connectionSettings);
+    }
+
+    public ElasticSearchIndexer(ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
         ILoggerFactory loggerFactory
     )
     {
         _logger = loggerFactory.CreateLogger<ElasticSearchIndexer>();
         
-        var connectionSettings = new ConnectionSettings(new Uri(uri));
-        connectionSettings.BasicAuthentication(username, password);
-        connectionSettings.CertificateFingerprint(certificateFingerprint);
-        connectionSettings.ThrowExceptions();
-
-        // means that we do not change property names when indexing (like pascal case to camel case)
-        connectionSettings.DefaultFieldNameInferrer(x => x);
+        var connectionSettings = new ConnectionSettings(new Uri(basicAuthConnectionSettings.Uri))
+            .BasicAuthentication(basicAuthConnectionSettings.Username, basicAuthConnectionSettings.Password)
+            .CertificateFingerprint(basicAuthConnectionSettings.CertificateThumbprint)
+            .ThrowExceptions()
+            // means that we do not change property names when indexing (like pascal case to camel case)
+            .DefaultFieldNameInferrer(x => x);
 
         _client = new ElasticClient(connectionSettings);
     }
 
+    
+    
     public async Task DeleteIndex(string indexName)
     {
         await _client.Indices.DeleteAsync(indexName);
