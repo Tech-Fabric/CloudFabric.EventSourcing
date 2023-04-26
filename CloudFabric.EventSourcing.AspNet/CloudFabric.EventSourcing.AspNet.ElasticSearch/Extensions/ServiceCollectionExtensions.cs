@@ -11,19 +11,13 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
         // NOTE: projection repositories can't work with different databases for now
         public static IEventSourcingBuilder AddElasticSearchProjections(
             this IEventSourcingBuilder builder,
-            string uri,
-            string username,
-            string password,
-            string certificateFingerprint,
+            ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
             ILoggerFactory loggerFactory,
             params Type[] projectionBuildersTypes
         )
         {
             var repositoryFactory = new ElasticSearchProjectionRepositoryFactory(
-                uri,
-                username,
-                password,
-                certificateFingerprint,
+                basicAuthConnectionSettings,
                 loggerFactory
             );
 
@@ -32,10 +26,49 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             
             // add repository for saving rebuild states
             var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
-                uri,
-                username,
-                password,
-                certificateFingerprint,
+                basicAuthConnectionSettings,
+                loggerFactory
+            );
+
+            var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
+
+            if (builder.ProjectionEventsObserver == null)
+            {
+                throw new ArgumentException("Projection events observer is missing");
+            }
+
+            projectionsEngine.SetEventsObserver(builder.ProjectionEventsObserver);
+
+            foreach (var projectionBuilderType in projectionBuildersTypes)
+            {
+                projectionsEngine.AddProjectionBuilder(
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
+                );
+            }
+
+            builder.ProjectionsEngine = projectionsEngine;
+
+            return builder;
+        }
+        
+        public static IEventSourcingBuilder AddElasticSearchProjections(
+            this IEventSourcingBuilder builder,
+            ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings,
+            ILoggerFactory loggerFactory,
+            params Type[] projectionBuildersTypes
+        )
+        {
+            var repositoryFactory = new ElasticSearchProjectionRepositoryFactory(
+                apiKeyAuthConnectionSettings,
+                loggerFactory
+            );
+
+            // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
+            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            
+            // add repository for saving rebuild states
+            var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
+                apiKeyAuthConnectionSettings,
                 loggerFactory
             );
 

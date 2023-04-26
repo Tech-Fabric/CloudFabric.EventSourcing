@@ -37,10 +37,11 @@ public class OrderTestsElasticSearch : OrderTests
         if (_projectionRepositoryFactory == null)
         {
             _projectionRepositoryFactory = new ElasticSearchProjectionRepositoryFactory(
+                new ElasticSearchBasicAuthConnectionSettings(
                 "http://127.0.0.1:9200",
                 "",
                 "",
-                "",
+                ""),
                 new LoggerFactory()
             );
         }
