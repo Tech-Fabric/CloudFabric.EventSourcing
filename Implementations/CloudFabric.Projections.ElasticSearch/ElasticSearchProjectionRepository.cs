@@ -299,6 +299,11 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                 }
             );
 
+            if (result.ServerError != null)
+            {
+                throw new Exception($"{result.ServerError.Error}");
+            }
+
             return new ProjectionQueryResult<Dictionary<string, object?>>
             {
                 IndexName = IndexName,
