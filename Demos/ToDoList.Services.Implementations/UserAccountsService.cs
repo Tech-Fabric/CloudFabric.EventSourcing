@@ -30,7 +30,7 @@ public class UserAccountsService : IUserAccountsService
         EventUserInfo userInfo,
         AggregateRepository<UserAccount> userRepository,
         AggregateRepository<UserAccountEmailAddress> userAccountEmailAddressesRepository,
-        IProjectionRepository<UserAccountsProjectionItem> userAccountsProjectionRepository,
+        ProjectionRepositoryFactory projectionRepositoryFactory,
         IUserAccessTokensService userAccessTokensService
     )
     {
@@ -38,7 +38,7 @@ public class UserAccountsService : IUserAccountsService
         _userInfo = userInfo;
         _userAccountsRepository = userRepository;
         _userAccountEmailAddressesRepository = userAccountEmailAddressesRepository;
-        _userAccountsProjectionRepository = userAccountsProjectionRepository;
+        _userAccountsProjectionRepository = projectionRepositoryFactory.GetProjectionRepository<UserAccountsProjectionItem>();
         _userAccessTokensService = userAccessTokensService;
     }
 

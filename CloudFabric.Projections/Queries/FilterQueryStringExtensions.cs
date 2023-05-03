@@ -28,7 +28,7 @@ public static class FilterQueryStringExtensions
             .Replace("$", ";dollar;")
             .Replace("'", ";aps;");
     }
-    
+
     public static string Serialize(this Filter filter, bool useShortcuts = true)
     {
         if (useShortcuts && filter.Filters.Count == 0)
@@ -68,11 +68,11 @@ public static class FilterQueryStringExtensions
         }
 
         return $"{(string.IsNullOrEmpty(filter.PropertyName) ? "*" : SanitizeValue(filter.PropertyName))}" +
-            $"|{(string.IsNullOrEmpty(filter.Operator) ? "*" : filter.Operator)}" +
-            $"|{System.Net.WebUtility.UrlEncode(valueSerialized)}" +
-            $"|{(filter.Visible ? 'T' : 'F')}" +
-            $"|{System.Net.WebUtility.UrlEncode(filter.Tag)}" +
-            $"|{filtersSerialized}";
+               $"|{(string.IsNullOrEmpty(filter.Operator) ? "*" : filter.Operator)}" +
+               $"|{System.Net.WebUtility.UrlEncode(valueSerialized)}" +
+               $"|{(filter.Visible ? 'T' : 'F')}" +
+               $"|{System.Net.WebUtility.UrlEncode(filter.Tag)}" +
+               $"|{filtersSerialized}";
     }
 
     public static Filter Deserialize(string f)

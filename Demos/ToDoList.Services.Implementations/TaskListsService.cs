@@ -30,16 +30,15 @@ public class TaskListsService : ITaskListsService
         EventUserInfo userInfo,
         AggregateRepository<TaskList> taskListsRepository,
         AggregateRepository<Domain.Task> tasksRepository,
-        IProjectionRepository<TaskListProjectionItem> taskListProjectionRepository,
-        IProjectionRepository<TaskProjectionItem> tasksProjectionRepository
+        ProjectionRepositoryFactory projectionRepositoryFactory 
     )
     {
         _mapper = mapper;
         _userInfo = userInfo;
         _taskListsRepository = taskListsRepository;
         _tasksRepository = tasksRepository;
-        _taskListsProjectionRepository = taskListProjectionRepository;
-        _tasksProjectionRepository = tasksProjectionRepository;
+        _taskListsProjectionRepository = projectionRepositoryFactory.GetProjectionRepository<TaskListProjectionItem>();
+        _tasksProjectionRepository = projectionRepositoryFactory.GetProjectionRepository<TaskProjectionItem>();
     }
 
     public async System.Threading.Tasks.Task<ServiceResult<TaskListViewModel>> CreateTaskList(CreateTaskListRequest request, CancellationToken cancellationToken)

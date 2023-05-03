@@ -589,14 +589,14 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
 
         var nestedPath = propertyName.Split('.');
+        // Nested array check.
+        // From query perspective both nested object and nested array item lookup look same: user.id = 1 or users.id = 1
+        // so we need to use schema definition to find out whether it's an array. Because for arrays the query will be completely different. 
+        var isArray = _projectionDocumentSchema.Properties
+            .FirstOrDefault(p => p.PropertyName == nestedPath.First())?.IsNestedArray;
+
         if (nestedPath.Length > 1)
         {
-            // Nested array check.
-            // From query perspective both nested object and nested array item lookup look same: user.id = 1 or users.id = 1
-            // so we need to use schema definition to find out whether it's an array. Because for arrays the query will be completely different. 
-            var isArray = _projectionDocumentSchema.Properties
-                .FirstOrDefault(p => p.PropertyName == nestedPath.First())?.IsNestedArray;
-
             if (isArray == true)
             {
                 var fromSelect = $"jsonb_array_elements({nestedPath.First()}) with ordinality " +
@@ -682,6 +682,14 @@ public class PostgresqlProjectionRepository : IProjectionRepository
                 break;
             case FilterOperator.ContainsIgnoreCase:
             case FilterOperator.Contains:
+                if (isArray == true)
+                {
+                    // This is due to the fact that we don't always have access to the schema when building filters.
+                    // For example, when generating linq expressions from filters it's not possible to know whether filterable property is array or string.
+                    // Hence the need to have separate operators - `Contains` for strings and `ArrayContains` for arrays.  
+                    throw new ArgumentException("Please use ArrayContains instead.");
+                }
+
                 queryChunk.WhereChunk += $"'%' || @{propertyParameterName} || '%'";
                 break;
             default:

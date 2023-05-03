@@ -1,4 +1,4 @@
-namespace CloudFabric.Projections;
+namespace CloudFabric.Projections.Queries;
 
 public class FacetStats
 {
@@ -13,7 +13,7 @@ public class FacetStats
 public class QueryResultDocument<T>
 {
     public double Score { get; set; }
-    public Dictionary<string, List<string>> Highlights { get; set; } = new Dictionary<string, List<string>>();
+    public Dictionary<string, List<string>> Highlights { get; set; } = new ();
     public T? Document { get; set; }
 
     public QueryResultDocument<TNew> TransformResultDocument<TNew>(Func<T, TNew?> transformFunction)
@@ -39,11 +39,11 @@ public class QueryResultDocument<T>
 
 public class ProjectionQueryResult<T>
 {
-    public Dictionary<string, List<FacetStats>> FacetsStats = new Dictionary<string, List<FacetStats>>();
-    public string? IndexName;
-    public string? QueryId;
-    public List<QueryResultDocument<T>> Records = new List<QueryResultDocument<T>>();
-    public long? TotalRecordsFound = 0;
+    public Dictionary<string, List<FacetStats>> FacetsStats { get; set; } = new ();
+    public string? IndexName { get; set; }
+    public string? QueryId { get; set; }
+    public List<QueryResultDocument<T>> Records { get; set; } = new ();
+    public long? TotalRecordsFound { get; set; } = 0;
 
     public ProjectionQueryResult<TNew> TransformResultDocuments<TNew>(Func<T, TNew> transformFunction)
     {

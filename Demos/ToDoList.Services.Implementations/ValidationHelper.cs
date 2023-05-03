@@ -18,7 +18,7 @@ public class ValidationHelper
         }
 
         var problemDetails = new ServiceResultProblemDetails() {
-            Type = "validatioin_error",
+            Type = "validation_error",
             Title = "Request is not valid",
         };
 
