@@ -295,9 +295,20 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                         request = request.Routing(partitionKey);
                     }
 
+                    request = request.RequestConfiguration(conf => conf.DisableDirectStreaming());
+
                     return request;
                 }
             );
+
+            if (result.ServerError != null)
+            {
+                var ex = new Exception(result.ServerError.Error.ToString());
+
+                ex.Data["Elasticsearch"] = result.DebugInformation;
+
+                throw ex;
+            }
 
             return new ProjectionQueryResult<Dictionary<string, object?>>
             {
