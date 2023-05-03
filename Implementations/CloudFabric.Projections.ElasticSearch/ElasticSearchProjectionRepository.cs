@@ -303,9 +303,9 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
             if (result.ServerError != null)
             {
-                var ex = new Exception($"{result.ServerError.Error}");
+                var ex = new Exception(result.ServerError.Error.ToString());
 
-                ex.Data["ElasticSearch"] = result.DebugInformation;
+                ex.Data["Elasticsearch"] = result.DebugInformation;
 
                 throw ex;
             }
