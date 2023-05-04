@@ -295,8 +295,6 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                         request = request.Routing(partitionKey);
                     }
 
-                    request = request.RequestConfiguration(conf => conf.DisableDirectStreaming());
-
                     return request;
                 }
             );
