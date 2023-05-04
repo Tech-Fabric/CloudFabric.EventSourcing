@@ -147,7 +147,11 @@ public static class FilterQueryStringExtensions
         }
         else
         {
-            if (Int64.TryParse(value, out var longValue))
+            if (bool.TryParse(value, out var boolValue))
+            {
+                filter.Value = boolValue;
+            }
+            else if (Int64.TryParse(value, out var longValue))
             {
                 filter.Value = longValue;
             }
@@ -162,6 +166,13 @@ public static class FilterQueryStringExtensions
             else if (DateTime.TryParse(value, out var dateTimeValue))
             {
                 filter.Value = dateTimeValue;
+            }
+            // Important: Guids may be stored via two ways: as simple strings or as Guid objects.
+            // If we are here - that means guid was passed as an object, not as a string (see first `if` above).
+            // So, if one would want to filter by string guid - they would send it in quotes ''.
+            else if (Guid.TryParse(value, out var guidValue))
+            {
+                filter.Value = guidValue;
             }
         }
 
