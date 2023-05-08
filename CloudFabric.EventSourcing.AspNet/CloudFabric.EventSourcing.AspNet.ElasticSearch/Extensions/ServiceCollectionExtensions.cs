@@ -13,6 +13,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             this IEventSourcingBuilder builder,
             ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
             ILoggerFactory loggerFactory,
+            bool disableRequestStreaming = false,
             params Type[] projectionBuildersTypes
         )
         {
@@ -27,7 +28,8 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             // add repository for saving rebuild states
             var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
                 basicAuthConnectionSettings,
-                loggerFactory
+                loggerFactory,
+                disableRequestStreaming
             );
 
             var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
@@ -42,7 +44,9 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
                 projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { 
+                        repositoryFactory, builder.AggregateRepositoryFactory
+                    })
                 );
             }
 
@@ -55,6 +59,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             this IEventSourcingBuilder builder,
             ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings,
             ILoggerFactory loggerFactory,
+            bool disableRequestStreaming = false,
             params Type[] projectionBuildersTypes
         )
         {
@@ -69,7 +74,8 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             // add repository for saving rebuild states
             var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
                 apiKeyAuthConnectionSettings,
-                loggerFactory
+                loggerFactory,
+                disableRequestStreaming
             );
 
             var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
@@ -84,7 +90,9 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
                 projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { 
+                        repositoryFactory, builder.AggregateRepositoryFactory
+                    })
                 );
             }
 

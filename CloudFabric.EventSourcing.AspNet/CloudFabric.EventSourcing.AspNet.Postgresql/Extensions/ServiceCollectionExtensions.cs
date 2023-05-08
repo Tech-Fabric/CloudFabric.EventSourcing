@@ -28,7 +28,8 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             {
                 EventStore = eventStore,
                 Services = services,
-                ProjectionEventsObserver = eventStoreObserver
+                ProjectionEventsObserver = eventStoreObserver,
+                AggregateRepositoryFactory = aggregateRepositoryFactory
             };
         }
 
@@ -52,10 +53,10 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             params Type[] projectionBuildersTypes
         )
         {
-            var repositoryFactory = new PostgresqlProjectionRepositoryFactory(projectionsConnectionString);
+            var projectionsRepositoryFactory = new PostgresqlProjectionRepositoryFactory(projectionsConnectionString);
 
             // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
-            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => projectionsRepositoryFactory);
 
             // add repository for saving rebuild states
             var projectionStateRepository = new PostgresqlProjectionRepository<ProjectionRebuildState>(projectionsConnectionString);
@@ -74,7 +75,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                 projectionsEngine.AddProjectionBuilder(
                     (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(
                         projectionBuilderType, 
-                        new object[] { repositoryFactory }
+                        new object[] { projectionsRepositoryFactory, builder.AggregateRepositoryFactory }
                     )
                 );
             }

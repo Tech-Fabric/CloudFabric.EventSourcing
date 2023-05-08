@@ -1,3 +1,4 @@
+using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
@@ -18,12 +19,16 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
 
             // add events observer for projections
             var eventStoreObserver = new InMemoryEventStoreEventObserver(eventStore);
+            
+            AggregateRepositoryFactory aggregateRepositoryFactory = new AggregateRepositoryFactory(eventStore);
+            services.AddScoped(sp => aggregateRepositoryFactory);
 
             return new EventSourcingBuilder
             {
                 EventStore = eventStore,
                 Services = services,
-                ProjectionEventsObserver = eventStoreObserver
+                ProjectionEventsObserver = eventStoreObserver,
+                AggregateRepositoryFactory = aggregateRepositoryFactory
             };
         }
 
@@ -65,7 +70,9 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
                 projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { 
+                        repositoryFactory, builder.AggregateRepositoryFactory
+                    })
                 );
             }
 
