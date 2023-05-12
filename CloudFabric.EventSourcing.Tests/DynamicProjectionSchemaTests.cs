@@ -317,6 +317,7 @@ public abstract class DynamicProjectionSchemaTests
                     PropertyName = "Tags",
                     IsFilterable = true,
                     IsNestedArray = true,
+                    IsSearchable = true,
                     ArrayElementType = TypeCode.String
                 }
             }

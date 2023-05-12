@@ -203,14 +203,9 @@ public class ElasticSearchIndexer
                 }
                 else
                 {
-                    properties = properties.Keyword(p => 
+                    properties = properties.Object<string>(p => 
                         p.Name(prop.PropertyName)
-                            .Fields(f => f
-                                .Text(kw => kw
-                                    .Name("case-insensitive")
-                                    .Analyzer("case-insensitive-analyzer")
-                                )
-                            )
+                            .Enabled(false)
                     );
                 }
                 break;
