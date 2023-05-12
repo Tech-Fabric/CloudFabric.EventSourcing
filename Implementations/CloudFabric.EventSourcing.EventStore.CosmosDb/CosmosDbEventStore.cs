@@ -33,18 +33,77 @@ public class CosmosDbEventStore : IEventStore
         _containerId = containerId;
     }
 
-    public Task Initialize()
+    public Task Initialize(CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;
     }
 
-    public async Task DeleteAll()
+    public async Task DeleteAll(CancellationToken cancellationToken = default)
     {
         var container = _client.GetContainer(_databaseId, _containerId);
-        await container.DeleteContainerAsync();
+        await container.DeleteContainerAsync(cancellationToken: cancellationToken);
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey)
+    public async Task<bool> HardDeleteAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
+    {
+        var container = _client.GetContainer(_databaseId, _containerId);
+
+        var sqlQueryText = $"SELECT * FROM {_containerId} e" + " WHERE e.stream.id = @streamId";
+
+        QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
+            .WithParameter("@streamId", streamId);
+
+        PartitionKey searchedPartitionKey = new PartitionKey(partitionKey);
+
+        FeedIterator<EventWrapper> feedIterator = container.GetItemQueryIterator<EventWrapper>(
+            queryDefinition,
+            requestOptions: new QueryRequestOptions { PartitionKey = searchedPartitionKey }
+        );
+
+        List<TransactionalBatch> batches = new List<TransactionalBatch>
+        {
+            container.CreateTransactionalBatch(searchedPartitionKey)
+        };
+
+        var recordsIdCounter = new List<Guid>();
+
+        while (feedIterator.HasMoreResults)
+        {
+            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync(cancellationToken);
+            foreach (var eventWrapper in response)
+            {
+                batches.Last().DeleteItem(eventWrapper.Id.ToString());
+
+                recordsIdCounter.Add(eventWrapper.Id!.Value);
+
+                // Use max count of operations 100 due to the transactional batch limits.
+                // For more info see https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/transactional-batch?tabs=dotnet.
+                if (recordsIdCounter.Count == 100)
+                {
+                    batches.Add(container.CreateTransactionalBatch(searchedPartitionKey));
+
+                    recordsIdCounter.Clear();
+                }
+            }
+        }
+
+        List<TransactionalBatchResponse> transactionalResults = new();
+
+        await Parallel.ForEachAsync(batches, async (batch, cancellationToken) =>
+            {
+                transactionalResults.Add(await batch.ExecuteAsync(cancellationToken));
+            }
+        ).ConfigureAwait(false);
+
+        if (transactionalResults.Any(x => !x.IsSuccessStatusCode))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -62,7 +121,7 @@ public class CosmosDbEventStore : IEventStore
         );
         while (feedIterator.HasMoreResults)
         {
-            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
+            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync(cancellationToken);
             foreach (var eventWrapper in response)
             {
                 version = eventWrapper.StreamInfo.Version;
@@ -79,7 +138,7 @@ public class CosmosDbEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -97,7 +156,7 @@ public class CosmosDbEventStore : IEventStore
         );
         while (feedIterator.HasMoreResults)
         {
-            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
+            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync(cancellationToken);
             foreach (var eventWrapper in response)
             {
                 version = eventWrapper.StreamInfo.Version;
@@ -109,7 +168,7 @@ public class CosmosDbEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -130,7 +189,7 @@ public class CosmosDbEventStore : IEventStore
         );
         while (feedIterator.HasMoreResults)
         {
-            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
+            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync(cancellationToken);
             foreach (var eventWrapper in response)
             {
                 version = eventWrapper.StreamInfo.Version;
@@ -145,7 +204,8 @@ public class CosmosDbEventStore : IEventStore
         EventUserInfo eventUserInfo,
         Guid streamId,
         int expectedVersion,
-        IEnumerable<IEvent> events
+        IEnumerable<IEvent> events,
+        CancellationToken cancellationToken = default
     )
     {
         if (events.GroupBy(x => x.PartitionKey).Count() != 1)
@@ -164,7 +224,7 @@ public class CosmosDbEventStore : IEventStore
             SerializeEvents(eventUserInfo, streamId, expectedVersion, events)
         };
 
-        return await container.Scripts.ExecuteStoredProcedureAsync<bool>("spAppendToStream", cosmosPartitionKey, parameters);
+        return await container.Scripts.ExecuteStoredProcedureAsync<bool>("spAppendToStream", cosmosPartitionKey, parameters, cancellationToken: cancellationToken);
     }
 
     private static string SerializeEvents(

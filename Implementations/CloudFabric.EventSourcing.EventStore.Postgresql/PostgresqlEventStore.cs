@@ -18,24 +18,64 @@ public class PostgresqlEventStore : IEventStore
         _tableName = tableName;
     }
 
-    public async Task Initialize()
+    public async Task Initialize(CancellationToken cancellationToken = default)
     {
-        await EnsureTableExistsAsync();
+        await EnsureTableExistsAsync(cancellationToken);
     }
 
-    public async Task DeleteAll()
+    public async Task DeleteAll(CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand($"DELETE FROM \"{_tableName}\"", conn);
 
-        await cmd.ExecuteScalarAsync();
+        await cmd.ExecuteScalarAsync(cancellationToken);
+    }
+    public async Task<bool> HardDeleteAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        await using var transaction = await conn.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            $"DELETE FROM \"{_tableName}\"" +
+            $"WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey",
+            conn,
+            transaction)
+        {
+            Parameters =
+            {
+                new("streamId", streamId),
+                new("partitionKey", partitionKey)
+            }
+        };
+
+        try
+        {
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            {
+                throw new Exception(
+                    "EventStore table not found, please make sure to call Initialize() on event store first.",
+                    ex);
+            }
+            
+            throw;
+        }
+        
+        await transaction.CommitAsync(cancellationToken);
+
+        return true;
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
-        var eventStream = await LoadStreamAsync(streamId, partitionKey);
+        var eventStream = await LoadStreamAsync(streamId, partitionKey, cancellationToken);
 
         if (!eventStream.Events.Any())
         {
@@ -45,10 +85,10 @@ public class PostgresqlEventStore : IEventStore
         return eventStream;
     }
 
-    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
-        await conn.OpenAsync();
+        await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, stream_id, stream_version, event_type, event_data, user_info " +
@@ -64,12 +104,12 @@ public class PostgresqlEventStore : IEventStore
 
         try
         {
-            await using var reader = await cmd.ExecuteReaderAsync();
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
             var version = 0;
             var events = new List<IEvent>();
 
-            while (await reader.ReadAsync())
+            while (await reader.ReadAsync(cancellationToken))
             {
                 var eventWrapper = new EventWrapper()
                 {
@@ -104,10 +144,10 @@ public class PostgresqlEventStore : IEventStore
         }
     }
 
-    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
-        await conn.OpenAsync();
+        await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version " +
@@ -120,12 +160,12 @@ public class PostgresqlEventStore : IEventStore
             }
         };
 
-        await using var reader = await cmd.ExecuteReaderAsync();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
         var version = 0;
         var events = new List<IEvent>();
 
-        while (await reader.ReadAsync())
+        while (await reader.ReadAsync(cancellationToken))
         {
             var streamInfo = JsonSerializer.Deserialize<StreamInfo>(reader.GetString(1), EventSerializerOptions.Options);
 
@@ -147,10 +187,10 @@ public class PostgresqlEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<List<IEvent>> LoadEventsAsync(string partitionKey, DateTime? dateFrom = null, DateTime? dateTo = null)
+    public async Task<List<IEvent>> LoadEventsAsync(string partitionKey, DateTime? dateFrom = null, DateTime? dateTo = null, CancellationToken cancellationToken = default)
     {        
         await using var conn = new NpgsqlConnection(_connectionString);
-        await conn.OpenAsync();
+        await conn.OpenAsync(cancellationToken);
 
         string whereClause = $"event_data->>'partitionKey' = '{partitionKey}'";
 
@@ -172,10 +212,10 @@ public class PostgresqlEventStore : IEventStore
 
         try
         {
-            await using var reader = await cmd.ExecuteReaderAsync();
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
             var events = new List<IEvent>();
 
-            while (await reader.ReadAsync())
+            while (await reader.ReadAsync(cancellationToken))
             {
                 var eventWrapper = new EventWrapper()
                 {
@@ -202,7 +242,7 @@ public class PostgresqlEventStore : IEventStore
         }
     }
 
-    public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, Guid streamId, int expectedVersion, IEnumerable<IEvent> events)
+    public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, Guid streamId, int expectedVersion, IEnumerable<IEvent> events, CancellationToken cancellationToken = default)
     {
         if (events.GroupBy(x => x.PartitionKey).Count() != 1)
         {
@@ -210,9 +250,9 @@ public class PostgresqlEventStore : IEventStore
         }
 
         await using var conn = new NpgsqlConnection(_connectionString);
-        await conn.OpenAsync();
+        await conn.OpenAsync(cancellationToken);
 
-        await using var transaction = await conn.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        await using var transaction = await conn.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT MAX(stream_version) FROM \"{_tableName}\" WHERE stream_id = @streamId", conn, transaction)
@@ -225,7 +265,7 @@ public class PostgresqlEventStore : IEventStore
 
         try
         {
-            var version = await cmd.ExecuteScalarAsync();
+            var version = await cmd.ExecuteScalarAsync(cancellationToken);
 
             if (version != null && version is not DBNull && (int)version != expectedVersion)
             {
@@ -281,9 +321,9 @@ public class PostgresqlEventStore : IEventStore
             });
         }
 
-        await batchInsert.ExecuteNonQueryAsync();
+        await batchInsert.ExecuteNonQueryAsync(cancellationToken);
 
-        await transaction.CommitAsync();
+        await transaction.CommitAsync(cancellationToken);
 
         foreach (var e in events)
         {
@@ -306,10 +346,10 @@ public class PostgresqlEventStore : IEventStore
         _eventAddedEventHandlers.Remove(handler);
     }
 
-    private async Task EnsureTableExistsAsync()
+    private async Task EnsureTableExistsAsync(CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
-        await conn.OpenAsync();
+        await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT 1 FROM \"{_tableName}\"", conn)
@@ -318,7 +358,7 @@ public class PostgresqlEventStore : IEventStore
 
         try
         {
-            var tableExists = await cmd.ExecuteScalarAsync();
+            var tableExists = await cmd.ExecuteScalarAsync(cancellationToken);
         }
         catch (NpgsqlException ex)
         {
@@ -339,7 +379,7 @@ public class PostgresqlEventStore : IEventStore
                     
                 , conn);
 
-                await createTableCommand.ExecuteNonQueryAsync();
+                await createTableCommand.ExecuteNonQueryAsync(cancellationToken);
             }
         }
     }
