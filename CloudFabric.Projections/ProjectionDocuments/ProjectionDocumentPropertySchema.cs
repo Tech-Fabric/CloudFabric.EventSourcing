@@ -5,7 +5,7 @@ public class ProjectionDocumentPropertySchema
     public string PropertyName { get; set; }
     public TypeCode PropertyType { get; set; }
     public bool IsKey { get; set; } = false;
-    public bool IsSearchable { get; set; } = false;
+    public bool IsSearchable { get; set; } = true;
     public bool IsRetrievable { get; set; } = true;
     public string[] SynonymMaps { get; set; } = Array.Empty<string>();
     public double SearchableBoost { get; set; } = 1;

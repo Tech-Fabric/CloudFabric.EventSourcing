@@ -6,14 +6,14 @@ namespace CloudFabric.Projections;
 public class ProjectionDocument
 {
     [JsonPropertyName("id")]
-    [ProjectionDocumentProperty(IsKey = true)]
+    [ProjectionDocumentProperty(IsKey = true, IsSearchable = true)]
     public Guid? Id { get; set; }
 
     [JsonPropertyName("partitionKey")]
-    [ProjectionDocumentProperty(IsFilterable = true)]
+    [ProjectionDocumentProperty(IsFilterable = true, IsSearchable = true)]
     public string? PartitionKey { get; set; }
     
     [JsonPropertyName("updatedAt")]
-    [ProjectionDocumentProperty(IsFilterable = true)]
+    [ProjectionDocumentProperty(IsFilterable = true, IsSearchable = true)]
     public DateTime UpdatedAt { get; set; }
 }
