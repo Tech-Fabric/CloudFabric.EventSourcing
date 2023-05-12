@@ -48,7 +48,7 @@ public class InMemoryEventStore : IEventStore
         lock (lockObject)
         {
             return _eventsContainer.Remove((streamId, partitionKey));
-        }       
+        }
     }
 
     public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)

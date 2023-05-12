@@ -91,7 +91,7 @@ public class CosmosDbEventStore : IEventStore
 
         await Parallel.ForEachAsync(batches, async (batch, cancellationToken) =>
             {
-                transactionalResults.Add(await batch.ExecuteAsync(cancellationToken));
+                transactionalResults.Add(await batch.ExecuteAsync(cancellationToken).ConfigureAwait(false));
             }
         ).ConfigureAwait(false);
 
