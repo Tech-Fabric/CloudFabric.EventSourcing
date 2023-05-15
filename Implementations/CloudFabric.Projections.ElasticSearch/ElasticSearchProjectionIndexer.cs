@@ -201,7 +201,7 @@ public class ElasticSearchIndexer
                             );
                     });
                 }
-                else
+                else if (prop.IsFilterable)
                 {
                     properties = properties.Keyword(p => 
                         p.Name(prop.PropertyName)
@@ -211,6 +211,13 @@ public class ElasticSearchIndexer
                                     .Analyzer("case-insensitive-analyzer")
                                 )
                             )
+                    );
+                }
+                else
+                {
+                    properties = properties.Object<string>(p =>
+                        p.Name(prop.PropertyName)
+                            .Enabled(false)
                     );
                 }
                 break;
