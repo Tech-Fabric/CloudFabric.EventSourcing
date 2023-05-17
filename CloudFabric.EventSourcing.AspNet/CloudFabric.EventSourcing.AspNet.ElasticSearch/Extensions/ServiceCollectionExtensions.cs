@@ -1,6 +1,5 @@
 using CloudFabric.Projections;
 using CloudFabric.Projections.ElasticSearch;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
@@ -10,7 +9,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
     {
         // NOTE: projection repositories can't work with different databases for now
         public static IEventSourcingBuilder AddElasticSearchProjections(
-            this IEventSourcingBuilder builder,
+            this EventSourcingBuilder builder,
             ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
             ILoggerFactory loggerFactory,
             bool disableRequestStreaming = false,
@@ -43,17 +42,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                var projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
-                    projectionBuilderType, new object[]
-                    {
-                        projectionsRepositoryFactory, builder.AggregateRepositoryFactory
-                    }
-                );
-
-                if (projectionBuilder == null)
-                {
-                    throw new Exception("Failed to create projection builder instance: Activator.CreateInstance returned null");
-                }
+                var projectionBuilder = builder.ConstructProjectionBuilder(projectionBuilderType, projectionsRepositoryFactory);
                 
                 projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }
@@ -97,17 +86,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                var projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
-                    projectionBuilderType, new object[]
-                    {
-                        projectionsRepositoryFactory, builder.AggregateRepositoryFactory
-                    }
-                );
-
-                if (projectionBuilder == null)
-                {
-                    throw new Exception("Failed to create projection builder instance: Activator.CreateInstance returned null");
-                }
+                var projectionBuilder = builder.ConstructProjectionBuilder(projectionBuilderType, projectionsRepositoryFactory);
                 
                 projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }

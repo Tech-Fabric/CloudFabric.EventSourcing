@@ -115,17 +115,7 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                var projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
-                    projectionBuilderType, new object[]
-                    {
-                        projectionsRepositoryFactory, builder.AggregateRepositoryFactory
-                    }
-                );
-
-                if (projectionBuilder == null)
-                {
-                    throw new Exception("Failed to create projection builder instance: Activator.CreateInstance returned null");
-                }
+                var projectionBuilder = builder.ConstructProjectionBuilder(projectionBuilderType, projectionsRepositoryFactory);
                 
                 projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }

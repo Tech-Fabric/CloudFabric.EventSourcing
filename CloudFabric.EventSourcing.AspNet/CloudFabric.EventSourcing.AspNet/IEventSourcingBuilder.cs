@@ -16,4 +16,6 @@ public interface IEventSourcingBuilder
     IEventsObserver ProjectionEventsObserver { get; set; }
 
     ProjectionsEngine ProjectionsEngine { get; set; }
+    
+    dynamic ConstructProjectionBuilder(Type projectionBuilderType, ProjectionRepositoryFactory projectionsRepositoryFactory);
 }
