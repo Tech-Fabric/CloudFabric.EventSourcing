@@ -23,7 +23,8 @@ public class EventSourcingBuilder : IEventSourcingBuilder
         // There are two types of projection builders: 
         // First one is ProjectionBuilder<ProjectionDocument> and works with strict projection documents represented by class
         // Second one is just ProjectionBuilder - those projections do not have strict schema and work with raw dictionary {key: value} type of documents.
-        if (projectionBuilderType?.BaseType?.GenericTypeArguments[0]?.BaseType == typeof(ProjectionDocument))
+        if (projectionBuilderType?.BaseType?.GenericTypeArguments.Length > 0 && 
+            projectionBuilderType.BaseType.GenericTypeArguments.Any(ta => ta.BaseType == typeof(ProjectionDocument)))
         {
             projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
                 projectionBuilderType, new object[]
