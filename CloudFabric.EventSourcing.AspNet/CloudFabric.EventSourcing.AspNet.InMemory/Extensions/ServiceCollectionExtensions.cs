@@ -50,10 +50,9 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
             params Type[] projectionBuildersTypes
         )
         {
-            var repositoryFactory = new InMemoryProjectionRepositoryFactory();
+            var projectionsRepositoryFactory = new InMemoryProjectionRepositoryFactory();
 
-            // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
-            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => projectionsRepositoryFactory);
             
             // add repository for saving rebuild states
             var projectionStateRepository = new InMemoryProjectionRepository<ProjectionRebuildState>();
@@ -69,11 +68,19 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { 
-                        repositoryFactory, builder.AggregateRepositoryFactory
-                    })
+                var projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
+                    projectionBuilderType, new object[]
+                    {
+                        projectionsRepositoryFactory, builder.AggregateRepositoryFactory
+                    }
                 );
+
+                if (projectionBuilder == null)
+                {
+                    throw new Exception("Failed to create projection builder instance: Activator.CreateInstance returned null");
+                }
+                
+                projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }
 
             builder.ProjectionsEngine = projectionsEngine;

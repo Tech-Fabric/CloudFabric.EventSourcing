@@ -17,13 +17,13 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             params Type[] projectionBuildersTypes
         )
         {
-            var repositoryFactory = new ElasticSearchProjectionRepositoryFactory(
+            var projectionsRepositoryFactory = new ElasticSearchProjectionRepositoryFactory(
                 basicAuthConnectionSettings,
                 loggerFactory
             );
 
             // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
-            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => projectionsRepositoryFactory);
             
             // add repository for saving rebuild states
             var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
@@ -43,11 +43,19 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { 
-                        repositoryFactory, builder.AggregateRepositoryFactory
-                    })
+                var projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
+                    projectionBuilderType, new object[]
+                    {
+                        projectionsRepositoryFactory, builder.AggregateRepositoryFactory
+                    }
                 );
+
+                if (projectionBuilder == null)
+                {
+                    throw new Exception("Failed to create projection builder instance: Activator.CreateInstance returned null");
+                }
+                
+                projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }
 
             builder.ProjectionsEngine = projectionsEngine;
@@ -63,13 +71,13 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
             params Type[] projectionBuildersTypes
         )
         {
-            var repositoryFactory = new ElasticSearchProjectionRepositoryFactory(
+            var projectionsRepositoryFactory = new ElasticSearchProjectionRepositoryFactory(
                 apiKeyAuthConnectionSettings,
                 loggerFactory
             );
 
             // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
-            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => projectionsRepositoryFactory);
             
             // add repository for saving rebuild states
             var projectionStateRepository = new ElasticSearchProjectionRepository<ProjectionRebuildState>(
@@ -89,11 +97,19 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { 
-                        repositoryFactory, builder.AggregateRepositoryFactory
-                    })
+                var projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
+                    projectionBuilderType, new object[]
+                    {
+                        projectionsRepositoryFactory, builder.AggregateRepositoryFactory
+                    }
                 );
+
+                if (projectionBuilder == null)
+                {
+                    throw new Exception("Failed to create projection builder instance: Activator.CreateInstance returned null");
+                }
+                
+                projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }
 
             builder.ProjectionsEngine = projectionsEngine;
