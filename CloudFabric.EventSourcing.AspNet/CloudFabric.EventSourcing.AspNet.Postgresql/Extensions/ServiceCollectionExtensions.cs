@@ -72,12 +72,19 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(
-                        projectionBuilderType, 
-                        new object[] { projectionsRepositoryFactory, builder.AggregateRepositoryFactory }
-                    )
+                var projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
+                    projectionBuilderType, new object[]
+                    {
+                        projectionsRepositoryFactory, builder.AggregateRepositoryFactory
+                    }
                 );
+
+                if (projectionBuilder == null)
+                {
+                    throw new Exception("Failed to create projection builder instance: Activator.CreateInstance returned null");
+                }
+                
+                projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }
 
             builder.ProjectionsEngine = projectionsEngine;

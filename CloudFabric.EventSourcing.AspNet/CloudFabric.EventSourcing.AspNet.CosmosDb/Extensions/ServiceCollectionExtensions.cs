@@ -4,7 +4,6 @@ using CloudFabric.Projections;
 using CloudFabric.Projections.CosmosDb;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
 {
@@ -85,7 +84,7 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             params Type[] projectionBuildersTypes
         )
         {
-            var repositoryFactory = new CosmosDbProjectionRepositoryFactory(
+            var projectionsRepositoryFactory = new CosmosDbProjectionRepositoryFactory(
                 projectionsConnectionInfo.LoggerFactory,
                 projectionsConnectionInfo.ConnectionString,
                 projectionsConnectionInfo.CosmosClientOptions,
@@ -94,7 +93,7 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             );
 
             // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
-            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => projectionsRepositoryFactory);
             
             // add repository for saving rebuild states
             var projectionStateRepository = new CosmosDbProjectionRepository<ProjectionRebuildState>(
@@ -116,11 +115,19 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] {
-                        repositoryFactory, builder.AggregateRepositoryFactory
-                    })
+                var projectionBuilder = (IProjectionBuilder<ProjectionDocument>?)Activator.CreateInstance(
+                    projectionBuilderType, new object[]
+                    {
+                        projectionsRepositoryFactory, builder.AggregateRepositoryFactory
+                    }
                 );
+
+                if (projectionBuilder == null)
+                {
+                    throw new Exception("Failed to create projection builder instance: Activator.CreateInstance returned null");
+                }
+                
+                projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }
 
             builder.ProjectionsEngine = projectionsEngine;
