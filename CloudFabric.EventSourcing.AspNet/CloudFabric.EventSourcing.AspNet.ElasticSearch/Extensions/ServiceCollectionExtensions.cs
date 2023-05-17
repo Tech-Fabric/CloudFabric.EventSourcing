@@ -9,7 +9,7 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
     {
         // NOTE: projection repositories can't work with different databases for now
         public static IEventSourcingBuilder AddElasticSearchProjections(
-            this EventSourcingBuilder builder,
+            this IEventSourcingBuilder builder,
             ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
             ILoggerFactory loggerFactory,
             bool disableRequestStreaming = false,
