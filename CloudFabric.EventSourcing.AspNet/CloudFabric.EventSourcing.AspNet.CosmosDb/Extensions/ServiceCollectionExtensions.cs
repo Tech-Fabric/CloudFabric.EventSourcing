@@ -1,3 +1,4 @@
+using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore.CosmosDb;
 using CloudFabric.Projections;
 using CloudFabric.Projections.CosmosDb;
@@ -36,11 +37,15 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
                 processorName
             );
 
+            AggregateRepositoryFactory aggregateRepositoryFactory = new AggregateRepositoryFactory(eventStore);
+            services.AddScoped(sp => aggregateRepositoryFactory);
+            
             return new EventSourcingBuilder
             {
                 EventStore = eventStore,
                 Services = services,
-                ProjectionEventsObserver = eventStoreObserver
+                ProjectionEventsObserver = eventStoreObserver,
+                AggregateRepositoryFactory = aggregateRepositoryFactory
             };
         }
 
@@ -112,7 +117,9 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
                 projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
+                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] {
+                        repositoryFactory, builder.AggregateRepositoryFactory
+                    })
                 );
             }
 

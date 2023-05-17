@@ -8,19 +8,50 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
     private readonly ILoggerFactory _loggerFactory;
     private readonly ElasticSearchBasicAuthConnectionSettings? _basicAuthConnectionSettings;
     private readonly ElasticSearchApiKeyAuthConnectionSettings? _apiKeyAuthConnectionSettings;
+    private readonly bool _disableRequestStreaming;
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="connectionSettings"></param>
+    /// <param name="loggerFactory"></param>
+    /// <param name="disableRequestStreaming">
+    /// When request streaming is disabled, elastic adds debug information about request and response to response object which can
+    /// be useful when troubleshooting search problems.
+    ///
+    /// Defaults to false to improve performance.
+    /// </param>
     public ElasticSearchProjectionRepositoryFactory(
         ElasticSearchBasicAuthConnectionSettings connectionSettings,
-        ILoggerFactory loggerFactory
+        ILoggerFactory loggerFactory,
+        bool disableRequestStreaming = false
     )
     {
         _basicAuthConnectionSettings = connectionSettings;
         _loggerFactory = loggerFactory;
+        _disableRequestStreaming = disableRequestStreaming;
     }
 
-    public ElasticSearchProjectionRepositoryFactory(ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, ILoggerFactory loggerFactory)
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="apiKeyAuthConnectionSettings"></param>
+    /// <param name="loggerFactory"></param>
+    /// <param name="disableRequestStreaming">
+    /// When request streaming is disabled, elastic adds debug information about request and response to response object which can
+    /// be useful when troubleshooting search problems.
+    ///
+    /// Defaults to false to improve performance.
+    /// </param>
+    public ElasticSearchProjectionRepositoryFactory(
+        ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, 
+        ILoggerFactory loggerFactory,
+        bool disableRequestStreaming = false
+    )
     {
         _loggerFactory = loggerFactory;
         _apiKeyAuthConnectionSettings = apiKeyAuthConnectionSettings;
+        _disableRequestStreaming = disableRequestStreaming;
     }
 
     public override IProjectionRepository<TProjectionDocument> GetProjectionRepository<TProjectionDocument>()
@@ -34,13 +65,17 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
         IProjectionRepository<TProjectionDocument>? repository = null;
         if (_basicAuthConnectionSettings != null)
         {
-            repository = new ElasticSearchProjectionRepository<TProjectionDocument>(_basicAuthConnectionSettings,
-                _loggerFactory
+            repository = new ElasticSearchProjectionRepository<TProjectionDocument>(
+                _basicAuthConnectionSettings,
+                _loggerFactory,
+                _disableRequestStreaming
             );
         }
         else if (_apiKeyAuthConnectionSettings != null)
         {
-            repository = new ElasticSearchProjectionRepository<TProjectionDocument>(_apiKeyAuthConnectionSettings, _loggerFactory);
+            repository = new ElasticSearchProjectionRepository<TProjectionDocument>(
+                _apiKeyAuthConnectionSettings, _loggerFactory, _disableRequestStreaming
+            );
         }
 
         if (repository != null)
@@ -63,16 +98,21 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
         IProjectionRepository? repository = null;
         if (_basicAuthConnectionSettings != null)
         {
-            repository = new ElasticSearchProjectionRepository(_basicAuthConnectionSettings,
+            repository = new ElasticSearchProjectionRepository(
+                _basicAuthConnectionSettings,
                 projectionDocumentSchema,
-                _loggerFactory
+                _loggerFactory,
+                _disableRequestStreaming
             );
         }
         else if (_apiKeyAuthConnectionSettings != null)
         {
-            repository = new ElasticSearchProjectionRepository(_apiKeyAuthConnectionSettings,
+            repository = new ElasticSearchProjectionRepository(
+                _apiKeyAuthConnectionSettings,
                 projectionDocumentSchema,
-                _loggerFactory);
+                _loggerFactory,
+                _disableRequestStreaming
+            );
         }
 
         if (repository != null)
