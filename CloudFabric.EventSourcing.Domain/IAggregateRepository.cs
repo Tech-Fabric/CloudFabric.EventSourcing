@@ -13,4 +13,6 @@ public interface IAggregateRepository<T> where T : AggregateBase
     Task<T> LoadAsyncOrThrowNotFound(Guid id, string partitionKey, CancellationToken cancellationToken = default);
 
     Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, CancellationToken cancellationToken = default);
+
+    Task<bool> HardDeleteAsync(Guid id, string partitionKey, CancellationToken cancellationToken = default);
 }

@@ -20,7 +20,7 @@ public class InMemoryEventStore : IEventStore
         _eventsContainer = eventsContainer;
     }
 
-    public Task Initialize()
+    public Task Initialize(CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;
     }
@@ -34,14 +34,19 @@ public class InMemoryEventStore : IEventStore
     {
         _eventAddedEventHandlers.Remove(handler);
     }
-    
-    public Task DeleteAll()
+
+    public Task DeleteAll(CancellationToken cancellationToken = default)
     {
         _eventsContainer.Clear();
         return Task.CompletedTask;
     }
 
-    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey)
+    public async Task<bool> HardDeleteAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
+    {
+        return _eventsContainer.Remove((streamId, partitionKey));
+    }
+
+    public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
         var eventWrappers = await LoadOrderedEventWrappers(streamId, partitionKey);
         if (eventWrappers.Count == 0)
@@ -59,7 +64,7 @@ public class InMemoryEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
         var eventWrappers = await LoadOrderedEventWrappers(streamId, partitionKey);
 
@@ -75,7 +80,7 @@ public class InMemoryEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion)
+    public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion, CancellationToken cancellationToken = default)
     {
         var eventWrappers = await LoadOrderedEventWrappersFromVersion(streamId, partitionKey, fromVersion);
 
@@ -116,7 +121,8 @@ public class InMemoryEventStore : IEventStore
         EventUserInfo eventUserInfo,
         Guid streamId,
         int expectedVersion,
-        IEnumerable<IEvent> events
+        IEnumerable<IEvent> events,
+        CancellationToken cancellationToken = default
     )
     {
         if (events.GroupBy(x => x.PartitionKey).Count() != 1)
@@ -156,7 +162,7 @@ public class InMemoryEventStore : IEventStore
                 _eventsContainer[(streamId, partitionKey)] = stream;
             }
         }
-        
+
         foreach (var e in events)
         {
             foreach (var h in _eventAddedEventHandlers)

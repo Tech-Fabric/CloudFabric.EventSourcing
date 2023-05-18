@@ -98,4 +98,18 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
 
         return true;
     }
+
+    /// <summary>
+    /// We should not be able to hard delete events within implementation, but for some development issues we do need to be able to do so.
+    /// Use this method carefuly and at your own risk. When something went terribly wrong, there is no way to recover deleted data.
+    /// </summary>
+    public async Task<bool> HardDeleteAsync(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentNullException(nameof(id));
+        }
+
+        return await _eventStore.HardDeleteAsync(id, partitionKey, cancellationToken);
+    }
 }

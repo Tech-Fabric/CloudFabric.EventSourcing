@@ -672,4 +672,41 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
 
         await projectionsEngine.StopAsync();
     }
+
+    [TestMethod]
+    public async Task TestHardDeleteOrder()
+    {
+        var orderRepository = new AggregateRepository<Order>(await GetEventStore());
+
+        var userId = Guid.NewGuid();
+        var userInfo = new EventUserInfo(userId);
+        var id = Guid.NewGuid();
+        var orderName = "Birthday Gift";
+        var items = new List<OrderItem>
+        {
+            new OrderItem(
+                DateTime.UtcNow,
+                "Caverna",
+                12.00m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Dixit",
+                6.59m
+            ),
+            new OrderItem(
+                DateTime.UtcNow,
+                "Patchwork",
+                4.85m
+            )
+        };
+        var order = new Order(id, orderName, items, userId, "john@gmail.com");
+
+        await orderRepository.SaveAsync(userInfo, order);        
+        
+        await orderRepository.HardDeleteAsync(order.Id, order.PartitionKey);
+
+        var order2 = await orderRepository.LoadAsync(id, PartitionKeys.GetOrderPartitionKey());
+        order2.Should().BeNull();
+    }
 }
