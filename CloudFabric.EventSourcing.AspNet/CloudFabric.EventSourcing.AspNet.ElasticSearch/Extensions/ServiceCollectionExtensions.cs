@@ -18,7 +18,8 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
         {
             var projectionsRepositoryFactory = new ElasticSearchProjectionRepositoryFactory(
                 basicAuthConnectionSettings,
-                loggerFactory
+                loggerFactory,
+                disableRequestStreaming
             );
 
             // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
@@ -62,7 +63,8 @@ namespace CloudFabric.EventSourcing.AspNet.ElasticSearch.Extensions
         {
             var projectionsRepositoryFactory = new ElasticSearchProjectionRepositoryFactory(
                 apiKeyAuthConnectionSettings,
-                loggerFactory
+                loggerFactory,
+                disableRequestStreaming
             );
 
             // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
