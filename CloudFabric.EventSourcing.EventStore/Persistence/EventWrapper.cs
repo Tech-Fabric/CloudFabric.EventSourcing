@@ -29,7 +29,7 @@ public record EventWrapper
 
         try
         {
-            var eventType = Type.GetType(EventType);
+            var eventType = Type.GetType(EventType, EventTypeAssemblyResolver, null);
 
             if (eventType == null)
             {
@@ -50,5 +50,11 @@ public record EventWrapper
             throw new Exception("Failed to convert to an Event. Make sure the event " +
                                 "class is in the correct namespace.", ex);
         }
+    }
+    
+    private static System.Reflection.Assembly EventTypeAssemblyResolver(System.Reflection.AssemblyName assemblyName)
+    {
+        assemblyName.Version = null;
+        return System.Reflection.Assembly.Load(assemblyName);
     }
 }

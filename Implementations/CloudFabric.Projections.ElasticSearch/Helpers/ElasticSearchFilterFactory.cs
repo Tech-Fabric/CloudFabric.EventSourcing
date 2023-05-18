@@ -144,7 +144,7 @@ public static class ElasticSearchFilterFactory
 
         var propertyName = filter.PropertyName;
         var filterOperator = "";
-        var filterValue = filter.Value.ToString().EscapeElasticUnsupportedCharacters();
+        var filterValue = filter.Value?.ToString()?.EscapeElasticUnsupportedCharacters();
 
         switch (filter.Operator)
         {
@@ -205,10 +205,20 @@ public static class ElasticSearchFilterFactory
         var condition = $"{propertyName}{filterOperator}{filterValue}";
         if (filter.Value == null)
         {
-            condition = $"({condition} OR (!(_exists_:{propertyName})))";
+            if (filter.Operator == FilterOperator.NotEqual)
+            {
+                return $"(_exists_:{propertyName})";
+            } 
+            else if (filter.Operator == FilterOperator.Equal)
+            {
+                return $"!(_exists_:{propertyName})";
+            }
+            else
+            {
+                throw new ArgumentException("Comparing to null should only be via equal or not equal operators.");
+            }
         }
-
-        if (filter.Operator == FilterOperator.NotEqual)
+        else if (filter.Operator == FilterOperator.NotEqual)
         {
             return $"!({condition})";
         }

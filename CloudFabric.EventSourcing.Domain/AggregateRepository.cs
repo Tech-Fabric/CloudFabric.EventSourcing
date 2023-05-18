@@ -48,7 +48,7 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         // exact derived type.
         if (!string.IsNullOrEmpty(firstEvent.AggregateType))
         {
-            var type = Type.GetType(firstEvent.AggregateType);
+            var type = Type.GetType(firstEvent.AggregateType, AggregateTypeAssemblyResolver, null);
 
             if (type != null)
             {
@@ -67,6 +67,12 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
                );
     }
 
+    private static System.Reflection.Assembly AggregateTypeAssemblyResolver(System.Reflection.AssemblyName assemblyName)
+    {
+        assemblyName.Version = null;
+        return System.Reflection.Assembly.Load(assemblyName);
+    }
+    
     public async Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, CancellationToken cancellationToken = default)
     {
         if (aggregate.UncommittedEvents.Any())
