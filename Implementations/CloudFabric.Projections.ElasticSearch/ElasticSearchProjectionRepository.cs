@@ -17,20 +17,28 @@ namespace CloudFabric.Projections.ElasticSearch;
 public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSearchProjectionRepository, IProjectionRepository<TProjectionDocument>
     where TProjectionDocument : ProjectionDocument
 {
-    public ElasticSearchProjectionRepository(ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
-        ILoggerFactory loggerFactory
-    ) : base(basicAuthConnectionSettings,
+    public ElasticSearchProjectionRepository(
+        ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
+        ILoggerFactory loggerFactory,
+        bool disableRequestStreaming
+    ) : base(
+        basicAuthConnectionSettings,
         ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>(),
-        loggerFactory
+        loggerFactory,
+        disableRequestStreaming
     )
     {
     }
 
-    public ElasticSearchProjectionRepository(ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings,
-        ILoggerFactory loggerFactory
-    ) : base(apiKeyAuthConnectionSettings,
+    public ElasticSearchProjectionRepository(
+        ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings,
+        ILoggerFactory loggerFactory,
+        bool disableRequestStreaming
+    ) : base(
+        apiKeyAuthConnectionSettings,
         ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>(),
-        loggerFactory
+        loggerFactory,
+        disableRequestStreaming
     )
     {
     }
@@ -86,12 +94,35 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
     private readonly ElasticClient _client;
     private readonly ElasticSearchIndexer _indexer;
     private readonly ILogger<ElasticSearchProjectionRepository> _logger;
+    
+    /// <summary>
+    /// When request streaming is disabled, elastic adds debug information about request and response to response object which can
+    /// be useful when troubleshooting search problems.
+    /// </summary>
+    private readonly bool _disableRequestStreaming;
 
-    public ElasticSearchProjectionRepository(ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, 
-        ProjectionDocumentSchema projectionDocumentSchema, ILoggerFactory loggerFactory)
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="apiKeyAuthConnectionSettings"></param>
+    /// <param name="projectionDocumentSchema"></param>
+    /// <param name="loggerFactory"></param>
+    /// <param name="disableRequestStreaming">
+    /// When request streaming is disabled, elastic adds debug information about request and response to response object which can
+    /// be useful when troubleshooting search problems.
+    ///
+    /// Defaults to false to improve performance.
+    /// </param>
+    public ElasticSearchProjectionRepository(
+        ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, 
+        ProjectionDocumentSchema projectionDocumentSchema, 
+        ILoggerFactory loggerFactory,
+        bool disableRequestStreaming = false)
     {
         _projectionDocumentSchema = projectionDocumentSchema;
         _logger = loggerFactory.CreateLogger<ElasticSearchProjectionRepository>();
+        _disableRequestStreaming = disableRequestStreaming;
+        
         var connectionSettings = new ConnectionSettings(apiKeyAuthConnectionSettings.CloudId, new ApiKeyAuthenticationCredentials(apiKeyAuthConnectionSettings.ApiKeyId,
                 apiKeyAuthConnectionSettings.ApiKey))
             .ThrowExceptions()
@@ -103,20 +134,35 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         _indexer = new ElasticSearchIndexer(apiKeyAuthConnectionSettings, loggerFactory);
     }
 
-    public ElasticSearchProjectionRepository(ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="basicAuthConnectionSettings"></param>
+    /// <param name="projectionDocumentSchema"></param>
+    /// <param name="loggerFactory"></param>
+    /// <param name="disableRequestStreaming">
+    /// When request streaming is disabled, elastic adds debug information about request and response to response object which can
+    /// be useful when troubleshooting search problems.
+    ///
+    /// Defaults to false to improve performance.
+    /// </param>
+    public ElasticSearchProjectionRepository(
+        ElasticSearchBasicAuthConnectionSettings basicAuthConnectionSettings,
         ProjectionDocumentSchema projectionDocumentSchema,
-        ILoggerFactory loggerFactory
+        ILoggerFactory loggerFactory,
+        bool disableRequestStreaming = false
     )
     {
         _projectionDocumentSchema = projectionDocumentSchema;
         _logger = loggerFactory.CreateLogger<ElasticSearchProjectionRepository>();
+        _disableRequestStreaming = disableRequestStreaming;
 
         var connectionSettings = new ConnectionSettings(new Uri(basicAuthConnectionSettings.Uri))
             .BasicAuthentication(basicAuthConnectionSettings.Username, basicAuthConnectionSettings.Password)
             .CertificateFingerprint(basicAuthConnectionSettings.CertificateThumbprint)
             .DefaultIndex(IndexName)
             .ThrowExceptions()
-        // means that we do not change property names when indexing (like pascal case to camel case)
+            // means that we do not change property names when indexing (like pascal case to camel case)
             .DefaultFieldNameInferrer(x => x);
 
         _client = new ElasticClient(connectionSettings);
@@ -295,6 +341,11 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                         request = request.Routing(partitionKey);
                     }
 
+                    if (_disableRequestStreaming)
+                    {
+                        request = request.RequestConfiguration(conf => conf.DisableDirectStreaming());
+                    }
+
                     return request;
                 }
             );
@@ -308,7 +359,8 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
                     {
                         Document = DeserializeDictionary(x)
                     }
-                ).ToList()
+                ).ToList(),
+                DebugInformation = result.DebugInformation
             };
         }
         catch (Exception ex)

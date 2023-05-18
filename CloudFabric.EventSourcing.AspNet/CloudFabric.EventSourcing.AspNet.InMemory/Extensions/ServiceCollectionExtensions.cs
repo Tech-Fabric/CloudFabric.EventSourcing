@@ -1,3 +1,4 @@
+using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
@@ -18,12 +19,16 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
 
             // add events observer for projections
             var eventStoreObserver = new InMemoryEventStoreEventObserver(eventStore);
+            
+            AggregateRepositoryFactory aggregateRepositoryFactory = new AggregateRepositoryFactory(eventStore);
+            services.AddScoped(sp => aggregateRepositoryFactory);
 
             return new EventSourcingBuilder
             {
                 EventStore = eventStore,
                 Services = services,
-                ProjectionEventsObserver = eventStoreObserver
+                ProjectionEventsObserver = eventStoreObserver,
+                AggregateRepositoryFactory = aggregateRepositoryFactory
             };
         }
 
@@ -45,10 +50,9 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
             params Type[] projectionBuildersTypes
         )
         {
-            var repositoryFactory = new InMemoryProjectionRepositoryFactory();
+            var projectionsRepositoryFactory = new InMemoryProjectionRepositoryFactory();
 
-            // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
-            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => repositoryFactory);
+            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => projectionsRepositoryFactory);
             
             // add repository for saving rebuild states
             var projectionStateRepository = new InMemoryProjectionRepository<ProjectionRebuildState>();
@@ -64,9 +68,9 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
 
             foreach (var projectionBuilderType in projectionBuildersTypes)
             {
-                projectionsEngine.AddProjectionBuilder(
-                    (IProjectionBuilder<ProjectionDocument>)Activator.CreateInstance(projectionBuilderType, new object[] { repositoryFactory })
-                );
+                var projectionBuilder = builder.ConstructProjectionBuilder(projectionBuilderType, projectionsRepositoryFactory);
+                
+                projectionsEngine.AddProjectionBuilder(projectionBuilder);
             }
 
             builder.ProjectionsEngine = projectionsEngine;

@@ -45,6 +45,8 @@ public class ProjectionQueryResult<T>
     public List<QueryResultDocument<T>> Records { get; set; } = new ();
     public long? TotalRecordsFound { get; set; } = 0;
 
+    public string DebugInformation { get; set; }
+
     public ProjectionQueryResult<TNew> TransformResultDocuments<TNew>(Func<T, TNew> transformFunction)
     {
         var result = new ProjectionQueryResult<TNew>();
