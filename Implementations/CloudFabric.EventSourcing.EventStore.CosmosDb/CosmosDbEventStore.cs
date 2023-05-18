@@ -67,9 +67,12 @@ public class CosmosDbEventStore : IEventStore
 
         var recordsIdCounter = new List<Guid>();
 
+        // TO DO: Implement container.DeleteAllItemsByPartitionKeyStreamAsync(new PartitionKey("string")).
+        // If we will use CloudFabric.EAV - partiton key in inherited from AgrefateBase classes
+        // should be constructed like "Id"+"Entity" for this implementation
         while (feedIterator.HasMoreResults)
         {
-            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync(cancellationToken);
+            FeedResponse<EventWrapper> response = await feedIterator.ReadNextAsync();
             foreach (var eventWrapper in response)
             {
                 batches.Last().DeleteItem(eventWrapper.Id.ToString());
@@ -91,7 +94,7 @@ public class CosmosDbEventStore : IEventStore
 
         await Parallel.ForEachAsync(batches, async (batch, cancellationToken) =>
             {
-                transactionalResults.Add(await batch.ExecuteAsync(cancellationToken).ConfigureAwait(false));
+                transactionalResults.Add(await batch.ExecuteAsync(CancellationToken.None).ConfigureAwait(false));
             }
         ).ConfigureAwait(false);
 
