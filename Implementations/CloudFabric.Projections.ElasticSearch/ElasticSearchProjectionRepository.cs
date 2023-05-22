@@ -440,16 +440,24 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
             IList<object?> resultList = new List<object?>();
             foreach (var listItem in (item as IList))
             {
-                var listItemDictionary = listItem as Dictionary<string, object?>;
-                foreach (var listItemProperty in listItemDictionary)
+                if (listItem is string listItemString)
                 {
-                    listItemDictionary[listItemProperty.Key] = DeserializeDictionaryItem(
-                        listItemProperty.Value, 
-                        propertySchema.NestedObjectProperties.First(x => x.PropertyName == listItemProperty.Key)
-                    );
-                } 
-                
-                resultList.Add(listItemDictionary);
+                    resultList.Add(Guid.Parse(listItemString));
+                }
+                else
+                {
+
+                    var listItemDictionary = listItem as Dictionary<string, object?>;
+                    foreach (var listItemProperty in listItemDictionary)
+                    {
+                        listItemDictionary[listItemProperty.Key] = DeserializeDictionaryItem(
+                            listItemProperty.Value,
+                            propertySchema.NestedObjectProperties.First(x => x.PropertyName == listItemProperty.Key)
+                        );
+                    }
+
+                    resultList.Add(listItemDictionary);
+                }
             }
 
             return resultList;
