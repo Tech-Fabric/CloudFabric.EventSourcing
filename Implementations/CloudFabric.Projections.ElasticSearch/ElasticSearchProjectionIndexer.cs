@@ -227,20 +227,34 @@ public class ElasticSearchIndexer
             case TypeCode.Object:
                 if (prop.IsNestedObject || prop.IsNestedArray)
                 {
-                    properties = properties.Nested<object>(p =>
-                        p.Name(prop.PropertyName)
-                            .Properties(x =>
-                            {
-                                var nestedProperties = new PropertiesDescriptor<object>();
+                    // https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html
+                    // In Elasticsearch, there is no dedicated array data type.
+                    // Any field can contain zero or more values by default, however, all values in the array must be of the same data type.
 
-                                foreach (var nestedProp in prop.NestedObjectProperties)
-                                {
-                                    nestedProperties = GetPropertyDescriptor(nestedProperties, nestedProp);
-                                }
+                    if (prop.NestedObjectProperties.Count > 0)
+                    {
+                        properties = properties.Nested<object>(
+                            p =>
+                                p.Name(prop.PropertyName)
+                                    .Properties(
+                                        x =>
+                                        {
+                                            var nestedProperties = new PropertiesDescriptor<object>();
 
-                                return nestedProperties;
-                            })
-                    );
+                                            foreach (var nestedProp in prop.NestedObjectProperties)
+                                            {
+                                                nestedProperties = GetPropertyDescriptor(nestedProperties, nestedProp);
+                                            }
+
+                                            return nestedProperties;
+                                        }
+                                    )
+                        );
+                    }
+                    else
+                    {
+                        properties = properties.Text(p => p.Name(prop.PropertyName));
+                    }
                 }
                 else
                 {
