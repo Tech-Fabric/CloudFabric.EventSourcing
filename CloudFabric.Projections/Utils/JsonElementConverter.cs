@@ -33,7 +33,19 @@ public static class JsonToObjectConverter
                 {
                     if (propertySchema.ArrayElementType == TypeCode.Object)
                     {
-                        if (propertySchema.NestedObjectProperties.Count == 0)
+                        if (propertySchema.ArrayElementTypeObjectTypeHint != null)
+                        {
+                            switch (propertySchema.ArrayElementTypeObjectTypeHint)
+                            {
+                                case ObjectTypeHintEnum.Guid:
+                                    resultArray.Add(Guid.Parse(arrayItem.GetString()));
+                                    break;
+                                default:
+                                    throw new Exception($"{nameof(JsonToObjectConverter)} does not have an implementation for deserializing " +
+                                                        $"{propertySchema.ArrayElementTypeObjectTypeHint} objects.");
+                            }
+                        }
+                        else if (propertySchema.NestedObjectProperties.Count == 0)
                         {
                             throw new Exception(
                                 $"Invalid nested object configuration for projection property {propertySchema.PropertyName}." +
@@ -41,19 +53,21 @@ public static class JsonToObjectConverter
                                 $"not decorated with [ProjectionDocumentProperty] attribute."
                             );
                         }
-
-                        var dictObject = arrayItem.Deserialize<Dictionary<string, JsonElement>>();
-                        var resultObject = new Dictionary<string, object?>();
-
-                        foreach (var property in dictObject)
+                        else
                         {
-                            resultObject[property.Key] = Convert(
-                                property.Value,
-                                propertySchema.NestedObjectProperties.First(x => x.PropertyName == property.Key)
-                            );
-                        }
+                            var dictObject = arrayItem.Deserialize<Dictionary<string, JsonElement>>();
+                            var resultObject = new Dictionary<string, object?>();
 
-                        resultArray.Add(resultObject);
+                            foreach (var property in dictObject)
+                            {
+                                resultObject[property.Key] = Convert(
+                                    property.Value,
+                                    propertySchema.NestedObjectProperties.First(x => x.PropertyName == property.Key)
+                                );
+                            }
+
+                            resultArray.Add(resultObject);
+                        }
                     }
                     else
                     {

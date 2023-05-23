@@ -54,7 +54,7 @@ public static class ProjectionDocumentSchemaFactory
         object nestedPropertiesDictionary
     )
     {
-        return new ProjectionDocumentPropertySchema()
+        var schema = new ProjectionDocumentPropertySchema()
         {
             PropertyName = propertyInfo.Name,
             PropertyType = ProjectionDocumentAttribute.GetPropertyTypeCode(propertyInfo),
@@ -80,6 +80,17 @@ public static class ProjectionDocumentSchemaFactory
                     ? GetNestedObjectProperties(nestedPropertiesDictionary as Dictionary<PropertyInfo, (ProjectionDocumentPropertyAttribute, object)>)
                     : null
         };
+        if (schema.PropertyType == TypeCode.Object)
+        {
+            schema.ObjectTypeHint = GetObjectTypeHintEnum(propertyInfo.PropertyType);
+        }
+
+        if (schema.ArrayElementType == TypeCode.Object)
+        {
+            schema.ArrayElementTypeObjectTypeHint = GetObjectTypeHintEnum(propertyInfo.PropertyType.GenericTypeArguments[0]);
+        }
+
+        return schema;
     }
 
     private static List<ProjectionDocumentPropertySchema> GetNestedObjectProperties(Dictionary<PropertyInfo, (ProjectionDocumentPropertyAttribute DocumentPropertyAttribute, object NestedDictionary)> nestedProperties)
@@ -87,5 +98,25 @@ public static class ProjectionDocumentSchemaFactory
         return nestedProperties
             .Select(property => GetPropertySchema(property.Key, property.Value.DocumentPropertyAttribute, property.Value.NestedDictionary))
             .ToList();
+    }
+
+    private static ObjectTypeHintEnum? GetObjectTypeHintEnum(Type propertyType)
+    {
+        var objectType = propertyType;
+            
+        if (propertyType.IsGenericType)
+        {
+            if (propertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                objectType = propertyType.GetGenericArguments()[0];
+            }
+        };
+
+        if (objectType == typeof(Guid))
+        {
+            return ObjectTypeHintEnum.Guid;
+        }
+
+        return null;
     }
 }
