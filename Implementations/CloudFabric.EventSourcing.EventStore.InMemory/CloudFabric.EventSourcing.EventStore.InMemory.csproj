@@ -1,23 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
-        <ProjectReference Include="..\..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj"/>
-        <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj"/>
+        <ProjectReference Include="..\..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj" />
+        <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="6.0.0">
+        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="7.0.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Projections"/>
+        <Folder Include="Projections" />
     </ItemGroup>
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net7.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>CloudFabric.EventSourcing.EventStore.InMemory</RootNamespace>

@@ -10,7 +10,7 @@ namespace CloudFabric.EventSourcing.Benchmarks;
 [HtmlExporter]
 [PlainExporter]
 [RPlotExporter]
-[SimpleJob(launchCount: 1, warmupCount: 1, targetCount: 10, invocationCount: 100, id: "Benchmark")]
+[SimpleJob(launchCount: 1, warmupCount: 1, invocationCount: 100, id: "Benchmark")]
 public class EventStoreBenchmarks
 {
     private readonly OrderTestsCosmosDb _orderTestsCosmosDb = new OrderTestsCosmosDb();

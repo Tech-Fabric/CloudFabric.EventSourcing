@@ -5,7 +5,7 @@
       <ProjectReference Include="..\..\CloudFabric.Projections.Attributes\CloudFabric.Projections.Attributes.csproj" />
     </ItemGroup>
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net7.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
