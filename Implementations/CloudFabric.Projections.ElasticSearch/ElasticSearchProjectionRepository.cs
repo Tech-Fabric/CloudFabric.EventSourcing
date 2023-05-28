@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
 using CloudFabric.Projections.ElasticSearch.Helpers;
+using CloudFabric.Projections.Exceptions;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Elasticsearch.Net;
@@ -90,7 +91,6 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 {
     private readonly ProjectionDocumentSchema _projectionDocumentSchema;
     private string? _keyPropertyName;
-    private string? _indexName;
     private readonly ElasticClient _client;
     private readonly ElasticSearchIndexer _indexer;
     private readonly ILogger<ElasticSearchProjectionRepository> _logger;
@@ -126,7 +126,6 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         var connectionSettings = new ConnectionSettings(apiKeyAuthConnectionSettings.CloudId, new ApiKeyAuthenticationCredentials(apiKeyAuthConnectionSettings.ApiKeyId,
                 apiKeyAuthConnectionSettings.ApiKey))
             .ThrowExceptions()
-            .DefaultIndex(IndexName)
             .DefaultFieldNameInferrer(x => x);
         
         _client = new ElasticClient(connectionSettings);
@@ -160,7 +159,6 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         var connectionSettings = new ConnectionSettings(new Uri(basicAuthConnectionSettings.Uri))
             .BasicAuthentication(basicAuthConnectionSettings.Username, basicAuthConnectionSettings.Password)
             .CertificateFingerprint(basicAuthConnectionSettings.CertificateThumbprint)
-            .DefaultIndex(IndexName)
             .ThrowExceptions()
             // means that we do not change property names when indexing (like pascal case to camel case)
             .DefaultFieldNameInferrer(x => x);
@@ -169,19 +167,6 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
         // create an index
         _indexer = new ElasticSearchIndexer(basicAuthConnectionSettings, loggerFactory);
-    }
-
-    public string IndexName
-    {
-        get
-        {
-            if (string.IsNullOrEmpty(_indexName))
-            {
-                _indexName = _projectionDocumentSchema.SchemaName;
-            }
-
-            return _indexName.ToLower();
-        }
     }
 
     public string? KeyColumnName
@@ -197,18 +182,118 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
     }
 
+    /// <summary>
+    /// Internal method for getting index name to work with.
+    /// When projection schema changes, there can be two indexes - one for old version of schema which should still receive updates and queries
+    /// and a new one which should be populated in the background.
+    /// This method checks for available indexes and selects the active one. Once a new index is completed projections rebuild process, this method
+    /// will immediately return a new one, so all updates will go to the new index. 
+    /// </summary>
+    /// <returns></returns>
+    private async Task<string?> GetIndexNameForSchema(bool readOnly)
+    {
+        var partitionIndexStateIndexName = "partition_index_state";
+        
+        var indexStateResponse = await _client.GetAsync<ProjectionIndexState>(
+            _projectionDocumentSchema.SchemaName,
+            x => x.Routing(partitionIndexStateIndexName).Index(partitionIndexStateIndexName)
+        );
+
+        if (indexStateResponse.Found)
+        {
+            // At least some projection state exists - find the most recent index with completed projections rebuild.
+            var lastIndexWithRebuiltProjections = indexStateResponse.Source.IndexesStatuses
+                .Where(i => i.RebuildCompletedAt != null).MaxBy(i => i.RebuildCompletedAt);
+
+            if (lastIndexWithRebuiltProjections != null)
+            {
+                return lastIndexWithRebuiltProjections.IndexName;
+            }
+            
+            // At least some projection state exists but there is no index which was completely rebuilt. 
+            // In such situation we could only allow reading from this index, because writing to it may break projections
+            // events order consistency - if projections rebuild is still in progress we will write an event which happened now before it's preceding
+            // events not yet processed by projections rebuild process.
+            if (readOnly)
+            {
+                // if there are multiple indexes, we want one that has already started rebuild process.
+                var lastIndexWithRebuildStarted = indexStateResponse.Source.IndexesStatuses
+                    .Where(i => i.RebuildStartedAt != null).MaxBy(i => i.RebuildStartedAt);
+
+                if (lastIndexWithRebuildStarted != null)
+                {
+                    return lastIndexWithRebuildStarted.IndexName;
+                }
+                
+                // If there are multiple indexes but none of them started rebuilding, just return the most recently created one.
+                var lastIndex = indexStateResponse.Source.IndexesStatuses
+                    .MaxBy(i => i.CreatedAt);
+
+                if (lastIndex != null)
+                {
+                    return lastIndex.IndexName;
+                }
+            }
+
+            throw new IndexNotReadyException(indexStateResponse.Source);
+        }
+        else
+        {
+            // no index state exists, meaning there is no index at all. 
+            // Create an empty index state, index background processor is designed to look for records which 
+            // were created but not populated, it will start the process of projections rebuild once it finds this new record.
+
+            var projectionVersionPropertiesHash = ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(_projectionDocumentSchema.Properties);
+            var projectionVersionIndexName = $"{_projectionDocumentSchema.SchemaName}_{projectionVersionPropertiesHash}"
+                .ToLower(); // Elastic throws error saying that index must be lowercase
+            
+            var projectionIndexState = new ProjectionIndexState()
+            {
+                ProjectionName = _projectionDocumentSchema.SchemaName,
+                IndexesStatuses = new List<IndexStateForSchemaVersion>() {
+                    new IndexStateForSchemaVersion()
+                    {
+                        CreatedAt = DateTime.UtcNow,
+                        SchemaHash = projectionVersionPropertiesHash,
+                        IndexName = projectionVersionIndexName,
+                        RebuildEventsProcessed = 0,
+                        RebuildStartedAt = null
+                    }
+                }
+            };
+            
+            await _indexer.CreateOrUpdateIndex(projectionVersionIndexName, _projectionDocumentSchema);
+            
+            var saveResult = await _client.IndexAsync(
+                new IndexRequest<ProjectionIndexState>(projectionIndexState, partitionIndexStateIndexName, id: projectionIndexState.ProjectionName)
+                {
+                    Routing = new Routing(partitionIndexStateIndexName),
+                    Refresh = Refresh.True
+                }
+            );
+
+            return projectionVersionIndexName;
+        }
+    }
+
     public async Task EnsureIndex(CancellationToken cancellationToken = default)
     {
-        await _indexer.CreateOrUpdateIndex(IndexName, _projectionDocumentSchema);
+        _logger.LogInformation("Ensuring index exists for {ProjectionDocumentSchemaName}", _projectionDocumentSchema.SchemaName);
+        
+        var indexName = await GetIndexNameForSchema(false);
+        
+        _logger.LogInformation("Index for {ProjectionDocumentSchemaName}, {IndexName}", _projectionDocumentSchema.SchemaName, indexName);
     }
 
     public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
+        var indexName = await GetIndexNameForSchema(true);
+        
         try
         {
             var item = await _client.GetAsync<Dictionary<string, object?>>(
                 id,
-                x => x.Routing(partitionKey),
+                x => x.Index(indexName).Routing(partitionKey),
                 ct: cancellationToken
             );
 
@@ -223,7 +308,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         {
             _logger.LogError(
                 ex,
-                "Failed to retrieve document with {@Id} ({@Index})", id, IndexName
+                "Failed to retrieve document with {@Id} ({@Index})", id, indexName
             );
 
             throw;
@@ -232,10 +317,12 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
     public async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
+        var indexName = await GetIndexNameForSchema(true);
+        
         try
         {
             await _client.DeleteAsync(
-                new DeleteRequest(Indices.Index(IndexName), id)
+                new DeleteRequest(indexName, id)
                 {
                     Routing = new Routing(partitionKey)
                 },
@@ -246,7 +333,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         {
             _logger.LogError(
                 ex, 
-                "Failed to delete Document with {@Id} ({@Index})", id, IndexName
+                "Failed to delete Document with {@Id} ({@Index})", id, indexName
             );
 
             throw;
@@ -255,11 +342,13 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
     public async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
+        var indexName = await GetIndexNameForSchema(false);
+        
         try
         {
             if (partitionKey == null)
             {
-                await _client.Indices.DeleteAsync(new DeleteIndexRequest(IndexName), cancellationToken);
+                await _client.Indices.DeleteAsync(new DeleteIndexRequest(indexName), cancellationToken);
             }
             else
             {
@@ -282,13 +371,15 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete index {@Index}", IndexName);
+            _logger.LogError(ex, "Failed to delete index {@Index}", indexName);
             throw;
         }
     }
 
     public async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
+        var indexName = await GetIndexNameForSchema(false);
+        
         try
         {
             document.TryGetValue("Id", out object? id);
@@ -296,7 +387,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
             document[nameof(ProjectionDocument.UpdatedAt)] = updatedAt;
 
             await _client.IndexAsync(
-                new IndexRequest<Dictionary<string, object?>>(document, id: id?.ToString())
+                new IndexRequest<Dictionary<string, object?>>(document, indexName, id: id?.ToString())
                 {
                     Routing = new Routing(partitionKey),
                     Refresh = Refresh.False
@@ -308,7 +399,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         {
             _logger.LogError(
                 ex, 
-                "Failed to upsert Document with {@Id} ({@Index})", document[_projectionDocumentSchema.KeyColumnName], IndexName
+                "Failed to upsert Document with {@Id} ({@Index})", document[_projectionDocumentSchema.KeyColumnName], indexName
             );
 
             throw;
@@ -321,11 +412,15 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         CancellationToken cancellationToken = default
     )
     {
+        var indexName = await GetIndexNameForSchema(true);
+        
         try
         {
             var result = await _client.SearchAsync<Dictionary<string, object?>>(
                 request =>
                 {
+                    request = request.Index(indexName);
+                    
                     request = request.TrackTotalHits();
                     request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
                     request = request.Sort(s => ConstructSort(s, projectionQuery));
@@ -352,7 +447,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
 
             return new ProjectionQueryResult<Dictionary<string, object?>>
             {
-                IndexName = IndexName,
+                IndexName = indexName,
                 TotalRecordsFound = (int)result.Total,
                 Records = result.Documents.Select(x => 
                     new QueryResultDocument<Dictionary<string, object?>>
@@ -367,7 +462,7 @@ public class ElasticSearchProjectionRepository : IProjectionRepository
         {
             _logger.LogError(
                 ex,
-                "Error querying index ({@Index})", IndexName
+                "Error querying index ({@Index})", indexName
             );
 
             throw;
