@@ -150,7 +150,7 @@ public static class ElasticSearchFilterFactory
         {
             filterValue = filterValue.ToLower();
         }
-        
+
         switch (filter.Operator)
         {
             case FilterOperator.ArrayContains:

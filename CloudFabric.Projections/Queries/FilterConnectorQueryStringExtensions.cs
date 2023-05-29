@@ -4,12 +4,12 @@ public static class FilterConnectorQueryStringExtensions
 {
     public static string Serialize(this FilterConnector filterConnector)
     {
-        return $"{filterConnector.Logic}+{filterConnector.Filter.Serialize()}";
+        return $"{filterConnector.Logic}{ProjectionQueryQueryStringExtensions.FILTER_LOGIC_JOIN_CHARACTER}{filterConnector.Filter.Serialize()}";
     }
 
     public static FilterConnector Deserialize(string serialized)
     {
-        var separator = "+";
+        var separator = $"{ProjectionQueryQueryStringExtensions.FILTER_LOGIC_JOIN_CHARACTER}";
 
         var logicEnd = serialized.IndexOf(separator, StringComparison.Ordinal);
 
