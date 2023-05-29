@@ -146,6 +146,11 @@ public static class ElasticSearchFilterFactory
         var filterOperator = "";
         var filterValue = filter.Value?.ToString()?.EscapeElasticUnsupportedCharacters();
 
+        if (filter.Value is bool)
+        {
+            filterValue = filterValue.ToLower();
+        }
+        
         switch (filter.Operator)
         {
             case FilterOperator.ArrayContains:
