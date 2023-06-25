@@ -23,21 +23,31 @@ public abstract class ProjectionRepositoryFactory
         _repositories[name] = repository;
     }
     
-    protected virtual IProjectionRepository? GetFromCache(ProjectionDocumentSchema schema)
+    protected virtual ProjectionRepository? GetFromCache(ProjectionDocumentSchema? schema)
     {
-        var name = $"{schema.SchemaName}_{ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(schema.Properties)}";
+        var name = "empty-schema";
         
+        if (schema != null)
+        {
+            name = $"{schema.SchemaName}_{ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(schema.Properties)}";
+        }
+
         if (_repositories.ContainsKey(name))
         {
-            return (IProjectionRepository)_repositories[name];
+            return (ProjectionRepository)_repositories[name];
         }
 
         return null;
     }
 
-    protected virtual void SetToCache(ProjectionDocumentSchema schema, IProjectionRepository repository)
+    protected virtual void SetToCache(ProjectionDocumentSchema? schema, ProjectionRepository repository)
     {
-        var name = $"{schema.SchemaName}_{ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(schema.Properties)}";
+        var name = "empty-schema";
+        
+        if (schema != null)
+        {
+            name = $"{schema.SchemaName}_{ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(schema.Properties)}";
+        }
 
         _repositories[name] = repository;
     }
@@ -45,5 +55,5 @@ public abstract class ProjectionRepositoryFactory
     public abstract IProjectionRepository<TProjectionDocument> GetProjectionRepository<TProjectionDocument>()
         where TProjectionDocument : ProjectionDocument;
 
-    public abstract IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema);
+    public abstract ProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema);
 }

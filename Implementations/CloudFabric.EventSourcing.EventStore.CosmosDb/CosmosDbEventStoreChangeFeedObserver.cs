@@ -4,6 +4,8 @@ using System.Text.Json.Serialization;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using CloudFabric.Projections;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.EventSourcing.EventStore.CosmosDb;
 
@@ -31,6 +33,8 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
 
     private string _processorName;
 
+    private ILogger<CosmosDbEventStoreChangeFeedObserver> _logger;
+
     public CosmosDbEventStoreChangeFeedObserver(
         CosmosClient eventsClient,
         string eventsDatabaseId,
@@ -38,7 +42,8 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         CosmosClient leaseClient,
         string leaseDatabaseId,
         string leaseContainerId,
-        string processorName
+        string processorName,
+        ILogger<CosmosDbEventStoreChangeFeedObserver> logger
     )
     {
         _eventsClient = eventsClient;
@@ -50,6 +55,8 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         _leaseContainerId = leaseContainerId;
 
         _processorName = processorName;
+
+        _logger = logger;
     }
 
     public void SetEventHandler(Func<IEvent, Task> eventHandler)
@@ -72,66 +79,141 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
             .WithLeaseContainer(leaseContainer)
             .WithStartTime(DateTime.UtcNow.AddMinutes(-50))
             .Build();
+        
+        _logger.LogInformation("Starting {InstanceName}", instanceName);
 
         return _changeFeedProcessor.StartAsync();
     }
 
     public Task StopAsync()
     {
+        _logger.LogInformation("Stopping");
+        
         return _changeFeedProcessor.StopAsync();
     }
 
-    public async Task LoadAndHandleEventsAsync(
+    public async Task ReplayEventsAsync(
         string instanceName,
         string partitionKey,
         DateTime? dateFrom,
-        Func<string, string, Task> onCompleted,
-        Func<string, string, string, Task> onError
+        int chunkSize = 250,
+        Func<IEvent, Task>? chunkProcessedCallback = null,
+        CancellationToken cancellationToken = default
     )
     {
-        try
-        {
-            Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
-            
-            DateTime endTime = DateTime.UtcNow;
+        _logger.LogInformation("Replaying events {InstanceName} from {DateFrom}",
+            instanceName,
+            dateFrom
+        );
+        
+        Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
+        
+        DateTime endTime = DateTime.UtcNow;
 
-            using var feedIterator = eventContainer
-                .GetChangeFeedIterator<Change>(
-                    dateFrom.HasValue 
-                        ? ChangeFeedStartFrom.Time(dateFrom.Value, FeedRange.FromPartitionKey(new PartitionKey(partitionKey))) 
-                        : ChangeFeedStartFrom.Beginning(FeedRange.FromPartitionKey(new PartitionKey(partitionKey))),
-                    ChangeFeedMode.Incremental,
-                    new ChangeFeedRequestOptions
-                    {
-                        PageSizeHint = 100
-                    }
+        using var feedIterator = eventContainer
+            .GetChangeFeedIterator<Change>(
+                dateFrom.HasValue 
+                    ? ChangeFeedStartFrom.Time(dateFrom.Value, FeedRange.FromPartitionKey(new PartitionKey(partitionKey))) 
+                    : ChangeFeedStartFrom.Beginning(FeedRange.FromPartitionKey(new PartitionKey(partitionKey))),
+                ChangeFeedMode.Incremental,
+                new ChangeFeedRequestOptions
+                {
+                    PageSizeHint = chunkSize
+                }
+            );
+
+        while (feedIterator.HasMoreResults)
+        {
+            FeedResponse<Change> response = await feedIterator.ReadNextAsync(cancellationToken);
+
+            if (response.All(x => x.GetEvent().Timestamp > endTime))
+            {
+                break;
+            }
+
+            var totalEventsProcessed = 0;
+            
+            if (response.StatusCode != HttpStatusCode.NotModified)
+            {
+                var events = new ReadOnlyCollection<Change>(response.ToList());
+                totalEventsProcessed += events.Count;
+                
+                await HandleChangesAsync(events, CancellationToken.None);
+
+                var lastEvent = events.Last().GetEvent();
+                
+                _logger.LogInformation("Replayed {ReplayedEventsCount} {InstanceName}, last event timestamp: {LastEventDateTime}", 
+                    events.Count, 
+                    instanceName,
+                    lastEvent.Timestamp
                 );
 
-            while (feedIterator.HasMoreResults)
-            {
-                FeedResponse<Change> response = await feedIterator.ReadNextAsync();
-
-                if (response.All(x => x.GetEvent().Timestamp > endTime))
+                if (chunkProcessedCallback != null)
                 {
-                    break;
-                }
-
-                if (response.StatusCode != HttpStatusCode.NotModified) 
-                {                
-                    await HandleChangesAsync(new ReadOnlyCollection<Change>(response.ToList()), CancellationToken.None);
+                    await chunkProcessedCallback(lastEvent);
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            await onError(instanceName, partitionKey, ex.InnerException?.Message ?? ex.Message);
-            throw;
-        }
 
-        await onCompleted(instanceName, partitionKey);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation("Cancellation requested. Processed {TotalEventsProcessed} {InstanceName}", 
+                    totalEventsProcessed, 
+                    instanceName
+                );
+
+                break;
+            }
+        }
     }
 
-    public async Task LoadAndHandleEventsForDocumentAsync(Guid documentId, string partitionKey)
+    public async Task<EventStoreStatistics> GetEventStoreStatistics()
+    {
+        Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
+
+        var stats = new EventStoreStatistics();
+
+        QueryDefinition totalCountQuery = new QueryDefinition($"SELECT * FROM {_eventsContainerId}");
+        IOrderedQueryable<EventWrapper> totalCountQueryable = eventContainer.GetItemLinqQueryable<EventWrapper>();
+        stats.TotalEventsCount = await totalCountQueryable.CountAsync();
+
+        QueryDefinition firstEventQuery = new QueryDefinition(
+            $"SELECT * FROM {_eventsContainerId} e ORDER BY e._ts ASC LIMIT 1"
+        );
+        FeedIterator<EventWrapper> firstEventFeedIterator = eventContainer.GetItemQueryIterator<EventWrapper>(
+            firstEventQuery,
+            requestOptions: new QueryRequestOptions { }
+        );
+        while (firstEventFeedIterator.HasMoreResults)
+        {
+            FeedResponse<EventWrapper> response = await firstEventFeedIterator.ReadNextAsync();
+
+            if (response.Count > 0)
+            {
+                stats.FirstEventCreatedAt = response.First().GetEvent().Timestamp;
+            }
+        }
+        
+        QueryDefinition lastEventQuery = new QueryDefinition(
+            $"SELECT * FROM {_eventsContainerId} e ORDER BY e._ts DESC LIMIT 1"
+        );
+        FeedIterator<EventWrapper> lastEventFeedIterator = eventContainer.GetItemQueryIterator<EventWrapper>(
+            lastEventQuery,
+            requestOptions: new QueryRequestOptions { }
+        );
+        while (lastEventFeedIterator.HasMoreResults)
+        {
+            FeedResponse<EventWrapper> response = await lastEventFeedIterator.ReadNextAsync();
+
+            if (response.Count > 0)
+            {
+                stats.LastEventCreatedAt = response.First().GetEvent().Timestamp;
+            }
+        }
+
+        return stats;
+    }
+
+    public async Task ReplayEventsForDocumentAsync(Guid documentId, string partitionKey)
     {
         Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
 

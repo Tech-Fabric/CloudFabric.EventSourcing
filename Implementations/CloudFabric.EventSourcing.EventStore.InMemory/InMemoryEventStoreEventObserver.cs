@@ -30,7 +30,7 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
         return Task.CompletedTask;
     }
 
-    public async Task LoadAndHandleEventsAsync(
+    public async Task ReplayEventsAsync(
         string instanceName,
         string partitionKey,
         DateTime? dateFrom,
@@ -58,7 +58,7 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
         await onCompleted(instanceName, partitionKey);
     }
 
-    public async Task LoadAndHandleEventsForDocumentAsync(Guid documentId, string partitionKey)
+    public async Task ReplayEventsForDocumentAsync(Guid documentId, string partitionKey)
     {
         var stream = await _eventStore.LoadStreamAsync(documentId, partitionKey);
 
@@ -69,8 +69,25 @@ public class InMemoryEventStoreEventObserver : IEventsObserver
             );
         }
     }
-    
-    
+
+    public Task ReplayEventsAsync(
+        string instanceName, 
+        string? partitionKey, 
+        DateTime? dateFrom, 
+        int chunkSize = 250, 
+        Func<IEvent, Task>? chunkProcessedCallback = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<EventStoreStatistics> GetEventStoreStatistics()
+    {
+        throw new NotImplementedException();
+    }
+
+
     private async Task EventStoreOnEventAdded(IEvent e)
     {
         if (_eventHandler == null)

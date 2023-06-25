@@ -2,11 +2,26 @@ namespace CloudFabric.Projections.Postgresql;
 
 public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
 {
-    private readonly string _connectionString;
-    
-    public PostgresqlProjectionRepositoryFactory(string connectionString)
-    {
-        _connectionString = connectionString;
+    private readonly string _projectionsConnectionString;
+    private readonly string? _sourceEventStoreConnectionId;
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="projectionsConnectionString">
+    /// Projections store connection string.
+    /// </param>
+    /// <param name="sourceEventStoreConnectionId">
+    /// Connection id if the event store - source of projections.
+    /// Since there can be multiple source event stores in multi tenant applications or load-balanced applications,
+    /// we need to store some kind of id to be able to restore it later for projections rebuild.
+    /// </param>
+    public PostgresqlProjectionRepositoryFactory(
+        string projectionsConnectionString,
+        string? sourceEventStoreConnectionId = null
+    ) {
+        _projectionsConnectionString = projectionsConnectionString;
+        _sourceEventStoreConnectionId = sourceEventStoreConnectionId;
     }
     
     public override IProjectionRepository<TProjectionDocument> GetProjectionRepository<TProjectionDocument>()
@@ -17,12 +32,12 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
             return cached;
         }
         
-        var repository = new PostgresqlProjectionRepository<TProjectionDocument>(_connectionString);
+        var repository = new PostgresqlProjectionRepository<TProjectionDocument>(_projectionsConnectionString);
         SetToCache<TProjectionDocument>(repository);
         return repository;
     }
 
-    public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
+    public override ProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
         var cached = GetFromCache(projectionDocumentSchema);
         if (cached != null)
@@ -30,7 +45,7 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
             return cached;
         }
         
-        var repository = new PostgresqlProjectionRepository(_connectionString, projectionDocumentSchema);
+        var repository = new PostgresqlProjectionRepository(_projectionsConnectionString, projectionDocumentSchema);
         SetToCache(projectionDocumentSchema, repository);
         return repository;
     }

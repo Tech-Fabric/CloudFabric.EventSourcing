@@ -92,7 +92,7 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
     }
 }
 
-public class PostgresqlProjectionRepository : IProjectionRepository
+public class PostgresqlProjectionRepository : ProjectionRepository
 {
     private readonly string _connectionString;
 
@@ -105,7 +105,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
     public PostgresqlProjectionRepository(
         string connectionString,
         ProjectionDocumentSchema projectionDocumentSchema
-    )
+    ) : base(projectionDocumentSchema)
     {
         _connectionString = connectionString;
         _projectionDocumentSchema = projectionDocumentSchema;
@@ -148,7 +148,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task EnsureIndex(CancellationToken cancellationToken = default)
+    public override async Task EnsureIndex(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -185,7 +185,12 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    protected override Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         if (id == Guid.Empty)
         {
@@ -286,7 +291,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         return null;
     }
 
-    public async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    public override async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         if (id == Guid.Empty)
         {
@@ -316,7 +321,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
+    public override async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
@@ -335,7 +340,27 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
+    protected override Task<ProjectionIndexState> GetProjectionIndexState(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override Task SaveProjectionIndexState(ProjectionIndexState state)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task<ProjectionIndexState?> AcquireAndLockProjectionThatRequiresRebuild()
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task UpdateProjectionRebuildStats(ProjectionIndexState indexToRebuild)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         if (document == null)
         {
@@ -412,7 +437,7 @@ public class PostgresqlProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
+    public override async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default

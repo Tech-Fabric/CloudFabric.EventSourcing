@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using CloudFabric.EventSourcing.Tests.Domain;
@@ -7,7 +9,10 @@ using CloudFabric.EventSourcing.Tests.Domain.Projections.OrdersListProjection;
 using CloudFabric.EventSourcing.Tests.Domain.ValueObjects;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Queries;
+using CloudFabric.Projections.Worker;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests;
@@ -161,9 +166,7 @@ public abstract class DynamicProjectionSchemaTests
             .GetProjectionRepository(schema);
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(
-            GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>()
-        );
+        var projectionsEngine = new ProjectionsEngine();
         projectionsEngine.SetEventsObserver(eventsObserver);
 
         var ordersListProjectionBuilder = new OrderListsDynamicProjectionBuilder(
@@ -425,8 +428,21 @@ public abstract class DynamicProjectionSchemaTests
         };
 
         var (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjection(orderRepositoryEventsObserver, ordersProjectionSchema);
+        var builder = new ProjectionsRebuildProcessor(
+            GetProjectionRepositoryFactory().GetProjectionRepository(null),
+            (string connectionId) =>
+            {
+                var projectionsBuilder = new ProjectionsEngine();
 
+                projectionsBuilder.SetEventsObserver(orderRepositoryEventsObserver);
+                
+                return projectionsEngine;
+            },
+            NullLogger<ProjectionsRebuildProcessor>.Instance
+        );
+        
         await ordersListProjectionsRepository.EnsureIndex();
+        await builder.DetectProjectionsToRebuild();
         
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
@@ -489,6 +505,7 @@ public abstract class DynamicProjectionSchemaTests
         (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjection(orderRepositoryEventsObserver, ordersProjectionSchema);
 
         await ordersListProjectionsRepository.EnsureIndex();
+        await builder.DetectProjectionsToRebuild();
         
         var addItem = new OrderItem(DateTime.UtcNow, "Twilight Struggle", 6.95m);
         order.AddItem(addItem);
@@ -518,20 +535,24 @@ public abstract class DynamicProjectionSchemaTests
         var searchResult = await ordersListProjectionsRepository.Query(query);
         searchResult.Records.Count.Should().Be(1);
         
-        await projectionsEngine.StartRebuildAsync("rebuild", PartitionKeys.GetOrderPartitionKey());
+        
 
-        // wait for the rebuild state to be indexed
-        await Task.Delay(ProjectionsUpdateDelay);
-
-        // wait for the rebuild to finish
-        ProjectionRebuildState rebuildState;
-        do
-        {
-            rebuildState = await projectionsEngine.GetRebuildState("rebuild", PartitionKeys.GetOrderPartitionKey());
-            await Task.Delay(10);
-        } while (rebuildState.Status != RebuildStatus.Completed && rebuildState.Status != RebuildStatus.Failed);
-
-        rebuildState.Status.Should().Be(RebuildStatus.Completed);
+        await builder.DetectProjectionsToRebuild();
+        
+        // await projectionsEngine.StartRebuildAsync("rebuild", PartitionKeys.GetOrderPartitionKey());
+        //
+        // // wait for the rebuild state to be indexed
+        // await Task.Delay(ProjectionsUpdateDelay);
+        //
+        // // wait for the rebuild to finish
+        // ProjectionRebuildState rebuildState;
+        // do
+        // {
+        //     rebuildState = await projectionsEngine.GetRebuildState("rebuild", PartitionKeys.GetOrderPartitionKey());
+        //     await Task.Delay(10);
+        // } while (rebuildState.Status != RebuildStatus.Completed && rebuildState.Status != RebuildStatus.Failed);
+        //
+        // rebuildState.Status.Should().Be(RebuildStatus.Completed);
         
         var orderProjectionWithNewSchemaTotalPriceAfterRebuild = await ordersListProjectionsRepository
             .Single(id, PartitionKeys.GetOrderPartitionKey());

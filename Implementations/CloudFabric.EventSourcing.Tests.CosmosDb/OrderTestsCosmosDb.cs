@@ -7,6 +7,7 @@ using CloudFabric.Projections;
 using CloudFabric.Projections.CosmosDb;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests.CosmosDb;
@@ -143,7 +144,8 @@ public class OrderTestsCosmosDb : OrderTests
                 _cosmosClient,
                 LeaseDatabaseName,
                 LeaseContainerName,
-                ""
+                "",
+                NullLogger<CosmosDbEventStoreChangeFeedObserver>.Instance
             );
         }
 

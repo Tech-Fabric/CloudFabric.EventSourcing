@@ -16,7 +16,7 @@ public class InMemoryProjectionRepositoryFactory : ProjectionRepositoryFactory
         return repository;
     }
 
-    public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
+    public override ProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
         var cached = GetFromCache(projectionDocumentSchema);
         if (cached != null)

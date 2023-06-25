@@ -58,7 +58,7 @@ public class InMemoryProjectionRepository<TProjectionDocument>
     }
 }
 
-public class InMemoryProjectionRepository : IProjectionRepository
+public class InMemoryProjectionRepository : ProjectionRepository
 {
     private readonly ProjectionDocumentSchema _projectionDocumentSchema;
 
@@ -68,11 +68,12 @@ public class InMemoryProjectionRepository : IProjectionRepository
     private static readonly Dictionary<string, Dictionary<(Guid Id, string PartitionKey), Dictionary<string, object?>>> Storage = new();
 
     public InMemoryProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
+        : base(projectionDocumentSchema)
     {
         _projectionDocumentSchema = projectionDocumentSchema;
     }
 
-    public Task EnsureIndex(CancellationToken cancellationToken = default)
+    public override Task EnsureIndex(CancellationToken cancellationToken = default)
     {
         if (!Storage.ContainsKey(_projectionDocumentSchema.SchemaName))
         {
@@ -82,14 +83,19 @@ public class InMemoryProjectionRepository : IProjectionRepository
         return Task.CompletedTask;
     }
 
-    public Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    protected override Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         var storage = Storage[_projectionDocumentSchema.SchemaName];
         
         return Task.FromResult(storage.GetValueOrDefault((id, partitionKey)) ?? null);
     }
 
-    public Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
+    public override Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default)
@@ -148,7 +154,7 @@ public class InMemoryProjectionRepository : IProjectionRepository
         );
     }
 
-    public Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
+    public override Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         var keyValue = document[_projectionDocumentSchema.KeyColumnName];
         if (keyValue == null)
@@ -165,13 +171,13 @@ public class InMemoryProjectionRepository : IProjectionRepository
         return Task.CompletedTask;
     }
 
-    public Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    public override Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         Storage[_projectionDocumentSchema.SchemaName].Remove((id, partitionKey));
         return Task.CompletedTask;
     }
 
-    public Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
+    public override Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         var storage = Storage[_projectionDocumentSchema.SchemaName];
         
@@ -191,5 +197,25 @@ public class InMemoryProjectionRepository : IProjectionRepository
         }
 
         return Task.CompletedTask;
+    }
+
+    protected override Task<ProjectionIndexState> GetProjectionIndexState(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override Task SaveProjectionIndexState(ProjectionIndexState state)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task<ProjectionIndexState?> AcquireAndLockProjectionThatRequiresRebuild()
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task UpdateProjectionRebuildStats(ProjectionIndexState indexToRebuild)
+    {
+        throw new NotImplementedException();
     }
 }

@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text;
 using CloudFabric.EventSourcing.EventStore;
 
@@ -70,10 +69,14 @@ public abstract class AggregateBase
     /// <returns></returns>
     public static Guid HashStringToGuid(string stringToHash)
     {
-        var md5 = HashAlgorithm.Create("MD5");
-        var hashedBytes = md5!.ComputeHash(Encoding.UTF8.GetBytes(stringToHash));
+        // Super fast non-cryptographic hash function: 
+        // https://cyan4973.github.io/xxHash/
+        // 128 version is used because that's what Guid uses for it's value
+        var hash = new System.IO.Hashing.XxHash128();
 
-        return new Guid(hashedBytes);
+        hash.Append(Encoding.UTF8.GetBytes(stringToHash));
+
+        return new Guid(hash.GetCurrentHash());
     }
 
     /// <summary>

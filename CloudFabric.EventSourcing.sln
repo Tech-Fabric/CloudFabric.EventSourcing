@@ -92,6 +92,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.EventSourcing.T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections.Clients.Ts", "CloudFabric.Projections.Clients.Ts\CloudFabric.Projections.Clients.Ts.csproj", "{7C0F1D7C-16DF-4DFF-9E52-7A45980DBFE0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudFabric.Projections.Worker", "CloudFabric.Projections.Worker\CloudFabric.Projections.Worker.csproj", "{8038258D-08E6-44E1-9078-650E5B0568C8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -222,6 +224,10 @@ Global
 		{7C0F1D7C-16DF-4DFF-9E52-7A45980DBFE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7C0F1D7C-16DF-4DFF-9E52-7A45980DBFE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7C0F1D7C-16DF-4DFF-9E52-7A45980DBFE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8038258D-08E6-44E1-9078-650E5B0568C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8038258D-08E6-44E1-9078-650E5B0568C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8038258D-08E6-44E1-9078-650E5B0568C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8038258D-08E6-44E1-9078-650E5B0568C8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

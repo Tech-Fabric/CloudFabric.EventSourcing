@@ -87,7 +87,7 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
         throw new Exception("Missed Elastic connection settings");
     }
 
-    public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
+    public override ProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
         var cached = GetFromCache(projectionDocumentSchema);
         if (cached != null)
@@ -95,7 +95,7 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
             return cached;
         }
         
-        IProjectionRepository? repository = null;
+        ProjectionRepository? repository = null;
         if (_basicAuthConnectionSettings != null)
         {
             repository = new ElasticSearchProjectionRepository(

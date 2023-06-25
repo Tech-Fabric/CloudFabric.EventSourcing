@@ -1,4 +1,5 @@
 using CloudFabric.Projections;
+using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.EventSourcing.EventStore.Postgresql;
 
@@ -6,10 +7,16 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
 {
     private readonly PostgresqlEventStore _eventStore;
     private Func<IEvent, Task>? _eventHandler;
+    
+    private ILogger<PostgresqlEventStoreEventObserver> _logger;
 
-    public PostgresqlEventStoreEventObserver(PostgresqlEventStore eventStore)
-    {
+    public PostgresqlEventStoreEventObserver(
+        PostgresqlEventStore eventStore,
+        ILogger<PostgresqlEventStoreEventObserver> logger
+    ) {
         _eventStore = eventStore;
+        
+        _logger = logger;
     }
 
     public void SetEventHandler(Func<IEvent, Task> eventHandler)
@@ -17,20 +24,23 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         _eventHandler = eventHandler;
     }
 
-
     public Task StartAsync(string instanceName)
     {
+        _logger.LogInformation("Starting {InstanceName}", instanceName);
+
         _eventStore.SubscribeToEventAdded(EventStoreOnEventAdded);
         return Task.CompletedTask;
     }
 
     public Task StopAsync()
     {
+        _logger.LogInformation("Stopping");
+
         _eventStore.UnsubscribeFromEventAdded(EventStoreOnEventAdded);
         return Task.CompletedTask;
     }
 
-    public async Task LoadAndHandleEventsForDocumentAsync(Guid documentId, string partitionKey)
+    public async Task ReplayEventsForDocumentAsync(Guid documentId, string partitionKey)
     {
         var stream = await _eventStore.LoadStreamAsync(documentId, partitionKey);
 
@@ -40,50 +50,73 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         }
     }
 
-    public async Task LoadAndHandleEventsAsync(
-        string instanceName,
-        string partitionKey,
-        DateTime? dateFrom,
-        Func<string, string, Task> onCompleted,
-        Func<string, string, string, Task> onError
-    )
+    public Task<EventStoreStatistics> GetEventStoreStatistics()
     {
-        Func<DateTime?, DateTime?, Task> handleEvents = 
-            async (dateFrom, dateTo) =>
-            {
-                var events = await _eventStore.LoadEventsAsync(partitionKey, dateFrom, dateTo);
+        return _eventStore.GetStatistics();
+    }
 
-                foreach (var @event in events)
-                {
-                    await EventStoreOnEventAdded(@event);
-                }
-            };
+    public async Task ReplayEventsAsync(
+        string instanceName, 
+        string? partitionKey, 
+        DateTime? dateFrom,
+        int chunkSize = 250,
+        Func<IEvent, Task>? chunkProcessedCallback = null,
+        CancellationToken cancellationToken = default
+    ) {
+        _logger.LogInformation("Replaying events {InstanceName} from {DateFrom}",
+            instanceName,
+            dateFrom
+        );
         
-        try
+        var lastEventDateTime = dateFrom;
+        var totalEventsProcessed = 0;
+        
+        while (true)
         {
-            if (!dateFrom.HasValue)
-            {
-                await handleEvents(null, null);
-            }
-            else
-            {            
-                DateTime startDate = dateFrom.Value.Date;
-                while (startDate <= DateTime.UtcNow.Date)
-                {
-                    DateTime endDate = startDate.AddDays(1);
-                    await handleEvents(startDate, endDate);
-                    
-                    startDate = endDate;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            await onError(instanceName, partitionKey, ex.InnerException?.Message ?? ex.Message);
-            throw;
-        }
+            var chunk = await _eventStore.LoadEventsAsync(
+                partitionKey, 
+                lastEventDateTime, 
+                chunkSize, 
+                cancellationToken
+            );
 
-        await onCompleted(instanceName, partitionKey);
+            if (chunk.Count <= 0)
+            {
+                break;
+            }
+            
+            foreach (var @event in chunk)
+            {
+                await EventStoreOnEventAdded(@event);
+            }
+            
+            var lastEvent = chunk.Last();
+            lastEventDateTime = lastEvent.Timestamp;
+            totalEventsProcessed += chunk.Count;
+                
+            _logger.LogInformation(
+                "Replayed {ReplayedEventsCount} {InstanceName}, " +
+                "last event timestamp: {LastEventDateTime}", 
+                chunk.Count, 
+                instanceName,
+                lastEvent.Timestamp
+            );
+
+            if (chunkProcessedCallback != null)
+            {
+                await chunkProcessedCallback(lastEvent);
+            }
+            
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation("Cancellation requested. Processed {TotalEventsProcessed} {InstanceName}", 
+                    totalEventsProcessed, 
+                    instanceName
+                );
+
+                break;
+            }
+        }
     }
 
     private async Task EventStoreOnEventAdded(IEvent e)

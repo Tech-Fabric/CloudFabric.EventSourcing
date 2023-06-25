@@ -29,7 +29,7 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
         var repositoryEventsObserver = GetEventStoreEventsObserver();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
-        ProjectionsEngine = new ProjectionsEngine(GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>());
+        ProjectionsEngine = new ProjectionsEngine();
         ProjectionsEngine.SetEventsObserver(repositoryEventsObserver);
 
         ProjectionBuilder = (TProjectionBuilder)Activator.CreateInstance(typeof(TProjectionBuilder), GetProjectionRepositoryFactory()) 

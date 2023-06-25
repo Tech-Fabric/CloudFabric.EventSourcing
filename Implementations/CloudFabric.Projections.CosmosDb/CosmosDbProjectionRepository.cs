@@ -87,7 +87,7 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
     }
 }
 
-public class CosmosDbProjectionRepository : IProjectionRepository
+public class CosmosDbProjectionRepository : ProjectionRepository
 {
     private readonly CosmosClient _client;
     private readonly string _containerId;
@@ -109,7 +109,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         string databaseId,
         string containerId,
         ProjectionDocumentSchema projectionDocumentSchema
-    )
+    ): base(projectionDocumentSchema)
     {
         _logger = loggerFactory.CreateLogger<CosmosDbProjectionRepository>();
         _client = new CosmosClient(connectionString, cosmosClientOptions);
@@ -118,25 +118,17 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         _projectionDocumentSchema = projectionDocumentSchema;
     }
 
-    public CosmosDbProjectionRepository(
-        ILoggerFactory loggerFactory,
-        CosmosClient client,
-        string databaseId,
-        string containerId
-    )
-    {
-        _logger = loggerFactory.CreateLogger<CosmosDbProjectionRepository>();
-        _client = client;
-        _databaseId = databaseId;
-        _containerId = containerId;
-    }
-
-    public Task EnsureIndex(CancellationToken cancellationToken = default)
+    public override Task EnsureIndex(CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }
 
-    public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    protected override Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
         var sw = Stopwatch.StartNew();
@@ -175,7 +167,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    public override async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
 
@@ -209,7 +201,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
+    public override async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -223,7 +215,27 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
+    protected override Task<ProjectionIndexState> GetProjectionIndexState(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override Task SaveProjectionIndexState(ProjectionIndexState state)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task<ProjectionIndexState?> AcquireAndLockProjectionThatRequiresRebuild()
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task UpdateProjectionRebuildStats(ProjectionIndexState indexToRebuild)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
     {
         if (document[_projectionDocumentSchema.KeyColumnName] == null)
         {
@@ -263,7 +275,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
+    public override async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default

@@ -13,7 +13,9 @@ public class EventSourcingBuilder : IEventSourcingBuilder
 
     public IServiceCollection Services { get; set; }
 
-    public ProjectionsEngine ProjectionsEngine { get; set; }
+    public ProjectionsEngine? ProjectionsEngine { get; set; }
+    public string? ProjectionsConnectionString { get; set; }
+    public Type[]? ProjectionBuilderTypes { get; set; }
 
     public IEventsObserver ProjectionEventsObserver { get; set; }
 

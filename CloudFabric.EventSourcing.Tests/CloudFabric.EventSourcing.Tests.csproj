@@ -26,6 +26,7 @@
     <ItemGroup>
         <ProjectReference Include="..\CloudFabric.EventSourcing.EventStore\CloudFabric.EventSourcing.EventStore.csproj" />
         <ProjectReference Include="..\CloudFabric.EventSourcing.Domain\CloudFabric.EventSourcing.Domain.csproj" />
+        <ProjectReference Include="..\CloudFabric.Projections.Worker\CloudFabric.Projections.Worker.csproj" />
         <ProjectReference Include="..\CloudFabric.Projections\CloudFabric.Projections.csproj" />
     </ItemGroup>
 
