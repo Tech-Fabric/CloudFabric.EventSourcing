@@ -43,7 +43,8 @@ public class QueryStringTestsElasticSearch : ProjectionQueryTest
                 "",
                 "",
                 ""),
-                new LoggerFactory()
+                new LoggerFactory(),
+                true
             );
         }
 

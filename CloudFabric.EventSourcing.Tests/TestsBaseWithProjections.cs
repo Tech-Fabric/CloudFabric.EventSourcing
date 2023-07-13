@@ -1,5 +1,7 @@
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.Projections;
+using CloudFabric.Projections.Worker;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests;
@@ -23,9 +25,20 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
     public async Task Initialize()
     {
         var store = await GetEventStore();
+        
         // Repository containing projections - `view models` of orders
         ProjectionsRepository = GetProjectionRepositoryFactory().GetProjectionRepository<TProjectionDocument>();
-        await ProjectionsRepository.EnsureIndex();
+
+        await store.DeleteAll();
+
+        try
+        {
+            await ProjectionsRepository.DeleteAll();
+        }
+        catch
+        {
+        }
+        
         var repositoryEventsObserver = GetEventStoreEventsObserver();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
@@ -38,6 +51,18 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
         ProjectionsEngine.AddProjectionBuilder(ProjectionBuilder);
         
         await ProjectionsEngine.StartAsync("Test");
+
+        var projectionsRebuildProcessor = new ProjectionsRebuildProcessor(
+            GetProjectionRepositoryFactory().GetProjectionRepository(null),
+            async (string connectionId) =>
+            {
+                return ProjectionsEngine;
+            },
+            NullLogger<ProjectionsRebuildProcessor>.Instance
+        );
+
+        await ProjectionsRepository.EnsureIndex();
+        await projectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();
     }
     
     [TestCleanup]

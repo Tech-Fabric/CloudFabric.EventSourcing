@@ -232,22 +232,23 @@ public class PostgresqlEventStore : IEventStore
         await using var conn = new NpgsqlConnection(connectionInformation.ConnectionString);
         await conn.OpenAsync(cancellationToken);
 
-        string whereClause = "";
+        List<string> wheres = new List<string>();
 
         if (!string.IsNullOrEmpty(partitionKey))
         {
-            whereClause += $"event_data->>'partitionKey' = '{partitionKey}'";
+            wheres.Add($"event_data->>'partitionKey' = '{partitionKey}'");
         }
 
-        whereClause += dateFrom.HasValue
-            ? $" AND (event_data->>'timestamp')::timestamp without time zone >= '{dateFrom.Value:yyyy-MM-ddTHH:mm:ss.fffZ}'::timestamp without time zone "
-            : "";
+        if (dateFrom.HasValue)
+        {
+            wheres.Add($"(event_data->>'timestamp')::timestamp without time zone > '{dateFrom.Value:yyyy-MM-ddTHH:mm:ss.fffffffZ}'::timestamp without time zone ");
+        }
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, event_type, event_data " +
             $"FROM \"{connectionInformation.TableName}\" " +
-            (!string.IsNullOrEmpty(whereClause) 
-                ? $"WHERE {whereClause} " 
+            (wheres.Count > 0
+                ? $"WHERE {string.Join(" AND ", wheres)} " 
                 : "") +
             $"ORDER BY stream_version ASC " +
             $"LIMIT {limit}", conn);

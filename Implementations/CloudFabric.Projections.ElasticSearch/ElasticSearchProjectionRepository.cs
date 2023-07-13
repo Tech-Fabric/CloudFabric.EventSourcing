@@ -1,14 +1,10 @@
 using System.Collections;
 using System.Text.Json;
-
-using Microsoft.Extensions.Logging;
-
 using CloudFabric.Projections.ElasticSearch.Helpers;
-using CloudFabric.Projections.Exceptions;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
 using Elasticsearch.Net;
-
+using Microsoft.Extensions.Logging;
 using Nest;
 using Filter = CloudFabric.Projections.Queries.Filter;
 using SortOrder = Nest.SortOrder;
@@ -43,10 +39,15 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
     )
     {
     }
-    
-    public new async Task<TProjectionDocument?> Single(Guid id, string partitionKey, CancellationToken cancellationToken)
+
+    public new async Task<TProjectionDocument?> Single(
+        Guid id,
+        string partitionKey,
+        CancellationToken cancellationToken,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
+    )
     {
-        var document = await base.Single(id, partitionKey, cancellationToken);
+        var document = await base.Single(id, partitionKey, cancellationToken, indexSelector);
 
         if (document == null)
         {
@@ -56,33 +57,48 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
+    public Task Upsert(
+        TProjectionDocument document,
+        string partitionKey,
+        DateTime updatedAt,
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    )
     {
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
-        return Upsert(documentDictionary, partitionKey, updatedAt, cancellationToken);
+        return Upsert(documentDictionary, partitionKey, updatedAt, cancellationToken, indexSelector);
     }
 
-    public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(ProjectionQuery projectionQuery, string? partitionKey = null, CancellationToken cancellationToken = default)
+    public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(
+        ProjectionQuery projectionQuery,
+        string? partitionKey = null,
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
+    )
     {
-        var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
+        var result = await base.Query(projectionQuery, partitionKey, cancellationToken, indexSelector);
 
         var records = new List<QueryResultDocument<TProjectionDocument>>();
 
-        foreach (var doc in recordsDictionary.Records)
+        foreach (var doc in result.Records)
         {
-            records.Add(
-                new QueryResultDocument<TProjectionDocument>
-                {
-                    Document = ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(doc.Document)
-                }
-            );
+            if (doc.Document != null)
+            {
+                records.Add(
+                    new QueryResultDocument<TProjectionDocument>
+                    {
+                        Document = ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(doc.Document)
+                    }
+                );
+            }
         }
 
         return new ProjectionQueryResult<TProjectionDocument>
         {
-            IndexName = recordsDictionary.IndexName,
-            TotalRecordsFound = recordsDictionary.TotalRecordsFound,
-            Records = records
+            IndexName = result.IndexName,
+            TotalRecordsFound = result.TotalRecordsFound,
+            Records = records,
+            DebugInformation = result.DebugInformation
         };
     }
 }
@@ -90,13 +106,13 @@ public class ElasticSearchProjectionRepository<TProjectionDocument> : ElasticSea
 public class ElasticSearchProjectionRepository : ProjectionRepository
 {
     private const string PROJECTION_INDEX_STATE_INDEX_NAME = "projection_index_state";
-    
+
     private readonly ProjectionDocumentSchema _projectionDocumentSchema;
     private string? _keyPropertyName;
     private readonly ElasticClient _client;
     private readonly ElasticSearchIndexer _indexer;
     private readonly ILogger<ElasticSearchProjectionRepository> _logger;
-    
+
     /// <summary>
     /// When request streaming is disabled, elastic adds debug information about request and response to response object which can
     /// be useful when troubleshooting search problems.
@@ -116,21 +132,33 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
     /// Defaults to false to improve performance.
     /// </param>
     public ElasticSearchProjectionRepository(
-        ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, 
-        ProjectionDocumentSchema projectionDocumentSchema, 
+        ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings,
+        ProjectionDocumentSchema projectionDocumentSchema,
         ILoggerFactory loggerFactory,
-        bool disableRequestStreaming = false) : base(projectionDocumentSchema)
+        bool disableRequestStreaming = false
+    ) : base(projectionDocumentSchema)
     {
         _projectionDocumentSchema = projectionDocumentSchema;
         _logger = loggerFactory.CreateLogger<ElasticSearchProjectionRepository>();
         _disableRequestStreaming = disableRequestStreaming;
-        
-        var connectionSettings = new ConnectionSettings(apiKeyAuthConnectionSettings.CloudId, new ApiKeyAuthenticationCredentials(apiKeyAuthConnectionSettings.ApiKeyId,
-                apiKeyAuthConnectionSettings.ApiKey))
+
+        var connectionSettings = new ConnectionSettings(
+                apiKeyAuthConnectionSettings.CloudId, new ApiKeyAuthenticationCredentials(
+                    apiKeyAuthConnectionSettings.ApiKeyId,
+                    apiKeyAuthConnectionSettings.ApiKey
+                )
+            )
             .ThrowExceptions()
             .DefaultFieldNameInferrer(x => x);
-        
+
         _client = new ElasticClient(connectionSettings);
+        
+        // Very important setting - when we remove the index, system has to create it explicitly, with all custom analyzers and settings.
+        // Otherwise the index won't have proper attributes and just won't work
+        _client.Cluster.PutSettingsAsync(settings => settings.Persistent(p => { 
+            p["action.auto_create_index"] = "false";
+            return p;
+        }));
 
         _indexer = new ElasticSearchIndexer(apiKeyAuthConnectionSettings, loggerFactory);
     }
@@ -166,6 +194,13 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
             .DefaultFieldNameInferrer(x => x);
 
         _client = new ElasticClient(connectionSettings);
+        
+        // Very important setting - when we remove the index, system has to create it explicitly, with all custom analyzers and settings.
+        // Otherwise the index won't have proper attributes and just won't work
+        _client.Cluster.PutSettingsAsync(settings => settings.Persistent(p => { 
+            p["action.auto_create_index"] = "false";
+            return p;
+        }));
 
         // create an index
         _indexer = new ElasticSearchIndexer(basicAuthConnectionSettings, loggerFactory);
@@ -281,10 +316,10 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
     public override async Task EnsureIndex(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Ensuring index exists for {ProjectionDocumentSchemaName}", _projectionDocumentSchema.SchemaName);
-        
-        // we just need to make sure index exists readOnly=true will do that, otherwise it will throw an error saying that index is not ready yet
-        var indexName = await GetIndexNameForSchema(true, cancellationToken); 
-        
+
+        // we just need to make sure index exists `readOnly` will do that, otherwise it will throw an error saying that index is not ready yet
+        var indexName = await GetIndexNameForSchema(ProjectionOperationIndexSelector.ReadOnly, cancellationToken);
+
         _logger.LogInformation("Index for {ProjectionDocumentSchemaName}, {IndexName}", _projectionDocumentSchema.SchemaName, indexName);
     }
 
@@ -293,7 +328,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         await _indexer.CreateOrUpdateIndex(indexName, _projectionDocumentSchema);
     }
 
-    protected override async Task<ProjectionIndexState> GetProjectionIndexState(CancellationToken cancellationToken = default)
+    protected override async Task<ProjectionIndexState?> GetProjectionIndexState(CancellationToken cancellationToken = default)
     {
         var indexStateResponse = await _client.GetAsync<ProjectionIndexState>(
             _projectionDocumentSchema.SchemaName,
@@ -306,7 +341,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
     protected override async Task SaveProjectionIndexState(ProjectionIndexState state)
     {
         await _indexer.CreateOrUpdateIndex(PROJECTION_INDEX_STATE_INDEX_NAME, ProjectionDocumentSchemaFactory.FromTypeWithAttributes<ProjectionIndexState>());
-        
+
         var saveResult = await _client.IndexAsync(
             new IndexRequest<ProjectionIndexState>(state, PROJECTION_INDEX_STATE_INDEX_NAME, id: state.ProjectionName)
             {
@@ -316,12 +351,12 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         );
     }
 
-    public override async Task<ProjectionIndexState?> AcquireAndLockProjectionThatRequiresRebuild()
+    public override async Task<(ProjectionIndexState?, string?)> AcquireAndLockProjectionThatRequiresRebuild()
     {
         await _indexer.CreateOrUpdateIndex(PROJECTION_INDEX_STATE_INDEX_NAME, ProjectionDocumentSchemaFactory.FromTypeWithAttributes<ProjectionIndexState>());
 
         var rebuildHealthCheckThreshold = DateTime.UtcNow.AddMinutes(-5);
-        
+
         var projectionQuery = new ProjectionQuery()
         {
             Filters = new List<Filter>()
@@ -332,14 +367,21 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
                 //    have been no health checks for more than 5 minutes (see rebuildHealthCheckThreshold above). Note that this means we are taking over
                 //    a rebuild not completed by another process. That process could still wake up and continue, so it should check the index before continuing
                 //    and ensure no other process took over the rebuild process.
-                new Filter($"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildStartedAt)}", 
-                        FilterOperator.Equal, 
-                        null
-                    ).Or(new Filter($"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildCompletedAt)}", FilterOperator.Equal, null)
-                        .And($"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildHealthCheckAt)}", 
-                            FilterOperator.Lower, 
+                new Filter(
+                    $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildStartedAt)}",
+                    FilterOperator.Equal,
+                    null
+                ).Or(
+                    new Filter(
+                            $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildCompletedAt)}", FilterOperator.Equal,
+                            null
+                        )
+                        .And(
+                            $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildHealthCheckAt)}",
+                            FilterOperator.Lower,
                             rebuildHealthCheckThreshold
-                ))
+                        )
+                )
             }
         };
 
@@ -371,28 +413,28 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
                 return request;
             }
         );
-        
+
         if (result.Documents.Count <= 0)
         {
-            return null;
+            return (null, null);
         }
-        
+
         var dateTimeStarted = DateTime.UtcNow;
 
-        var projectionIndexState = result.Documents.FirstOrDefault();
-        
+        var projectionIndexState = result.Documents.First();
+
         projectionIndexState.UpdatedAt = dateTimeStarted;
-        
+
         // !Important: this where condition should be in absolute sync with the condition we send to elasticsearch (at the beginning of this method)
         var index = projectionIndexState.IndexesStatuses
             .Where(s => s.RebuildStartedAt == null || (s.RebuildCompletedAt == null && s.RebuildHealthCheckAt < rebuildHealthCheckThreshold))
             .OrderBy(s => s.CreatedAt)
             .First();
-        
+
         index.RebuildStartedAt = dateTimeStarted;
         index.RebuildHealthCheckAt = dateTimeStarted;
         index.RebuildCompletedAt = null;
-        
+
         var saveResult = await _client.IndexAsync(
             new IndexRequest<ProjectionIndexState>(projectionIndexState, PROJECTION_INDEX_STATE_INDEX_NAME, id: projectionIndexState.ProjectionName)
             {
@@ -411,10 +453,10 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         if (projectionIndexState.UpdatedAt != indexStateResponse.Source.UpdatedAt)
         {
             // look like some other process updated the item before us. Just ignore this record then - it will be processed by that process.
-            return null;
+            return (null, null);
         }
 
-        return indexStateResponse.Source;
+        return (indexStateResponse.Source, index.IndexName);
     }
 
     public override async Task UpdateProjectionRebuildStats(ProjectionIndexState indexToRebuild)
@@ -422,10 +464,15 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         await SaveProjectionIndexState(indexToRebuild);
     }
 
-    public override async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    public override async Task<Dictionary<string, object?>?> Single(
+        Guid id,
+        string partitionKey,
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
+    )
     {
-        var indexName = await GetIndexNameForSchema(true);
-        
+        var indexName = await GetIndexNameForSchema(indexSelector, cancellationToken);
+
         try
         {
             var item = await _client.GetAsync<Dictionary<string, object?>>(
@@ -452,10 +499,15 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         }
     }
 
-    public override async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+    public override async Task Delete(
+        Guid id,
+        string partitionKey,
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    )
     {
-        var indexName = await GetIndexNameForSchema(true);
-        
+        var indexName = await GetIndexNameForSchema(indexSelector, cancellationToken);
+
         try
         {
             await _client.DeleteAsync(
@@ -469,7 +521,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         catch (Exception ex)
         {
             _logger.LogError(
-                ex, 
+                ex,
                 "Failed to delete Document with {@Id} ({@Index})", id, indexName
             );
 
@@ -477,46 +529,64 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         }
     }
 
-    public override async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
-    {
-        var indexName = await GetIndexNameForSchema(false);
+    public override async Task DeleteAll(
+        string? partitionKey = null,
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    ) {
+        var indexState = await GetProjectionIndexState(cancellationToken);
+
+        if (indexState == null)
+        {
+            return;
+        }
         
-        try
+        foreach (var indexStatus in indexState.IndexesStatuses)
         {
-            if (partitionKey == null)
+            try
             {
-                await _client.Indices.DeleteAsync(new DeleteIndexRequest(indexName), cancellationToken);
+                if (partitionKey == null)
+                {
+                    await _client.Indices.DeleteAsync(new DeleteIndexRequest(indexStatus.IndexName), cancellationToken);
+                }
+                else
+                {
+                    await _client.DeleteByQueryAsync<Dictionary<string, object?>>(
+                        x => x.Query(
+                                q => q.Bool(
+                                    b => new BoolQuery
+                                    {
+                                        Filter = new List<QueryContainer>
+                                        {
+                                            new QueryStringQuery() { Query = $"{nameof(partitionKey)}:{partitionKey}" }
+                                        }
+                                    }
+                                )
+                            )
+                            .Routing(partitionKey),
+                        cancellationToken
+                    );
+                }
             }
-            else
+            catch (Exception ex)
             {
-                await _client.DeleteByQueryAsync<Dictionary<string, object?>>(
-                    x => x.Query(
-                        q => q.Bool(
-                            b => new BoolQuery
-                            {
-                                Filter = new List<QueryContainer>
-                                {
-                                    new QueryStringQuery() { Query = $"{nameof(partitionKey)}:{partitionKey}" }
-                                }
-                            }
-                        )
-                    )
-                    .Routing(partitionKey),
-                    cancellationToken
-                );
+                _logger.LogError(ex, "Failed to delete index {@Index}", indexStatus.IndexName);
+                throw;
             }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to delete index {@Index}", indexName);
-            throw;
-        }
+        
+        await _client.Indices.DeleteAsync(new DeleteIndexRequest(PROJECTION_INDEX_STATE_INDEX_NAME), cancellationToken);
     }
 
-    public override async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
+    public override async Task Upsert(
+        Dictionary<string, object?> document,
+        string partitionKey,
+        DateTime updatedAt,
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write)
     {
-        var indexName = await GetIndexNameForSchema(false);
-        
+        var indexName = await GetIndexNameForSchema(indexSelector, cancellationToken);
+
         try
         {
             document.TryGetValue("Id", out object? id);
@@ -535,7 +605,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         catch (Exception ex)
         {
             _logger.LogError(
-                ex, 
+                ex,
                 "Failed to upsert Document with {@Id} ({@Index})", document[_projectionDocumentSchema.KeyColumnName], indexName
             );
 
@@ -546,18 +616,19 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
     public override async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
     )
     {
-        var indexName = await GetIndexNameForSchema(true);
-        
+        var indexName = await GetIndexNameForSchema(indexSelector, cancellationToken);
+
         try
         {
             var result = await _client.SearchAsync<Dictionary<string, object?>>(
                 request =>
                 {
                     request = request.Index(indexName);
-                    
+
                     request = request.TrackTotalHits();
                     request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
                     request = request.Sort(s => ConstructSort(s, projectionQuery));
@@ -586,12 +657,14 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
             {
                 IndexName = indexName,
                 TotalRecordsFound = (int)result.Total,
-                Records = result.Documents.Select(x => 
-                    new QueryResultDocument<Dictionary<string, object?>>
-                    {
-                        Document = DeserializeDictionary(x)
-                    }
-                ).ToList(),
+                Records = result.Documents.Select(
+                        x =>
+                            new QueryResultDocument<Dictionary<string, object?>>
+                            {
+                                Document = DeserializeDictionary(x)
+                            }
+                    )
+                    .ToList(),
                 DebugInformation = result.DebugInformation
             };
         }
@@ -678,7 +751,6 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
                 }
                 else
                 {
-
                     var listItemDictionary = listItem as Dictionary<string, object?>;
                     foreach (var listItemProperty in listItemDictionary)
                     {
@@ -707,36 +779,40 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         {
             var queries = ElasticSearchQueryFactory.ConstructSearchQuery(_projectionDocumentSchema, projectionQuery.SearchText);
 
-            textQueries.Add(new BoolQuery()
-            {
-                Should = queries
-            });
+            textQueries.Add(
+                new BoolQuery()
+                {
+                    Should = queries
+                }
+            );
         }
 
         if (projectionQuery.Filters == null || !projectionQuery.Filters.Any())
         {
-            return searchDescriptor.Bool(q =>
-                new BoolQuery()
-                {
-                    Should = textQueries
-                }
+            return searchDescriptor.Bool(
+                q =>
+                    new BoolQuery()
+                    {
+                        Should = textQueries
+                    }
             );
         }
 
         // construct filters
         var filters = ElasticSearchFilterFactory.ConstructFilters(projectionQuery.Filters);
 
-        return searchDescriptor.Bool(q =>
-            q.Must(
-                new BoolQuery
-                {
-                    Should = textQueries
-                },
-                new BoolQuery
-                {
-                    Filter = filters
-                }
-            )
+        return searchDescriptor.Bool(
+            q =>
+                q.Must(
+                    new BoolQuery
+                    {
+                        Should = textQueries
+                    },
+                    new BoolQuery
+                    {
+                        Filter = filters
+                    }
+                )
         );
     }
 
@@ -745,61 +821,63 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         foreach (var orderBy in projectionQuery.OrderBy)
         {
             var keyPaths = orderBy.KeyPath.Split('.');
-            SortOrder sortOrder = orderBy.Order.ToLower() == "asc" ? Nest.SortOrder.Ascending : Nest.SortOrder.Descending;
-            
+            SortOrder sortOrder = orderBy.Order.ToLower() == "asc" ? SortOrder.Ascending : SortOrder.Descending;
+
             sortDescriptor = sortDescriptor.Field(
                 field =>
                 {
                     var descriptor = field
-                        .Field(new Nest.Field(orderBy.KeyPath))
+                        .Field(new Field(orderBy.KeyPath))
                         .Order(sortOrder);
 
                     // add sorting statement for each nested level
                     for (var pathElementsNumber = 1; pathElementsNumber < keyPaths.Length; pathElementsNumber++)
                     {
                         descriptor = descriptor
-                            .Nested(nested =>
-                            {
-                                string nestedPath = string.Join('.', keyPaths.Take(pathElementsNumber));
-                                
-                                var nestedDescriptor = nested.Path(nestedPath);
-
-                                // check property filters (for example if we sort by an array element, we need to filter it)
-                                if (orderBy.Filters.Any())
+                            .Nested(
+                                nested =>
                                 {
-                                    // take parent path for current nested level
-                                    string parentObjectPath = nestedPath.Contains(".")
-                                        ? nestedPath.Substring(0, nestedPath.LastIndexOf('.'))
-                                        : nestedPath;
-                                    
-                                    // find a filter with the same parent path
-                                    // which means to filter by a property of the same object
-                                    var filter = orderBy.Filters.FirstOrDefault(
-                                        x =>
-                                        {
-                                            string filterParentPath = x.FilterKeyPath.Contains(".")
-                                                ? x.FilterKeyPath.Substring(0, x.FilterKeyPath.LastIndexOf('.'))
-                                                : x.FilterKeyPath;
-                                                
-                                            return filterParentPath == parentObjectPath;
-                                        }
-                                    );
+                                    string nestedPath = string.Join('.', keyPaths.Take(pathElementsNumber));
 
-                                    if (filter != null)
+                                    var nestedDescriptor = nested.Path(nestedPath);
+
+                                    // check property filters (for example if we sort by an array element, we need to filter it)
+                                    if (orderBy.Filters.Any())
                                     {
-                                        nestedDescriptor.Filter(
-                                            f => f
-                                                .Term(
-                                                    term => term
-                                                        .Field(filter.FilterKeyPath)
-                                                        .Value(filter.FilterValue)
-                                                )
-                                        );
-                                    }
-                                }
+                                        // take parent path for current nested level
+                                        string parentObjectPath = nestedPath.Contains(".")
+                                            ? nestedPath.Substring(0, nestedPath.LastIndexOf('.'))
+                                            : nestedPath;
 
-                                return nestedDescriptor;
-                            });
+                                        // find a filter with the same parent path
+                                        // which means to filter by a property of the same object
+                                        var filter = orderBy.Filters.FirstOrDefault(
+                                            x =>
+                                            {
+                                                string filterParentPath = x.FilterKeyPath.Contains(".")
+                                                    ? x.FilterKeyPath.Substring(0, x.FilterKeyPath.LastIndexOf('.'))
+                                                    : x.FilterKeyPath;
+
+                                                return filterParentPath == parentObjectPath;
+                                            }
+                                        );
+
+                                        if (filter != null)
+                                        {
+                                            nestedDescriptor.Filter(
+                                                f => f
+                                                    .Term(
+                                                        term => term
+                                                            .Field(filter.FilterKeyPath)
+                                                            .Value(filter.FilterValue)
+                                                    )
+                                            );
+                                        }
+                                    }
+
+                                    return nestedDescriptor;
+                                }
+                            );
                     }
 
                     return descriptor;

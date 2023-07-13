@@ -42,7 +42,8 @@ public class OrderStringComparisonTestsElasticSearch : OrderStringComparisonTest
                 "",
                 "",
                 ""),
-                new LoggerFactory()
+                new LoggerFactory(),
+                true
             );
         }
 

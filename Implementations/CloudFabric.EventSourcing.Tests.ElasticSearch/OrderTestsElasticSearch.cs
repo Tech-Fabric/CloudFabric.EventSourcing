@@ -43,7 +43,8 @@ public class OrderTestsElasticSearch : OrderTests
                 "",
                 "",
                 ""),
-                new LoggerFactory()
+                new LoggerFactory(),
+                true
             );
         }
 

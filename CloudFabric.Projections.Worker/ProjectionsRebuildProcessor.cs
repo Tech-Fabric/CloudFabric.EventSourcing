@@ -1,6 +1,4 @@
 ﻿using CloudFabric.EventSourcing.EventStore;
-using CloudFabric.Projections.Queries;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.Projections.Worker;
@@ -8,7 +6,7 @@ namespace CloudFabric.Projections.Worker;
 public class ProjectionsRebuildProcessor
 {
     private readonly ProjectionRepository _projectionRepository;
-    private readonly Func<string, ProjectionsEngine> _projectionsEngineFactory;
+    private readonly Func<string, Task<ProjectionsEngine>> _projectionsEngineFactory;
 
     private readonly ILogger<ProjectionsRebuildProcessor> _logger;
     
@@ -19,7 +17,7 @@ public class ProjectionsRebuildProcessor
     /// <param name="logger"></param>
     public ProjectionsRebuildProcessor(
         ProjectionRepository projectionRepository,
-        Func<string, ProjectionsEngine> projectionsEngineFactory,
+        Func<string, Task<ProjectionsEngine>> projectionsEngineFactory,
         ILogger<ProjectionsRebuildProcessor> logger
     ) {
         _projectionRepository = projectionRepository;
@@ -27,41 +25,62 @@ public class ProjectionsRebuildProcessor
         _logger = logger;
     }
 
-    public async Task DetectProjectionsToRebuild(CancellationToken cancellationToken = default)
+    public async Task RebuildProjectionsThatRequireRebuild(int maxParallelTasks = 4, CancellationToken cancellationToken = default)
     {
-        var indexToRebuild = await _projectionRepository.AcquireAndLockProjectionThatRequiresRebuild();
+        var tasks = new List<Task<bool>>();
 
-        if (indexToRebuild == null)
+        for (var i = 0; i < maxParallelTasks; i++)
         {
-            _logger.LogInformation("Nothing to do, did not found an index that requires rebuild");
+            var (projectionIndexState, indexNameToRebuild) = await _projectionRepository.AcquireAndLockProjectionThatRequiresRebuild();
+
+            if (indexNameToRebuild == null)
+            {
+                break;
+            }
+
+            tasks.Add(RebuildOneProjectionWhichRequiresRebuild(projectionIndexState, indexNameToRebuild, cancellationToken));
+        }
+
+        if (tasks.Count <= 0)
+        {
             return;
         }
 
-        var ind = indexToRebuild.IndexesStatuses.Last();
-        
-        var connectionId = indexToRebuild.ConnectionId;
+        await Task.WhenAll(tasks);
 
-        var projectionsEngine = _projectionsEngineFactory(connectionId);
+        await RebuildProjectionsThatRequireRebuild(maxParallelTasks, cancellationToken);
+    }
+
+    public async Task<bool> RebuildOneProjectionWhichRequiresRebuild(
+        ProjectionIndexState projectionIndexState, 
+        string indexNameToRebuild, 
+        CancellationToken cancellationToken = default
+    ) {
+        var connectionId = projectionIndexState.ConnectionId;
+
+        var projectionsEngine = await _projectionsEngineFactory(connectionId);
 
         var eventStoreStatistics = await projectionsEngine.GetEventStoreStatistics();
 
-        ind.TotalEventsToProcess = eventStoreStatistics.TotalEventsCount;
+        var indexToRebuild = projectionIndexState.IndexesStatuses.First(i => i.IndexName == indexNameToRebuild);
         
-        await _projectionRepository.UpdateProjectionRebuildStats(indexToRebuild);
+        indexToRebuild.TotalEventsToProcess = eventStoreStatistics.TotalEventsCount;
+        
+        await _projectionRepository.UpdateProjectionRebuildStats(projectionIndexState);
         
         await projectionsEngine.ReplayEventsAsync(
-            $"{Environment.MachineName}-{Environment.ProcessId}", null, ind.LastProcessedEventTimestamp,
+            $"{Environment.MachineName}-{Environment.ProcessId}", null, indexToRebuild.LastProcessedEventTimestamp,
             250,
             async Task(IEvent lastProcessedEvent) =>
             {
-                ind.RebuildEventsProcessed += 250;
-                ind.LastProcessedEventTimestamp = lastProcessedEvent.Timestamp;
-                ind.RebuildHealthCheckAt = DateTime.UtcNow;
+                indexToRebuild.RebuildEventsProcessed += 250;
+                indexToRebuild.LastProcessedEventTimestamp = lastProcessedEvent.Timestamp;
+                indexToRebuild.RebuildHealthCheckAt = DateTime.UtcNow;
                 
-                await _projectionRepository.UpdateProjectionRebuildStats(indexToRebuild);
+                await _projectionRepository.UpdateProjectionRebuildStats(projectionIndexState);
                 
                 _logger.LogInformation("Processed {EventsProcessed}/{TotalEventsInEventStore}", 
-                    ind.RebuildEventsProcessed, ind.TotalEventsToProcess
+                    indexToRebuild.RebuildEventsProcessed, indexToRebuild.TotalEventsToProcess
                 );
             },
             cancellationToken
@@ -69,10 +88,12 @@ public class ProjectionsRebuildProcessor
 
         if (!cancellationToken.IsCancellationRequested)
         {
-            ind.RebuildHealthCheckAt = DateTime.UtcNow;
-            ind.RebuildCompletedAt = DateTime.UtcNow;
+            indexToRebuild.RebuildHealthCheckAt = DateTime.UtcNow;
+            indexToRebuild.RebuildCompletedAt = DateTime.UtcNow;
 
-            await _projectionRepository.UpdateProjectionRebuildStats(indexToRebuild);
+            await _projectionRepository.UpdateProjectionRebuildStats(projectionIndexState);
         }
+
+        return true;
     }
 }
