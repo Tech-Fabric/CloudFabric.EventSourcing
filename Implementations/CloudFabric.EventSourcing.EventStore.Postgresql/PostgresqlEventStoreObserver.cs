@@ -8,7 +8,7 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
     private readonly PostgresqlEventStore _eventStore;
     private Func<IEvent, Task>? _eventHandler;
     
-    private ILogger<PostgresqlEventStoreEventObserver> _logger;
+    private readonly ILogger<PostgresqlEventStoreEventObserver> _logger;
 
     public PostgresqlEventStoreEventObserver(
         PostgresqlEventStore eventStore,
@@ -40,7 +40,7 @@ public class PostgresqlEventStoreEventObserver : IEventsObserver
         return Task.CompletedTask;
     }
 
-    public async Task ReplayEventsForDocumentAsync(Guid documentId, string partitionKey)
+    public async Task ReplayEventsForOneDocumentAsync(Guid documentId, string partitionKey)
     {
         var stream = await _eventStore.LoadStreamAsync(documentId, partitionKey);
 

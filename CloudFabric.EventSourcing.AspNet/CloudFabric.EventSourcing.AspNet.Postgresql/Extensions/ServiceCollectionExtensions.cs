@@ -2,6 +2,7 @@ using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
+using CloudFabric.Projections.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -59,8 +60,9 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                     var projectionsRepositoryFactory = sp.GetService<ProjectionRepositoryFactory>();
 
                     // Postgresql's event observer is synchronous - it just handles all calls to npgsql commands, there is no delay
-                    // or log processing. That means that all events are happening in request context, possibly on multiple threads,
-                    // so having one global projections builder is more complicated than simply creating new projections builder for each request.
+                    // or log processing. That means that all events are happening in request context and we cannot have one global projections builder.
+                    // There was an option to have one global projections builder with thread safe queues, but for now, creating a builder for every request 
+                    // should just work.
                     if (projectionsRepositoryFactory != null)
                     {
                         scope.ProjectionsEngine = new ProjectionsEngine();
@@ -136,6 +138,51 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                 }
             );
 
+            return builder;
+        }
+
+        public static IEventSourcingBuilder AddProjectionsRebuildProcessor(this IEventSourcingBuilder builder)
+        {
+            builder.Services.AddSingleton<ProjectionsRebuildProcessor>((sp) => {
+                return new ProjectionsRebuildProcessor(
+                    sp.GetRequiredService<ProjectionRepositoryFactory>().GetProjectionRepository(null),
+                    async (string connectionId) =>
+                    {
+                        var connectionInformationProvider = sp.GetRequiredService<IPostgresqlEventStoreConnectionInformationProvider>();
+                        var connectionInformation = connectionInformationProvider.GetConnectionInformation(connectionId);
+                        var eventStore = new PostgresqlEventStore(connectionInformation.ConnectionString, connectionInformation.TableName);
+
+                        var eventObserver = new PostgresqlEventStoreEventObserver(
+                            (PostgresqlEventStore)eventStore,
+                            sp.GetRequiredService<ILogger<PostgresqlEventStoreEventObserver>>()
+                        );
+                        
+                        var projectionsEngine = new ProjectionsEngine();
+
+                        foreach (var projectionBuilderType in builder.ProjectionBuilderTypes)
+                        {
+                            var projectionBuilder = builder.ConstructProjectionBuilder(
+                                projectionBuilderType, 
+                                sp.GetRequiredService<ProjectionRepositoryFactory>()
+                            );
+
+                            projectionsEngine.AddProjectionBuilder(projectionBuilder);
+                        }
+                        
+                        projectionsEngine.SetEventsObserver(eventObserver);
+
+                        // no need to listen - we are attaching this projections engine to test event store which is already being observed
+                        // by tests projections engine (see PrepareProjections method)
+                        //await projectionsEngine.StartAsync("TestInstance");
+
+                        return projectionsEngine;
+                    },
+                    sp.GetRequiredService<ILogger<ProjectionsRebuildProcessor>>()
+                );
+            });
+
+            builder.Services.AddHostedService<ProjectionsRebuildProcessorHostedService>();
+            
             return builder;
         }
     }

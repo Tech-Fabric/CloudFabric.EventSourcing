@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.Security.Cryptography;
-using System.Text;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using CloudFabric.EventSourcing.Tests.Domain;
@@ -11,7 +9,6 @@ using CloudFabric.Projections;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Worker;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -72,6 +69,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
                 orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) + 1;
 
                 // This is a test projection builder and the goal is to simulate addition/removal of a projection field.
+                // so we only modify the dictionary when property exists in schema. That property will be added/removed to the schema by tests.
                 if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "TotalPrice"))
                 {
                     if (!orderProjection.ContainsKey("TotalPrice"))
@@ -105,6 +103,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
                 orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) - 1;
                 
                 // This is a test projection builder and the goal is to simulate addition/removal of a projection field.
+                // so we only modify the dictionary when property exists in schema. That property will be added/removed to the schema by tests.
                 if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "TotalPrice"))
                 {
                     orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0m) - @event.Item.Amount;
@@ -238,8 +237,10 @@ public abstract class DynamicProjectionSchemaTests
         };
         
         var (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjections(orderRepositoryEventsObserver, ordersProjectionSchema);
+        var projectionsRebuildProcessor = PrepareProjectionsRebuildProcessor(orderRepositoryEventsObserver, ordersProjectionSchema);
 
         await ordersListProjectionsRepository.EnsureIndex();
+        await projectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();
         
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
@@ -349,8 +350,10 @@ public abstract class DynamicProjectionSchemaTests
         };
         
         var (projectionsEngine, ordersListProjectionsRepository) = await PrepareProjections(orderRepositoryEventsObserver, ordersProjectionSchema);
+        var projectionsRebuildProcessor = PrepareProjectionsRebuildProcessor(orderRepositoryEventsObserver, ordersProjectionSchema);
 
         await ordersListProjectionsRepository.EnsureIndex();
+        await projectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();
         
         var userId = Guid.NewGuid();
         var userInfo = new EventUserInfo(userId);
@@ -568,7 +571,6 @@ public abstract class DynamicProjectionSchemaTests
         
         // Projections were rebuilt, that means TotalPrice should have all items summed up
         orderProjectionWithNewSchemaTotalPriceAfterRebuild["TotalPrice"].Should().Be(42.39m);
-        
     }
 
     [TestMethod]

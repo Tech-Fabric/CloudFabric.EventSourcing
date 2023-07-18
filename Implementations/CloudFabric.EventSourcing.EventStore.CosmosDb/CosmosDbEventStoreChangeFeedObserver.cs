@@ -213,7 +213,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         return stats;
     }
 
-    public async Task ReplayEventsForDocumentAsync(Guid documentId, string partitionKey)
+    public async Task ReplayEventsForOneDocumentAsync(Guid documentId, string partitionKey)
     {
         Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
 

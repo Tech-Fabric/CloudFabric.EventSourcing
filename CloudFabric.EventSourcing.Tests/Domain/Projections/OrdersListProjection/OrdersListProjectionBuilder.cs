@@ -9,8 +9,10 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
     IHandleEvent<OrderItemRemoved>,
     IHandleEvent<AggregateUpdatedEvent<Order>>
 {
-    public OrdersListProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory) 
-        : base(projectionRepositoryFactory)
+    public OrdersListProjectionBuilder(
+        ProjectionRepositoryFactory projectionRepositoryFactory, 
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write) 
+        : base(projectionRepositoryFactory, indexSelector)
     {
     }
 

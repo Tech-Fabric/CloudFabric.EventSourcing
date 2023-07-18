@@ -86,15 +86,15 @@ public class ProjectionsEngine : IProjectionsEngine
     //     _observer.LoadAndHandleEventsAsync(instanceName, partitionKey, dateFrom, OnRebuildCompleted, OnRebuildFailed);
     // }
 
-    // public async Task RebuildOneAsync(Guid documentId, string partitionKey)
-    // {
-    //     if (_observer == null)
-    //     {
-    //         throw new InvalidOperationException("SetEventsObserver should be called before RebuildAsync");
-    //     }
-    //     
-    //     await _observer.LoadAndHandleEventsForDocumentAsync(documentId, partitionKey);
-    // }
+    public async Task RebuildOneAsync(Guid documentId, string partitionKey)
+    {
+        if (_observer == null)
+        {
+            throw new InvalidOperationException("SetEventsObserver should be called before RebuildAsync");
+        }
+        
+        await _observer.ReplayEventsForOneDocumentAsync(documentId, partitionKey);
+    }
 
     // public async Task<ProjectionRebuildState?> GetRebuildState(string instanceName, string partitionKey)
     // {

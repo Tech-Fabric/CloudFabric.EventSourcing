@@ -122,7 +122,7 @@ public abstract class ProjectionQueryTest : TestsBaseWithProjections<OrderListPr
         ordersFromSerializedQuery.TotalRecordsFound.Should().Be(2);
         ordersFromSerializedQuery.Records.Count.Should().Be(1);
 
-        orders.Should().BeEquivalentTo(ordersFromSerializedQuery);
+        orders.Records.Should().BeEquivalentTo(ordersFromSerializedQuery.Records);
 
         await projectionsEngine.StopAsync();
     }

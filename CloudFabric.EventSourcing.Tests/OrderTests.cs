@@ -250,7 +250,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         secondOrderProjection.Should().BeNull();
 
         // rebuild the firstOrder document
-        //await ProjectionsEngine.RebuildOneAsync(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
+        await ProjectionsEngine.RebuildOneAsync(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
 
         // check firstOrder document is rebuild and second is not
         firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
@@ -317,6 +317,10 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         // } while (rebuildState.Status != RebuildStatus.Completed && rebuildState.Status != RebuildStatus.Failed);
         //
         // rebuildState.Status.Should().Be(RebuildStatus.Completed);
+
+        await ProjectionsRepository.DeleteAll();
+        await ProjectionsRepository.EnsureIndex();
+        await ProjectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();
 
         // check firstOrder document is rebuild and second is not
         firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());

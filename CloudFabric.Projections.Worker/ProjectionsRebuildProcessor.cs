@@ -33,7 +33,7 @@ public class ProjectionsRebuildProcessor
         {
             var (projectionIndexState, indexNameToRebuild) = await _projectionRepository.AcquireAndLockProjectionThatRequiresRebuild();
 
-            if (indexNameToRebuild == null)
+            if (projectionIndexState == null || indexNameToRebuild == null)
             {
                 break;
             }

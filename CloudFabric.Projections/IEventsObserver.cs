@@ -10,7 +10,7 @@ public interface IEventsObserver
 
     void SetEventHandler(Func<IEvent, Task> eventHandler);
 
-    Task ReplayEventsForDocumentAsync(Guid documentId, string partitionKey);
+    Task ReplayEventsForOneDocumentAsync(Guid documentId, string partitionKey);
 
     /// <summary>
     /// Reads all events and runs event handlers on them (basically, "replays" those events). Needed for projections (materialized views)

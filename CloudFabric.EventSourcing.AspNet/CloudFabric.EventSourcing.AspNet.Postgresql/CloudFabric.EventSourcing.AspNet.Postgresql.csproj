@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\CloudFabric.Projections.Worker\CloudFabric.Projections.Worker.csproj" />
     <ProjectReference Include="..\..\Implementations\CloudFabric.EventSourcing.EventStore.Postgresql\CloudFabric.EventSourcing.EventStore.Postgresql.csproj" />
     <ProjectReference Include="..\..\Implementations\CloudFabric.Projections.Postgresql\CloudFabric.Projections.Postgresql.csproj" />
     <ProjectReference Include="..\CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.csproj" />

@@ -20,6 +20,7 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
     protected ProjectionsEngine ProjectionsEngine;
     protected IProjectionRepository<TProjectionDocument> ProjectionsRepository;
     protected TProjectionBuilder ProjectionBuilder;
+    protected ProjectionsRebuildProcessor ProjectionsRebuildProcessor;
     
     [TestInitialize]
     public async Task Initialize()
@@ -45,24 +46,38 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
         ProjectionsEngine = new ProjectionsEngine();
         ProjectionsEngine.SetEventsObserver(repositoryEventsObserver);
 
-        ProjectionBuilder = (TProjectionBuilder)Activator.CreateInstance(typeof(TProjectionBuilder), GetProjectionRepositoryFactory()) 
-                             ?? throw new InvalidOperationException("Could not create projection builder.");
+        ProjectionBuilder = (TProjectionBuilder)Activator.CreateInstance(
+            typeof(TProjectionBuilder), 
+            GetProjectionRepositoryFactory(),
+            ProjectionOperationIndexSelector.Write
+        )! ?? throw new InvalidOperationException("Could not create projection builder.");
         
         ProjectionsEngine.AddProjectionBuilder(ProjectionBuilder);
         
         await ProjectionsEngine.StartAsync("Test");
 
-        var projectionsRebuildProcessor = new ProjectionsRebuildProcessor(
+        ProjectionsRebuildProcessor = new ProjectionsRebuildProcessor(
             GetProjectionRepositoryFactory().GetProjectionRepository(null),
             async (string connectionId) =>
             {
-                return ProjectionsEngine;
+                var rebuildProjectionsEngine = new ProjectionsEngine();
+                rebuildProjectionsEngine.SetEventsObserver(repositoryEventsObserver);
+
+                var rebuildProjectionBuilder = (TProjectionBuilder)Activator.CreateInstance(
+                                                   typeof(TProjectionBuilder), 
+                                                   GetProjectionRepositoryFactory(),
+                                                   ProjectionOperationIndexSelector.ProjectionRebuild
+                                               )! ?? throw new InvalidOperationException("Could not create projection builder.");
+        
+                rebuildProjectionsEngine.AddProjectionBuilder(rebuildProjectionBuilder);
+
+                return rebuildProjectionsEngine;
             },
             NullLogger<ProjectionsRebuildProcessor>.Instance
         );
 
         await ProjectionsRepository.EnsureIndex();
-        await projectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();
+        await ProjectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();
     }
     
     [TestCleanup]
@@ -77,9 +92,6 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
         {
             var projectionRepository = GetProjectionRepositoryFactory().GetProjectionRepository<TProjectionDocument>();
             await projectionRepository.DeleteAll();
-
-            var rebuildStateRepository = GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>();
-            await rebuildStateRepository.DeleteAll();
         }
         catch
         {
