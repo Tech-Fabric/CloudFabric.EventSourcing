@@ -57,7 +57,7 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
         await ProjectionsEngine.StartAsync("Test");
 
         ProjectionsRebuildProcessor = new ProjectionsRebuildProcessor(
-            GetProjectionRepositoryFactory().GetProjectionRepository(null),
+            GetProjectionRepositoryFactory().GetProjectionsIndexStateRepository(),
             async (string connectionId) =>
             {
                 var rebuildProjectionsEngine = new ProjectionsEngine();

@@ -165,7 +165,7 @@ public static class FilterQueryStringExtensions
             }
             else if (DateTime.TryParse(value, out var dateTimeValue))
             {
-                filter.Value = dateTimeValue;
+                filter.Value = DateTime.SpecifyKind(dateTimeValue, DateTimeKind.Utc);
             }
             // Important: Guids may be stored via two ways: as simple strings or as Guid objects.
             // If we are here - that means guid was passed as an object, not as a string (see first `if` above).

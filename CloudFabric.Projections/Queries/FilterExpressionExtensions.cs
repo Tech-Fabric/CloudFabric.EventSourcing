@@ -69,10 +69,45 @@ public static class FilterExpressionExtensions {
         if (typeof(TParameter).Name.Contains("Dictionary"))
         {
             var dictionaryIndexProperty = typeof(TParameter).GetProperty("Item");
-            property = Expression.MakeIndex(
-                parameter, dictionaryIndexProperty,
-                new[] { Expression.Constant(filter.PropertyName) }
-            );
+
+            if (filter.PropertyName.Contains('.')) // nested property access, need to construct ["propertyName"]["propertyName"] 
+            {                                      
+                var propertyNamesPath = filter.PropertyName.Split('.');
+                var propertyType = typeof(TParameter).GetGenericArguments()[1];
+
+                property = Expression.MakeIndex(
+                    parameter, 
+                    dictionaryIndexProperty,
+                    new[] { Expression.Constant(propertyNamesPath.First()) }
+                );
+                
+                foreach (var prop in propertyNamesPath.Skip(1))
+                {
+                    // Assume that object? is a dictionary whose keys are property names and values are... values with object? type
+                    bool isDictionary = propertyType == typeof(object) || propertyType.Name.Contains("Dictionary");
+
+                    if (isDictionary)
+                    {
+                        property = Expression.MakeIndex(
+                            Expression.Convert(property, typeof(Dictionary<string, object?>)),
+                            dictionaryIndexProperty,
+                            new[] { Expression.Constant(prop) }
+                        );
+                    }
+                    else 
+                    {
+                        property = Expression.PropertyOrField(property, prop);
+                    }
+                }
+            }
+            else // simple dictionary index expression like ["propertyName"]
+            {
+                property = Expression.MakeIndex(
+                    parameter, 
+                    dictionaryIndexProperty,
+                    new[] { Expression.Constant(filter.PropertyName) }
+                );
+            }
         }
         else
         {
@@ -80,7 +115,7 @@ public static class FilterExpressionExtensions {
         }
 
         var value = Expression.Constant(filter.Value);
-        var operand = Expression.Convert(property, filter.Value.GetType());
+        var operand = filter.Value == null ? (Expression)property : (Expression)Expression.Convert(property, filter.Value.GetType());
 
         Expression thisExpression = filter.Operator switch
         {
@@ -218,182 +253,200 @@ public static class FilterExpressionExtensions {
         }
     }
 
-    private static Filter ConstructFilterFromExpression(Expression expression)
+    private static Filter ConstructFilterFromExpression(Expression expression, string propertyPath = "")
     {
         switch (expression.NodeType)
         {
             case ExpressionType.Equal:
                 var filterEq = new Filter();
                 filterEq.Operator = FilterOperator.Equal;
-                filterEq.PropertyName = GetExpressionValue((expression as BinaryExpression).Left).ToString();
+                filterEq.PropertyName = propertyPath + GetExpressionValue((expression as BinaryExpression).Left).ToString();
                 filterEq.Value = GetExpressionValue((expression as BinaryExpression).Right);
                 return filterEq;
             case ExpressionType.NotEqual:
                 var filterNEq = new Filter();
                 filterNEq.Operator = FilterOperator.NotEqual;
-                filterNEq.PropertyName = GetExpressionValue((expression as BinaryExpression).Left).ToString();
+                filterNEq.PropertyName = propertyPath + GetExpressionValue((expression as BinaryExpression).Left).ToString();
                 filterNEq.Value = GetExpressionValue((expression as BinaryExpression).Right);
                 return filterNEq;
             case ExpressionType.GreaterThan:
                 var filterGt = new Filter();
                 filterGt.Operator = FilterOperator.Greater;
-                filterGt.PropertyName = GetExpressionValue((expression as BinaryExpression).Left).ToString();
+                filterGt.PropertyName = propertyPath + GetExpressionValue((expression as BinaryExpression).Left).ToString();
                 filterGt.Value = GetExpressionValue((expression as BinaryExpression).Right);
                 return filterGt;
             case ExpressionType.GreaterThanOrEqual:
                 var filterGe = new Filter();
                 filterGe.Operator = FilterOperator.GreaterOrEqual;
-                filterGe.PropertyName = GetExpressionValue((expression as BinaryExpression).Left).ToString();
+                filterGe.PropertyName = propertyPath + GetExpressionValue((expression as BinaryExpression).Left).ToString();
                 filterGe.Value = GetExpressionValue((expression as BinaryExpression).Right);
                 return filterGe;
             case ExpressionType.LessThan:
                 var filterLt = new Filter();
                 filterLt.Operator = FilterOperator.Lower;
-                filterLt.PropertyName = GetExpressionValue((expression as BinaryExpression).Left).ToString();
+                filterLt.PropertyName = propertyPath + GetExpressionValue((expression as BinaryExpression).Left).ToString();
                 filterLt.Value = GetExpressionValue((expression as BinaryExpression).Right);
                 return filterLt;
             case ExpressionType.LessThanOrEqual:
                 var filterLe = new Filter();
                 filterLe.Operator = FilterOperator.LowerOrEqual;
-                filterLe.PropertyName = GetExpressionValue((expression as BinaryExpression).Left).ToString();
+                filterLe.PropertyName = propertyPath + GetExpressionValue((expression as BinaryExpression).Left).ToString();
                 filterLe.Value = GetExpressionValue((expression as BinaryExpression).Right);
                 return filterLe;
             case ExpressionType.AndAlso:
-                var leftAnd = ConstructFilterFromExpression((expression as BinaryExpression).Left);
-                var rightAnd = ConstructFilterFromExpression((expression as BinaryExpression).Right);
+                var leftAnd = ConstructFilterFromExpression((expression as BinaryExpression).Left, propertyPath);
+                var rightAnd = ConstructFilterFromExpression((expression as BinaryExpression).Right, propertyPath);
 
                 return leftAnd.And(rightAnd);
             case ExpressionType.OrElse:
-                var leftOr = ConstructFilterFromExpression((expression as BinaryExpression).Left);
-                var rightOr = ConstructFilterFromExpression((expression as BinaryExpression).Right);
+                var leftOr = ConstructFilterFromExpression((expression as BinaryExpression).Left, propertyPath);
+                var rightOr = ConstructFilterFromExpression((expression as BinaryExpression).Right, propertyPath);
 
                 return leftOr.Or(rightOr);
             case ExpressionType.Call:
                 var e = expression as MethodCallExpression;
-                var property = (string)GetExpressionValue(e.Object);
-
-                if (e.Method.Name == "StartsWith" && e.Method.DeclaringType == typeof(string))
+                
+                if (e.Method.DeclaringType == typeof(string))
                 {
-                    var filterOperator = FilterOperator.StartsWith;
+                    var property = (string)GetExpressionValue(e.Object);
+                    
+                    if (e.Method.Name == "StartsWith")
+                    {
+                        var filterOperator = FilterOperator.StartsWith;
 
-                    // this is for public bool StartsWith(string value, StringComparison comparisonType)
-                    // overload
-                    if (e.Arguments.Count == 2)
-                    {
-                        switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
+                        // this is for public bool StartsWith(string value, StringComparison comparisonType)
+                        // overload
+                        if (e.Arguments.Count == 2)
                         {
-                            case StringComparison.Ordinal:
-                            case StringComparison.CurrentCulture:
-                            case StringComparison.InvariantCulture:
-                                filterOperator = FilterOperator.StartsWith;
-                                break;
-                            case StringComparison.OrdinalIgnoreCase:
-                            case StringComparison.CurrentCultureIgnoreCase:
-                            case StringComparison.InvariantCultureIgnoreCase:
-                                filterOperator = FilterOperator.StartsWithIgnoreCase;
-                                break;
+                            switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
+                            {
+                                case StringComparison.Ordinal:
+                                case StringComparison.CurrentCulture:
+                                case StringComparison.InvariantCulture:
+                                    filterOperator = FilterOperator.StartsWith;
+                                    break;
+                                case StringComparison.OrdinalIgnoreCase:
+                                case StringComparison.CurrentCultureIgnoreCase:
+                                case StringComparison.InvariantCultureIgnoreCase:
+                                    filterOperator = FilterOperator.StartsWithIgnoreCase;
+                                    break;
+                            }
                         }
-                    }
-                    // this is for public bool StartsWith(string value, bool ignoreCase, CultureInfo? culture)
-                    // overload
-                    else if (e.Arguments.Count == 3)
-                    {
-                        switch ((bool)GetExpressionValue(e.Arguments[1])!)
+                        // this is for public bool StartsWith(string value, bool ignoreCase, CultureInfo? culture)
+                        // overload
+                        else if (e.Arguments.Count == 3)
                         {
-                            case false:
-                                filterOperator = FilterOperator.StartsWith;
-                                break;
-                            case true:
-                                filterOperator = FilterOperator.StartsWithIgnoreCase;
-                                break;
+                            switch ((bool)GetExpressionValue(e.Arguments[1])!)
+                            {
+                                case false:
+                                    filterOperator = FilterOperator.StartsWith;
+                                    break;
+                                case true:
+                                    filterOperator = FilterOperator.StartsWithIgnoreCase;
+                                    break;
+                            }
                         }
-                    }
 
-                    return new Filter()
+                        return new Filter()
+                        {
+                            Operator = filterOperator,
+                            PropertyName = property,
+                            Value = GetExpressionValue(e.Arguments.First())
+                        };
+                    }
+                    else if (e.Method.Name == "EndsWith")
                     {
-                        Operator = filterOperator,
-                        PropertyName = property,
-                        Value = GetExpressionValue(e.Arguments.First())
-                    };
+                        var filterOperator = FilterOperator.EndsWith;
+
+                        // this is for public bool EndsWith(string value, StringComparison comparisonType)
+                        // overload
+                        if (e.Arguments.Count == 2)
+                        {
+                            switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
+                            {
+                                case StringComparison.Ordinal:
+                                case StringComparison.CurrentCulture:
+                                case StringComparison.InvariantCulture:
+                                    filterOperator = FilterOperator.EndsWith;
+                                    break;
+                                case StringComparison.OrdinalIgnoreCase:
+                                case StringComparison.CurrentCultureIgnoreCase:
+                                case StringComparison.InvariantCultureIgnoreCase:
+                                    filterOperator = FilterOperator.EndsWithIgnoreCase;
+                                    break;
+                            }
+                        }
+                        // this is for public bool EndsWith(string value, bool ignoreCase, CultureInfo? culture)
+                        // overload
+                        else if (e.Arguments.Count == 3)
+                        {
+                            switch ((bool)GetExpressionValue(e.Arguments[1])!)
+                            {
+                                case false:
+                                    filterOperator = FilterOperator.EndsWith;
+                                    break;
+                                case true:
+                                    filterOperator = FilterOperator.EndsWithIgnoreCase;
+                                    break;
+                            }
+                        }
+
+                        return new Filter()
+                        {
+                            Operator = filterOperator,
+                            PropertyName = property,
+                            Value = GetExpressionValue(e.Arguments.First())
+                        };
+                    }
+                    else if (e.Method.Name == "Contains")
+                    {
+                        var filterOperator = FilterOperator.Contains;
+
+                        // this is for public bool StartsWith(string value, StringComparison comparisonType)
+                        // overload
+                        if (e.Arguments.Count == 2)
+                        {
+                            switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
+                            {
+                                case StringComparison.Ordinal:
+                                case StringComparison.CurrentCulture:
+                                case StringComparison.InvariantCulture:
+                                    filterOperator = FilterOperator.Contains;
+                                    break;
+                                case StringComparison.OrdinalIgnoreCase:
+                                case StringComparison.CurrentCultureIgnoreCase:
+                                case StringComparison.InvariantCultureIgnoreCase:
+                                    filterOperator = FilterOperator.ContainsIgnoreCase;
+                                    break;
+                            }
+                        }
+
+                        return new Filter()
+                        {
+                            Operator = filterOperator,
+                            PropertyName = property,
+                            Value = GetExpressionValue(e.Arguments.First())
+                        };
+                    }
+                    else
+                    {
+                        throw new Exception($"Unsupported method call on String in expression: {e.Method.Name}");
+                    }
                 }
-                else if (e.Method.Name == "EndsWith" && e.Method.DeclaringType == typeof(string))
+                else if (e.Method.DeclaringType == typeof(System.Linq.Enumerable))
                 {
-                    var filterOperator = FilterOperator.EndsWith;
-
-                    // this is for public bool EndsWith(string value, StringComparison comparisonType)
-                    // overload
-                    if (e.Arguments.Count == 2)
+                    if (e.Method.Name == "Any")
                     {
-                        switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
-                        {
-                            case StringComparison.Ordinal:
-                            case StringComparison.CurrentCulture:
-                            case StringComparison.InvariantCulture:
-                                filterOperator = FilterOperator.EndsWith;
-                                break;
-                            case StringComparison.OrdinalIgnoreCase:
-                            case StringComparison.CurrentCultureIgnoreCase:
-                            case StringComparison.InvariantCultureIgnoreCase:
-                                filterOperator = FilterOperator.EndsWithIgnoreCase;
-                                break;
-                        }
+                        var collectionName = propertyPath + ((expression as MethodCallExpression).Arguments[0] as MemberExpression).Member.Name;
+                        return ConstructFilterFromExpression(((expression as MethodCallExpression).Arguments[1] as LambdaExpression).Body, $"{collectionName}.");
                     }
-                    // this is for public bool EndsWith(string value, bool ignoreCase, CultureInfo? culture)
-                    // overload
-                    else if (e.Arguments.Count == 3)
+                    else
                     {
-                        switch ((bool)GetExpressionValue(e.Arguments[1])!)
-                        {
-                            case false:
-                                filterOperator = FilterOperator.EndsWith;
-                                break;
-                            case true:
-                                filterOperator = FilterOperator.EndsWithIgnoreCase;
-                                break;
-                        }
+                        throw new Exception($"Unsupported method call on Enumerable in expression: {e.Method.Name}");
                     }
-
-                    return new Filter()
-                    {
-                        Operator = filterOperator,
-                        PropertyName = property,
-                        Value = GetExpressionValue(e.Arguments.First())
-                    };
                 }
-                else if (e.Method.Name == "Contains" && e.Method.DeclaringType == typeof(string))
-                {
-                    var filterOperator = FilterOperator.Contains;
-
-                    // this is for public bool StartsWith(string value, StringComparison comparisonType)
-                    // overload
-                    if (e.Arguments.Count == 2)
-                    {
-                        switch ((StringComparison)GetExpressionValue(e.Arguments[1])!)
-                        {
-                            case StringComparison.Ordinal:
-                            case StringComparison.CurrentCulture:
-                            case StringComparison.InvariantCulture:
-                                filterOperator = FilterOperator.Contains;
-                                break;
-                            case StringComparison.OrdinalIgnoreCase:
-                            case StringComparison.CurrentCultureIgnoreCase:
-                            case StringComparison.InvariantCultureIgnoreCase:
-                                filterOperator = FilterOperator.ContainsIgnoreCase;
-                                break;
-                        }
-                    }
-
-                    return new Filter()
-                    {
-                        Operator = filterOperator,
-                        PropertyName = property,
-                        Value = GetExpressionValue(e.Arguments.First())
-                    };
-                }
-                else
-                {
-                    throw new Exception($"Unsupported method call in expression: {e.Method.Name}");
-                }
+                
+                throw new Exception($"Method call on unsupported object: {e.Method.DeclaringType} in expression.");
             default:
                 throw new Exception($"Unsupported expression type: {expression.NodeType}");
         }

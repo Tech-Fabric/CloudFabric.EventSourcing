@@ -33,6 +33,7 @@ public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTes
         if (_projectionRepositoryFactory == null)
         {
             _projectionRepositoryFactory = new PostgresqlProjectionRepositoryFactory(
+                NullLoggerFactory.Instance, 
                 TestsConnectionStrings.CONNECTION_STRING
             );
         }

@@ -6,7 +6,6 @@ using CloudFabric.Projections.Utils;
 using Elasticsearch.Net;
 using Microsoft.Extensions.Logging;
 using Nest;
-using Filter = CloudFabric.Projections.Queries.Filter;
 using SortOrder = Nest.SortOrder;
 
 namespace CloudFabric.Projections.ElasticSearch;
@@ -136,7 +135,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         ProjectionDocumentSchema projectionDocumentSchema,
         ILoggerFactory loggerFactory,
         bool disableRequestStreaming = false
-    ) : base(projectionDocumentSchema)
+    ) : base(projectionDocumentSchema, loggerFactory.CreateLogger<ProjectionRepository>())
     {
         _projectionDocumentSchema = projectionDocumentSchema;
         _logger = loggerFactory.CreateLogger<ElasticSearchProjectionRepository>();
@@ -180,7 +179,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         ProjectionDocumentSchema projectionDocumentSchema,
         ILoggerFactory loggerFactory,
         bool disableRequestStreaming = false
-    ) : base(projectionDocumentSchema)
+    ) : base(projectionDocumentSchema, loggerFactory.CreateLogger<ProjectionRepository>())
     {
         _projectionDocumentSchema = projectionDocumentSchema;
         _logger = loggerFactory.CreateLogger<ElasticSearchProjectionRepository>();
@@ -313,29 +312,37 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
     //     }
     // }
 
-    public override async Task EnsureIndex(CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Ensuring index exists for {ProjectionDocumentSchemaName}", _projectionDocumentSchema.SchemaName);
-
-        // we just need to make sure index exists `readOnly` will do that, otherwise it will throw an error saying that index is not ready yet
-        var indexName = await GetIndexNameForSchema(ProjectionOperationIndexSelector.ReadOnly, cancellationToken);
-
-        _logger.LogInformation("Index for {ProjectionDocumentSchemaName}, {IndexName}", _projectionDocumentSchema.SchemaName, indexName);
-    }
+    // public override async Task EnsureIndex(CancellationToken cancellationToken = default)
+    // {
+    //     _logger.LogInformation("Ensuring index exists for {ProjectionDocumentSchemaName}", _projectionDocumentSchema.SchemaName);
+    //
+    //     // we just need to make sure index exists `readOnly` will do that, otherwise it will throw an error saying that index is not ready yet
+    //     var indexName = await GetIndexNameForSchema(ProjectionOperationIndexSelector.ReadOnly, cancellationToken);
+    //
+    //     _logger.LogInformation("Index for {ProjectionDocumentSchemaName}, {IndexName}", _projectionDocumentSchema.SchemaName, indexName);
+    // }
 
     protected override async Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema)
     {
         await _indexer.CreateOrUpdateIndex(indexName, _projectionDocumentSchema);
     }
 
-    protected override async Task<ProjectionIndexState?> GetProjectionIndexState(CancellationToken cancellationToken = default)
-    {
+    protected override async Task<ProjectionIndexState?> GetProjectionIndexState(
+        CancellationToken cancellationToken = default
+    ) {
+        return await GetProjectionIndexState(_projectionDocumentSchema.SchemaName, cancellationToken);
+    }
+    
+    protected override async Task<ProjectionIndexState?> GetProjectionIndexState(
+        string schemaName,
+        CancellationToken cancellationToken = default
+    ) {
         var indexStateResponse = await _client.GetAsync<ProjectionIndexState>(
-            _projectionDocumentSchema.SchemaName,
+            schemaName,
             x => x.Routing(PROJECTION_INDEX_STATE_INDEX_NAME).Index(PROJECTION_INDEX_STATE_INDEX_NAME)
         );
 
-        return indexStateResponse.Source;
+        return indexStateResponse?.Source;
     }
 
     protected override async Task SaveProjectionIndexState(ProjectionIndexState state)
@@ -350,114 +357,114 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
             }
         );
     }
-
-    public override async Task<(ProjectionIndexState?, string?)> AcquireAndLockProjectionThatRequiresRebuild()
-    {
-        await _indexer.CreateOrUpdateIndex(PROJECTION_INDEX_STATE_INDEX_NAME, ProjectionDocumentSchemaFactory.FromTypeWithAttributes<ProjectionIndexState>());
-
-        var rebuildHealthCheckThreshold = DateTime.UtcNow.AddMinutes(-5);
-
-        var projectionQuery = new ProjectionQuery()
-        {
-            Filters = new List<Filter>()
-            {
-                // we are looking for two possible index states:
-                // 1. RebuildStartedAt = null - index was just created and requires rebuild and
-                // 2. RebuildCompletedAt = null && RebuildHealthCheckAt < rebuildHealthCheckThreshold - rebuild has started but not completed yet and there
-                //    have been no health checks for more than 5 minutes (see rebuildHealthCheckThreshold above). Note that this means we are taking over
-                //    a rebuild not completed by another process. That process could still wake up and continue, so it should check the index before continuing
-                //    and ensure no other process took over the rebuild process.
-                new Filter(
-                    $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildStartedAt)}",
-                    FilterOperator.Equal,
-                    null
-                ).Or(
-                    new Filter(
-                            $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildCompletedAt)}", FilterOperator.Equal,
-                            null
-                        )
-                        .And(
-                            $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildHealthCheckAt)}",
-                            FilterOperator.Lower,
-                            rebuildHealthCheckThreshold
-                        )
-                )
-            }
-        };
-
-        var result = await _client.SearchAsync<ProjectionIndexState>(
-            request =>
-            {
-                request = request.Index(PROJECTION_INDEX_STATE_INDEX_NAME);
-
-                request = request.TrackTotalHits(false);
-                request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
-                request = request.Sort(s => s.Ascending(f => f.UpdatedAt));
-                request = request.Skip(0);
-
-                if (projectionQuery.Limit.HasValue)
-                {
-                    request = request.Take(projectionQuery.Limit.Value);
-                }
-
-                if (!string.IsNullOrEmpty(PROJECTION_INDEX_STATE_INDEX_NAME))
-                {
-                    request = request.Routing(PROJECTION_INDEX_STATE_INDEX_NAME);
-                }
-
-                if (_disableRequestStreaming)
-                {
-                    request = request.RequestConfiguration(conf => conf.DisableDirectStreaming());
-                }
-
-                return request;
-            }
-        );
-
-        if (result.Documents.Count <= 0)
-        {
-            return (null, null);
-        }
-
-        var dateTimeStarted = DateTime.UtcNow;
-
-        var projectionIndexState = result.Documents.First();
-
-        projectionIndexState.UpdatedAt = dateTimeStarted;
-
-        // !Important: this where condition should be in absolute sync with the condition we send to elasticsearch (at the beginning of this method)
-        var index = projectionIndexState.IndexesStatuses
-            .Where(s => s.RebuildStartedAt == null || (s.RebuildCompletedAt == null && s.RebuildHealthCheckAt < rebuildHealthCheckThreshold))
-            .OrderBy(s => s.CreatedAt)
-            .First();
-
-        index.RebuildStartedAt = dateTimeStarted;
-        index.RebuildHealthCheckAt = dateTimeStarted;
-        index.RebuildCompletedAt = null;
-
-        var saveResult = await _client.IndexAsync(
-            new IndexRequest<ProjectionIndexState>(projectionIndexState, PROJECTION_INDEX_STATE_INDEX_NAME, id: projectionIndexState.ProjectionName)
-            {
-                Routing = new Routing(PROJECTION_INDEX_STATE_INDEX_NAME),
-                Refresh = Refresh.True
-            }
-        );
-
-        // we want to make sure no other process locked this item, the easiest way is to just check 
-        // if saved result has exact same updatedAt timestamp and we were saving within this process 
-        var indexStateResponse = await _client.GetAsync<ProjectionIndexState>(
-            projectionIndexState.ProjectionName,
-            x => x.Routing(PROJECTION_INDEX_STATE_INDEX_NAME).Index(PROJECTION_INDEX_STATE_INDEX_NAME)
-        );
-
-        if (projectionIndexState.UpdatedAt != indexStateResponse.Source.UpdatedAt)
-        {
-            // look like some other process updated the item before us. Just ignore this record then - it will be processed by that process.
-            return (null, null);
-        }
-
-        return (indexStateResponse.Source, index.IndexName);
-    }
+    //
+    // public override async Task<(ProjectionIndexState?, string?)> AcquireAndLockProjectionThatRequiresRebuild()
+    // {
+    //     await _indexer.CreateOrUpdateIndex(PROJECTION_INDEX_STATE_INDEX_NAME, ProjectionDocumentSchemaFactory.FromTypeWithAttributes<ProjectionIndexState>());
+    //
+    //     var rebuildHealthCheckThreshold = DateTime.UtcNow.AddMinutes(-5);
+    //
+    //     var projectionQuery = new ProjectionQuery()
+    //     {
+    //         Filters = new List<Filter>()
+    //         {
+    //             // we are looking for two possible index states:
+    //             // 1. RebuildStartedAt = null - index was just created and requires rebuild and
+    //             // 2. RebuildCompletedAt = null && RebuildHealthCheckAt < rebuildHealthCheckThreshold - rebuild has started but not completed yet and there
+    //             //    have been no health checks for more than 5 minutes (see rebuildHealthCheckThreshold above). Note that this means we are taking over
+    //             //    a rebuild not completed by another process. That process could still wake up and continue, so it should check the index before continuing
+    //             //    and ensure no other process took over the rebuild process.
+    //             new Filter(
+    //                 $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildStartedAt)}",
+    //                 FilterOperator.Equal,
+    //                 null
+    //             ).Or(
+    //                 new Filter(
+    //                         $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildCompletedAt)}", FilterOperator.Equal,
+    //                         null
+    //                     )
+    //                     .And(
+    //                         $"{nameof(ProjectionIndexState.IndexesStatuses)}.{nameof(IndexStateForSchemaVersion.RebuildHealthCheckAt)}",
+    //                         FilterOperator.Lower,
+    //                         rebuildHealthCheckThreshold
+    //                     )
+    //             )
+    //         }
+    //     };
+    //
+    //     var result = await _client.SearchAsync<ProjectionIndexState>(
+    //         request =>
+    //         {
+    //             request = request.Index(PROJECTION_INDEX_STATE_INDEX_NAME);
+    //
+    //             request = request.TrackTotalHits(false);
+    //             request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
+    //             request = request.Sort(s => s.Ascending(f => f.UpdatedAt));
+    //             request = request.Skip(0);
+    //
+    //             if (projectionQuery.Limit.HasValue)
+    //             {
+    //                 request = request.Take(projectionQuery.Limit.Value);
+    //             }
+    //
+    //             if (!string.IsNullOrEmpty(PROJECTION_INDEX_STATE_INDEX_NAME))
+    //             {
+    //                 request = request.Routing(PROJECTION_INDEX_STATE_INDEX_NAME);
+    //             }
+    //
+    //             if (_disableRequestStreaming)
+    //             {
+    //                 request = request.RequestConfiguration(conf => conf.DisableDirectStreaming());
+    //             }
+    //
+    //             return request;
+    //         }
+    //     );
+    //
+    //     if (result.Documents.Count <= 0)
+    //     {
+    //         return (null, null);
+    //     }
+    //
+    //     var dateTimeStarted = DateTime.UtcNow;
+    //
+    //     var projectionIndexState = result.Documents.First();
+    //
+    //     projectionIndexState.UpdatedAt = dateTimeStarted;
+    //
+    //     // !Important: this where condition should be in absolute sync with the condition we send to elasticsearch (at the beginning of this method)
+    //     var index = projectionIndexState.IndexesStatuses
+    //         .Where(s => s.RebuildStartedAt == null || (s.RebuildCompletedAt == null && s.RebuildHealthCheckAt < rebuildHealthCheckThreshold))
+    //         .OrderBy(s => s.CreatedAt)
+    //         .First();
+    //
+    //     index.RebuildStartedAt = dateTimeStarted;
+    //     index.RebuildHealthCheckAt = dateTimeStarted;
+    //     index.RebuildCompletedAt = null;
+    //
+    //     var saveResult = await _client.IndexAsync(
+    //         new IndexRequest<ProjectionIndexState>(projectionIndexState, PROJECTION_INDEX_STATE_INDEX_NAME, id: projectionIndexState.ProjectionName)
+    //         {
+    //             Routing = new Routing(PROJECTION_INDEX_STATE_INDEX_NAME),
+    //             Refresh = Refresh.True
+    //         }
+    //     );
+    //
+    //     // we want to make sure no other process locked this item, the easiest way is to just check 
+    //     // if saved result has exact same updatedAt timestamp and we were saving within this process 
+    //     var indexStateResponse = await _client.GetAsync<ProjectionIndexState>(
+    //         projectionIndexState.ProjectionName,
+    //         x => x.Routing(PROJECTION_INDEX_STATE_INDEX_NAME).Index(PROJECTION_INDEX_STATE_INDEX_NAME)
+    //     );
+    //
+    //     if (projectionIndexState.UpdatedAt != indexStateResponse.Source.UpdatedAt)
+    //     {
+    //         // look like some other process updated the item before us. Just ignore this record then - it will be processed by that process.
+    //         return (null, null);
+    //     }
+    //
+    //     return (indexStateResponse.Source, index.IndexName);
+    // }
 
     public override async Task UpdateProjectionRebuildStats(ProjectionIndexState indexToRebuild)
     {
@@ -471,13 +478,13 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
     )
     {
-        var indexName = await GetIndexNameForSchema(indexSelector, cancellationToken);
+        var indexDescriptor = await GetIndexDescriptorForOperation(indexSelector, cancellationToken);
 
         try
         {
             var item = await _client.GetAsync<Dictionary<string, object?>>(
                 id,
-                x => x.Index(indexName).Routing(partitionKey),
+                x => x.Index(indexDescriptor.IndexName).Routing(partitionKey),
                 ct: cancellationToken
             );
 
@@ -492,7 +499,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         {
             _logger.LogError(
                 ex,
-                "Failed to retrieve document with {@Id} ({@Index})", id, indexName
+                "Failed to retrieve document with {@Id} ({@Index})", id, indexDescriptor
             );
 
             throw;
@@ -506,12 +513,12 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
     )
     {
-        var indexName = await GetIndexNameForSchema(indexSelector, cancellationToken);
+        var indexDescriptor = await GetIndexDescriptorForOperation(indexSelector, cancellationToken);
 
         try
         {
             await _client.DeleteAsync(
-                new DeleteRequest(indexName, id)
+                new DeleteRequest(indexDescriptor.IndexName, id)
                 {
                     Routing = new Routing(partitionKey)
                 },
@@ -522,7 +529,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         {
             _logger.LogError(
                 ex,
-                "Failed to delete Document with {@Id} ({@Index})", id, indexName
+                "Failed to delete Document with {@Id} ({@Index})", id, indexDescriptor
             );
 
             throw;
@@ -578,15 +585,13 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         await _client.Indices.DeleteAsync(new DeleteIndexRequest(PROJECTION_INDEX_STATE_INDEX_NAME), cancellationToken);
     }
 
-    public override async Task Upsert(
+    protected override async Task UpsertInternal(
+        ProjectionOperationIndexDescriptor indexDescriptor,
         Dictionary<string, object?> document,
         string partitionKey,
         DateTime updatedAt,
-        CancellationToken cancellationToken = default,
-        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write)
+        CancellationToken cancellationToken = default)
     {
-        var indexName = await GetIndexNameForSchema(indexSelector, cancellationToken);
-
         try
         {
             document.TryGetValue("Id", out object? id);
@@ -594,7 +599,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
             document[nameof(ProjectionDocument.UpdatedAt)] = updatedAt;
 
             await _client.IndexAsync(
-                new IndexRequest<Dictionary<string, object?>>(document, indexName, id: id?.ToString())
+                new IndexRequest<Dictionary<string, object?>>(document, indexDescriptor.IndexName, id: id?.ToString())
                 {
                     Routing = new Routing(partitionKey),
                     Refresh = Refresh.False
@@ -606,28 +611,25 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         {
             _logger.LogError(
                 ex,
-                "Failed to upsert Document with {@Id} ({@Index})", document[_projectionDocumentSchema.KeyColumnName], indexName
+                "Failed to upsert Document with {@Id} ({@Index})", document[_projectionDocumentSchema.KeyColumnName], indexDescriptor.IndexName
             );
 
             throw;
         }
     }
 
-    public override async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
+    protected override async Task<ProjectionQueryResult<Dictionary<string, object?>>> QueryInternal(
+        ProjectionOperationIndexDescriptor indexDescriptor,
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
-        CancellationToken cancellationToken = default,
-        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
-    )
-    {
-        var indexName = await GetIndexNameForSchema(indexSelector, cancellationToken);
-
+        CancellationToken cancellationToken = default
+    ) {
         try
         {
             var result = await _client.SearchAsync<Dictionary<string, object?>>(
                 request =>
                 {
-                    request = request.Index(indexName);
+                    request = request.Index(indexDescriptor.IndexName);
 
                     request = request.TrackTotalHits();
                     request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
@@ -655,7 +657,7 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
 
             return new ProjectionQueryResult<Dictionary<string, object?>>
             {
-                IndexName = indexName,
+                IndexName = indexDescriptor.IndexName,
                 TotalRecordsFound = (int)result.Total,
                 Records = result.Documents.Select(
                         x =>
@@ -672,11 +674,45 @@ public class ElasticSearchProjectionRepository : ProjectionRepository
         {
             _logger.LogError(
                 ex,
-                "Error querying index ({@Index})", indexName
+                "Error querying index ({@Index})", indexDescriptor.IndexName
             );
 
             throw;
         }
+    }
+    
+    protected override async Task<IReadOnlyCollection<ProjectionIndexState>> QueryProjectionIndexStates(
+        ProjectionQuery projectionQuery,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var result = await _client.SearchAsync<ProjectionIndexState>(
+            request =>
+            {
+                request = request.Index(PROJECTION_INDEX_STATE_INDEX_NAME);
+
+                request = request.TrackTotalHits(false);
+                request = request.Query(q => ConstructSearchQuery(q, projectionQuery));
+                request = request.Sort(s => s.Ascending(f => f.UpdatedAt));
+                request = request.Skip(0);
+
+                if (projectionQuery.Limit.HasValue)
+                {
+                    request = request.Take(projectionQuery.Limit.Value);
+                }
+
+                request = request.Routing(PROJECTION_INDEX_STATE_INDEX_NAME);
+                
+                if (_disableRequestStreaming)
+                {
+                    request = request.RequestConfiguration(conf => conf.DisableDirectStreaming());
+                }
+
+                return request;
+            }
+        );
+
+        return result.Documents;
     }
 
     private Dictionary<string, object?> DeserializeDictionary(Dictionary<string, object?> document)

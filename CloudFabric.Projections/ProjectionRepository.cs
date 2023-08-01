@@ -1,5 +1,9 @@
+using System.Linq.Expressions;
+using System.Text.Json;
 using CloudFabric.Projections.Exceptions;
 using CloudFabric.Projections.Queries;
+using CloudFabric.Projections.Utils;
+using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.Projections;
 
@@ -25,16 +29,42 @@ public enum ProjectionOperationIndexSelector
     ProjectionRebuild
 }
 
+/// <summary>
+/// For any operation with projections, ProjectionOperationIndexSelector needs to be provided.
+/// Based on indexSelector, the repository will select proper index and will also return it's schema so that
+/// repository implementation could know what properties to operate on.
+/// </summary>
+public class ProjectionOperationIndexDescriptor
+{
+    public string IndexName { get; set; }
+    public ProjectionDocumentSchema ProjectionDocumentSchema { get; set; }
+}
+
 public abstract class ProjectionRepository : IProjectionRepository
 {
     protected readonly ProjectionDocumentSchema ProjectionDocumentSchema;
+    protected readonly ProjectionDocumentSchema ProjectionIndexStateSchema;
+    
+    protected readonly ILogger<ProjectionRepository> Logger;
+    protected const string PROJECTION_INDEX_STATE_INDEX_NAME = "projection_index_state";
 
-    public ProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
+    public ProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema, ILogger<ProjectionRepository> logger)
     {
-        ProjectionDocumentSchema = projectionDocumentSchema;
+        ProjectionDocumentSchema = (ProjectionDocumentSchema)projectionDocumentSchema.Clone();
+        ProjectionIndexStateSchema = ProjectionDocumentSchemaFactory.FromTypeWithAttributes<ProjectionIndexState>();
+        Logger = logger;
     }
 
-    public abstract Task EnsureIndex(CancellationToken cancellationToken = default);
+    public async Task EnsureIndex(CancellationToken cancellationToken = default)
+    {
+        Logger.LogInformation("Ensuring index exists for {ProjectionDocumentSchemaName}", ProjectionDocumentSchema.SchemaName);
+
+        // we just need to make sure index exists `readOnly` will do that, otherwise it will throw an error saying that index is not ready yet
+        var indexName = await GetIndexDescriptorForOperation(ProjectionOperationIndexSelector.ReadOnly, cancellationToken);
+
+        Logger.LogInformation("Index for {ProjectionDocumentSchemaName}, {IndexName}", ProjectionDocumentSchema.SchemaName, indexName);
+    }
+    
     protected abstract Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema);
     public abstract Task<Dictionary<string, object?>?> Single(
         Guid id, 
@@ -42,19 +72,44 @@ public abstract class ProjectionRepository : IProjectionRepository
         CancellationToken cancellationToken = default,
         ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
     );
-    public abstract Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
+
+    public async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default,
         ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
+    ) {
+        var indexDescriptor = await GetIndexDescriptorForOperation(indexSelector, cancellationToken);
+        return await QueryInternal(indexDescriptor, projectionQuery, partitionKey, cancellationToken);
+    }
+
+    protected abstract Task<ProjectionQueryResult<Dictionary<string, object?>>> QueryInternal(
+        ProjectionOperationIndexDescriptor indexDescriptor,
+        ProjectionQuery projectionQuery,
+        string? partitionKey = null,
+        CancellationToken cancellationToken = default
     );
-    public abstract Task Upsert(
-        Dictionary<string, object?> document, 
+
+    public async Task Upsert(
+        Dictionary<string, object?> document,
         string partitionKey,
         DateTime updatedAt,
         CancellationToken cancellationToken = default,
         ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    )
+    {
+        var indexDescriptor = await GetIndexDescriptorForOperation(indexSelector, cancellationToken);
+        await UpsertInternal(indexDescriptor, document, partitionKey, updatedAt, cancellationToken);
+    }
+
+    protected abstract Task UpsertInternal(
+        ProjectionOperationIndexDescriptor indexDescriptor,
+        Dictionary<string, object?> document, 
+        string partitionKey,
+        DateTime updatedAt,
+        CancellationToken cancellationToken = default
     );
+    
     public abstract Task Delete(
         Guid id, 
         string partitionKey, 
@@ -67,7 +122,11 @@ public abstract class ProjectionRepository : IProjectionRepository
         ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
     );
 
+    protected abstract Task<IReadOnlyCollection<ProjectionIndexState>> QueryProjectionIndexStates(
+        ProjectionQuery projectionQuery, CancellationToken cancellationToken = default
+    );
     protected abstract Task<ProjectionIndexState?> GetProjectionIndexState(CancellationToken cancellationToken = default);
+    protected abstract Task<ProjectionIndexState?> GetProjectionIndexState(string schemaName, CancellationToken cancellationToken = default);
     protected abstract Task SaveProjectionIndexState(ProjectionIndexState state);
 
     /// <summary>
@@ -78,8 +137,10 @@ public abstract class ProjectionRepository : IProjectionRepository
     /// will immediately return a new one, so all updates will go to the new index. 
     /// </summary>
     /// <returns></returns>
-    protected async Task<string?> GetIndexNameForSchema(ProjectionOperationIndexSelector indexSelector, CancellationToken cancellationToken = default)
-    {
+    protected async Task<ProjectionOperationIndexDescriptor> GetIndexDescriptorForOperation(
+        ProjectionOperationIndexSelector indexSelector, 
+        CancellationToken cancellationToken = default
+    ) {
         var projectionIndexState = await GetProjectionIndexState(cancellationToken);
         
         var projectionVersionPropertiesHash = ProjectionDocumentSchemaFactory.GetPropertiesUniqueHash(ProjectionDocumentSchema.Properties);
@@ -99,6 +160,7 @@ public abstract class ProjectionRepository : IProjectionRepository
                 {
                     CreatedAt = DateTime.UtcNow,
                     SchemaHash = projectionVersionPropertiesHash,
+                    Schema = JsonSerializer.Serialize(ProjectionDocumentSchema),
                     IndexName = projectionVersionIndexName,
                     RebuildEventsProcessed = 0,
                     RebuildStartedAt = null,
@@ -111,7 +173,10 @@ public abstract class ProjectionRepository : IProjectionRepository
 
             if (indexSelector == ProjectionOperationIndexSelector.ProjectionRebuild)
             {
-                return projectionVersionIndexName;
+                return new ProjectionOperationIndexDescriptor() {
+                    IndexName = projectionVersionIndexName,
+                    ProjectionDocumentSchema = ProjectionDocumentSchema
+                };
             }
 
             // At least some projection state exists - find the most recent index with completed projections rebuild
@@ -120,7 +185,10 @@ public abstract class ProjectionRepository : IProjectionRepository
 
             if (lastIndexWithRebuiltProjections != null)
             {
-                return lastIndexWithRebuiltProjections.IndexName;
+                return new ProjectionOperationIndexDescriptor() {
+                    IndexName = lastIndexWithRebuiltProjections.IndexName,
+                    ProjectionDocumentSchema = JsonSerializer.Deserialize<ProjectionDocumentSchema>(lastIndexWithRebuiltProjections.Schema!)!
+                };
             }
             
             // At least some projection state exists but there is no index which was completely rebuilt. 
@@ -135,7 +203,10 @@ public abstract class ProjectionRepository : IProjectionRepository
 
                 if (lastIndexWithRebuildStarted != null)
                 {
-                    return lastIndexWithRebuildStarted.IndexName;
+                    return new ProjectionOperationIndexDescriptor() {
+                        IndexName = lastIndexWithRebuildStarted.IndexName,
+                        ProjectionDocumentSchema = JsonSerializer.Deserialize<ProjectionDocumentSchema>(lastIndexWithRebuildStarted.Schema!)!
+                    };
                 }
                 
                 // If there are multiple indexes but none of them started rebuilding, just return the most recently created one.
@@ -144,7 +215,10 @@ public abstract class ProjectionRepository : IProjectionRepository
 
                 if (lastIndex != null)
                 {
-                    return lastIndex.IndexName;
+                    return new ProjectionOperationIndexDescriptor() {
+                        IndexName = lastIndex.IndexName,
+                        ProjectionDocumentSchema = JsonSerializer.Deserialize<ProjectionDocumentSchema>(lastIndex.Schema!)!
+                    };
                 }
             }
 
@@ -158,11 +232,14 @@ public abstract class ProjectionRepository : IProjectionRepository
             
             var newProjectionIndexState = new ProjectionIndexState()
             {
+                Id = Guid.NewGuid(),
                 ProjectionName = ProjectionDocumentSchema.SchemaName,
+                ConnectionId = "",
                 IndexesStatuses = new List<IndexStateForSchemaVersion>() {
                     new IndexStateForSchemaVersion()
                     {
                         CreatedAt = DateTime.UtcNow,
+                        Schema = JsonSerializer.Serialize(ProjectionDocumentSchema),
                         SchemaHash = projectionVersionPropertiesHash,
                         IndexName = projectionVersionIndexName,
                         RebuildEventsProcessed = 0,
@@ -176,10 +253,85 @@ public abstract class ProjectionRepository : IProjectionRepository
             await CreateIndex(projectionVersionIndexName, ProjectionDocumentSchema);
             await SaveProjectionIndexState(newProjectionIndexState);
 
-            return projectionVersionIndexName;
+            return new ProjectionOperationIndexDescriptor() {
+                IndexName = projectionVersionIndexName,
+                ProjectionDocumentSchema = ProjectionDocumentSchema
+            };
         }
     }
+    
+    //public abstract Task<(ProjectionIndexState?, string?)> AcquireAndLockProjectionThatRequiresRebuild();
+    
+    public async Task<(ProjectionIndexState?, string?)> AcquireAndLockProjectionThatRequiresRebuild()
+    {
+        // we need to round datetime received from the database because postgresql has less precision than dotnet
+        // https://stackoverflow.com/questions/51103606/storing-datetime-in-postgresql-without-loosing-precision
+        var rebuildHealthCheckThreshold = DateTime.UtcNow.AddMinutes(-5).RoundToMicroseconds();
+        
+        // we are looking for two possible index states:
+        // 1. RebuildStartedAt = null - index was just created and requires rebuild and
+        // 2. RebuildCompletedAt = null && RebuildHealthCheckAt < rebuildHealthCheckThreshold - rebuild has started but not completed yet and there
+        //    have been no health checks for more than 5 minutes (see rebuildHealthCheckThreshold above). Note that this means we are taking over
+        //    a rebuild not completed by another process. That process could still wake up and continue, so it should check the index before continuing
+        //    and ensure no other process took over the rebuild process.
+        Expression<Func<ProjectionIndexState, bool>> projectionStatesFilterExpression = (state) => state.IndexesStatuses.Any((e) => 
+            e.RebuildStartedAt == null || (e.RebuildCompletedAt == null && e.RebuildHealthCheckAt < rebuildHealthCheckThreshold)
+        );
+        
+        var indexesStatusesFilterPredicate = 
+            ((projectionStatesFilterExpression.Body as MethodCallExpression).Arguments[1] as Expression<Func<IndexStateForSchemaVersion, bool>>).Compile();
+        
+        var projectionQuery = ProjectionQueryExpressionExtensions.Where(projectionStatesFilterExpression);
 
-    public abstract Task<(ProjectionIndexState?, string?)> AcquireAndLockProjectionThatRequiresRebuild();
+        var result = await QueryProjectionIndexStates(projectionQuery);
+
+        if (result.Count <= 0)
+        {
+            return (null, null);
+        }
+
+        var projectionIndexState = result.First();
+        
+        var dateTimeStarted = DateTime.UtcNow;
+
+        dateTimeStarted = dateTimeStarted.AddTicks(dateTimeStarted.Nanosecond * -1);
+
+        projectionIndexState.UpdatedAt = dateTimeStarted;
+
+        // !Important: this where condition should be in absolute sync with the condition we send to elasticsearch (at the beginning of this method)
+        var index = projectionIndexState.IndexesStatuses
+            //.Where(s => s.RebuildStartedAt == null || (s.RebuildCompletedAt == null && s.RebuildHealthCheckAt < rebuildHealthCheckThreshold))
+            .Where(indexesStatusesFilterPredicate)
+            .OrderBy(s => s.CreatedAt)
+            .FirstOrDefault();
+
+        if (index == null)
+        {
+            throw new Exception("QueryProjectionIndexStates returned incorrect results");
+        }
+
+        index.RebuildStartedAt = dateTimeStarted;
+        index.RebuildHealthCheckAt = dateTimeStarted;
+        index.RebuildCompletedAt = null;
+
+        await SaveProjectionIndexState(projectionIndexState);
+
+        // we want to make sure no other process locked this item, the easiest way is to just check 
+        // if saved result has exact same updatedAt timestamp and we were saving within this process 
+        var indexStateResponse = await GetProjectionIndexState(
+            projectionIndexState.ProjectionName
+        );
+        
+        // we need to round datetime received from the database because postgresql has less precision than dotnet
+        // https://stackoverflow.com/questions/51103606/storing-datetime-in-postgresql-without-loosing-precision
+        if (indexStateResponse != null && dateTimeStarted != indexStateResponse.UpdatedAt)
+        {
+            // look like some other process updated the item before us. Just ignore this record then - it will be processed by that process.
+            return (null, null);
+        }
+
+        return (indexStateResponse, index.IndexName);
+    }
+    
     public abstract Task UpdateProjectionRebuildStats(ProjectionIndexState indexToRebuild);
 }

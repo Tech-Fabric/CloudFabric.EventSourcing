@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CloudFabric.Projections.Attributes;
 
 namespace CloudFabric.Projections;
@@ -20,6 +21,9 @@ public record IndexStateForSchemaVersion
     /// </summary>
     [ProjectionDocumentProperty(IsFilterable = true)]
     public string SchemaHash { get; set; }
+
+    [ProjectionDocumentProperty]
+    public string? Schema { get; set; }
 
     [ProjectionDocumentProperty(IsFilterable = true)]
     public DateTime? RebuildCompletedAt { get; set; }
@@ -44,6 +48,7 @@ public record IndexStateForSchemaVersion
 [ProjectionDocument]
 public class ProjectionIndexState : ProjectionDocument
 {
+    [ProjectionDocumentProperty(IsFilterable = true)]
     public string ProjectionName { get; set; }
 
     /// <summary>

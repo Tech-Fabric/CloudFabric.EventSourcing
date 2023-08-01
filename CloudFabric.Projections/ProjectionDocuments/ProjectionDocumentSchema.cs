@@ -1,16 +1,8 @@
 namespace CloudFabric.Projections;
 
-public class ProjectionDocumentSchema
+public class ProjectionDocumentSchema : ICloneable
 {
     public string SchemaName { get; set; }
-
-    /// <summary>
-    /// Allows to narrow down
-    /// the amount of event store events to process when rebuilding the projection.
-    ///
-    /// When set, projection rebuild will only process events for given partition key. 
-    /// </summary>
-    public string? SourcePartitionKey { get; set; }
 
     public string KeyColumnName
     {
@@ -29,4 +21,9 @@ public class ProjectionDocumentSchema
     }
 
     public List<ProjectionDocumentPropertySchema> Properties { get; set; } = new();
+
+    public object Clone()
+    {
+        return MemberwiseClone();
+    }
 }

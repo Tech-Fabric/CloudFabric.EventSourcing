@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace CloudFabric.Projections.Postgresql;
 
 public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
@@ -8,6 +10,8 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
     /// <summary>
     /// 
     /// </summary>
+    /// <param name="loggerFactory">
+    /// </param>
     /// <param name="projectionsConnectionString">
     /// Projections store connection string.
     /// </param>
@@ -17,9 +21,11 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
     /// we need to store some kind of id to be able to restore it later for projections rebuild.
     /// </param>
     public PostgresqlProjectionRepositoryFactory(
+        ILoggerFactory loggerFactory,
         string projectionsConnectionString,
         string? sourceEventStoreConnectionId = null
-    ) {
+    ): base(loggerFactory)
+    {
         _projectionsConnectionString = projectionsConnectionString;
         _sourceEventStoreConnectionId = sourceEventStoreConnectionId;
     }
@@ -32,7 +38,9 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
             return cached;
         }
         
-        var repository = new PostgresqlProjectionRepository<TProjectionDocument>(_projectionsConnectionString);
+        var repository = new PostgresqlProjectionRepository<TProjectionDocument>(
+            _projectionsConnectionString, _loggerFactory
+        );
         SetToCache<TProjectionDocument>(repository);
         return repository;
     }
@@ -45,7 +53,11 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
             return cached;
         }
         
-        var repository = new PostgresqlProjectionRepository(_projectionsConnectionString, projectionDocumentSchema);
+        var repository = new PostgresqlProjectionRepository(
+            _projectionsConnectionString, 
+            projectionDocumentSchema,
+            _loggerFactory
+        );
         SetToCache(projectionDocumentSchema, repository);
         return repository;
     }

@@ -47,6 +47,7 @@ public class OrderTestsPostgresql : OrderTests
         if (_projectionRepositoryFactory == null)
         {
             _projectionRepositoryFactory = new PostgresqlProjectionRepositoryFactory(
+                NullLoggerFactory.Instance, 
                 TestsConnectionStrings.CONNECTION_STRING
             );
         }

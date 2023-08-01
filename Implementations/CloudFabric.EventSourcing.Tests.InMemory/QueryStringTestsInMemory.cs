@@ -2,6 +2,7 @@
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests.InMemory;
@@ -38,7 +39,7 @@ public class QueryStringTestsInMemory : ProjectionQueryTest
     {
         if (_projectionRepositoryFactory == null)
         {
-            _projectionRepositoryFactory = new InMemoryProjectionRepositoryFactory();
+            _projectionRepositoryFactory = new InMemoryProjectionRepositoryFactory(NullLoggerFactory.Instance);
         }
 
         return _projectionRepositoryFactory;

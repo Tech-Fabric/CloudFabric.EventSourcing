@@ -54,16 +54,17 @@ builder.Services.Configure<UserAccessTokensServiceOptions>(builder.Configuration
 builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "user-events")
     .AddRepository<AggregateRepository<UserAccount>>()
     .AddRepository<AggregateRepository<UserAccountEmailAddress>>()
-    
+
     .AddRepository<AggregateRepository<ToDoList.Domain.Task>>()
     .AddRepository<AggregateRepository<TaskList>>()
-    
+
     .AddPostgresqlProjections(
         builder.Configuration.GetConnectionString("Default"),
         typeof(UserAccountsProjectionBuilder),
         typeof(TasksProjectionBuilder),
         typeof(TaskListsProjectionBuilder)
-    );
+    )
+    .AddProjectionsRebuildProcessor();
 
 #endregion
 

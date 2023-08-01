@@ -1,8 +1,17 @@
+using Microsoft.Extensions.Logging;
+
 namespace CloudFabric.Projections;
 
 public abstract class ProjectionRepositoryFactory
 {
     protected readonly Dictionary<string, object> _repositories = new Dictionary<string, object>();
+
+    protected readonly ILoggerFactory _loggerFactory;
+
+    public ProjectionRepositoryFactory(ILoggerFactory loggerFactory)
+    {
+        _loggerFactory = loggerFactory;
+    }
 
     protected IProjectionRepository<TProjectionDocument>? GetFromCache<TProjectionDocument>() where TProjectionDocument : ProjectionDocument
     {
@@ -56,4 +65,9 @@ public abstract class ProjectionRepositoryFactory
         where TProjectionDocument : ProjectionDocument;
 
     public abstract ProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema);
+
+    public ProjectionRepository GetProjectionsIndexStateRepository()
+    {
+        return GetProjectionRepository(ProjectionDocumentSchemaFactory.FromTypeWithAttributes<ProjectionIndexState>());
+    }
 }
