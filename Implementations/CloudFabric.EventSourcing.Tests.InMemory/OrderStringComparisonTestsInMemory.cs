@@ -1,4 +1,4 @@
-﻿using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
@@ -17,7 +17,10 @@ public class OrderStringComparisonTestsInMemory : OrderStringComparisonTests
     {
         if (_eventStore == null)
         {
-            _eventStore = new InMemoryEventStore(new Dictionary<(Guid, string), List<string>>());
+            _eventStore = new InMemoryEventStore(
+                new Dictionary<(Guid, string), List<string>>(),
+                new Dictionary<(string, string), string>()
+            );
             await _eventStore.Initialize();
         }
 

@@ -14,7 +14,8 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             string connectionString,
             CosmosClientOptions cosmosClientOptions,
             string databaseId,
-            string containerId,
+            string eventsContainerId,
+            string itemsContainerId,
             CosmosClient leaseClient,
             string leaseDatabaseId,
             string leaseContainerId,
@@ -23,13 +24,13 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
         {
             var cosmosClient = new CosmosClient(connectionString, cosmosClientOptions);
 
-            var eventStore = new CosmosDbEventStore(cosmosClient, databaseId, containerId);
+            var eventStore = new CosmosDbEventStore(cosmosClient, databaseId, eventsContainerId, itemsContainerId);
             eventStore.Initialize().Wait();
 
             var eventStoreObserver = new CosmosDbEventStoreChangeFeedObserver(
                 cosmosClient,
                 databaseId,
-                containerId,
+                eventsContainerId,
                 leaseClient,
                 leaseDatabaseId,
                 leaseContainerId,
@@ -52,10 +53,11 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             this IServiceCollection services,
             CosmosClient client,
             string databaseId,
-            string containerId
+            string eventsContainerId,
+            string itemsContainerId
         )
         {
-            var eventStore = new CosmosDbEventStore(client, databaseId, containerId);
+            var eventStore = new CosmosDbEventStore(client, databaseId, eventsContainerId, itemsContainerId);
             eventStore.Initialize().Wait();
 
             return new EventSourcingBuilder

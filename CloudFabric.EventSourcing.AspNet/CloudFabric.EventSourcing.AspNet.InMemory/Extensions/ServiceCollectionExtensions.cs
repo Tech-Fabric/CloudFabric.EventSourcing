@@ -11,10 +11,11 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
     {
         public static IEventSourcingBuilder AddInMemoryEventStore(
             this IServiceCollection services,
-            Dictionary<(Guid, string), List<string>> eventsContainer
+            Dictionary<(Guid, string), List<string>> eventsContainer,
+            Dictionary<(string, string), string> itemsContainer
         )
         {
-            var eventStore = new InMemoryEventStore(eventsContainer);
+            var eventStore = new InMemoryEventStore(eventsContainer, itemsContainer);
             eventStore.Initialize().Wait();
 
             // add events observer for projections

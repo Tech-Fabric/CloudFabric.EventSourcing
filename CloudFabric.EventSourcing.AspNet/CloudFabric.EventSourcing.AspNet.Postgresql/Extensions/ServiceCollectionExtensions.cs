@@ -12,10 +12,11 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
         public static IEventSourcingBuilder AddPostgresqlEventStore(
             this IServiceCollection services,
             string eventsConnectionString,
-            string tableName
+            string eventTableName,
+            string itemTableName
         )
         {
-            var eventStore = new PostgresqlEventStore(eventsConnectionString, tableName);
+            var eventStore = new PostgresqlEventStore(eventsConnectionString, eventTableName, itemTableName);
             eventStore.Initialize().Wait();
 
             // add events observer for projections

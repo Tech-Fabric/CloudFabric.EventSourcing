@@ -7,30 +7,35 @@ namespace CloudFabric.EventSourcing.EventStore.CosmosDb;
 public class CosmosDbEventStore : IEventStore
 {
     private readonly CosmosClient _client;
-    private readonly string _containerId;
+    private readonly string _eventsContainerId;
+    private readonly string _itemsContainerId;
     private readonly string _databaseId;
 
     public CosmosDbEventStore(
         string connectionString,
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
-        string containerId
+        string eventsContainerId,
+        string itemsContainerId
     )
     {
         _client = new CosmosClient(connectionString, cosmosClientOptions);
         _databaseId = databaseId;
-        _containerId = containerId;
+        _eventsContainerId = eventsContainerId;
+        _itemsContainerId = itemsContainerId;
     }
 
     public CosmosDbEventStore(
         CosmosClient client,
         string databaseId,
-        string containerId
+        string eventsContainerId,
+        string itemsContainerId
     )
     {
         _client = client;
         _databaseId = databaseId;
-        _containerId = containerId;
+        _eventsContainerId = eventsContainerId;
+        _itemsContainerId = itemsContainerId;
     }
 
     public Task Initialize(CancellationToken cancellationToken = default)
@@ -40,15 +45,18 @@ public class CosmosDbEventStore : IEventStore
 
     public async Task DeleteAll(CancellationToken cancellationToken = default)
     {
-        var container = _client.GetContainer(_databaseId, _containerId);
-        await container.DeleteContainerAsync(cancellationToken: cancellationToken);
+        //var eventsContainer = _client.GetContainer(_databaseId, _eventsContainerId);
+        //await eventsContainer.DeleteContainerAsync(cancellationToken: cancellationToken);
+
+        //var itemsContainer = _client.GetContainer(_databaseId, _eventsContainerId);
+        //await eventsContainer.DeleteContainerAsync(cancellationToken: cancellationToken);
     }
 
     public async Task<bool> HardDeleteAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
-        var container = _client.GetContainer(_databaseId, _containerId);
+        var container = _client.GetContainer(_databaseId, _eventsContainerId);
 
-        var sqlQueryText = $"SELECT * FROM {_containerId} e" + " WHERE e.stream.id = @streamId";
+        var sqlQueryText = $"SELECT * FROM {_eventsContainerId} e" + " WHERE e.stream.id = @streamId";
 
         QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
             .WithParameter("@streamId", streamId);
@@ -108,9 +116,9 @@ public class CosmosDbEventStore : IEventStore
 
     public async Task<EventStream> LoadStreamAsyncOrThrowNotFound(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
-        Container container = _client.GetContainer(_databaseId, _containerId);
+        Container container = _client.GetContainer(_databaseId, _eventsContainerId);
 
-        var sqlQueryText = $"SELECT * FROM {_containerId} e" + " WHERE e.stream.id = @streamId " + " ORDER BY e.stream.version";
+        var sqlQueryText = $"SELECT * FROM {_eventsContainerId} e" + " WHERE e.stream.id = @streamId " + " ORDER BY e.stream.version";
 
         QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
             .WithParameter("@streamId", streamId);
@@ -143,9 +151,9 @@ public class CosmosDbEventStore : IEventStore
 
     public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
-        Container container = _client.GetContainer(_databaseId, _containerId);
+        Container container = _client.GetContainer(_databaseId, _eventsContainerId);
 
-        var sqlQueryText = $"SELECT * FROM {_containerId} e" + " WHERE e.stream.id = @streamId " + " ORDER BY e.stream.version";
+        var sqlQueryText = $"SELECT * FROM {_eventsContainerId} e" + " WHERE e.stream.id = @streamId " + " ORDER BY e.stream.version";
 
         QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
             .WithParameter("@streamId", streamId);
@@ -173,9 +181,9 @@ public class CosmosDbEventStore : IEventStore
 
     public async Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion, CancellationToken cancellationToken = default)
     {
-        Container container = _client.GetContainer(_databaseId, _containerId);
+        Container container = _client.GetContainer(_databaseId, _eventsContainerId);
 
-        var sqlQueryText = $"SELECT * FROM {_containerId} e" +
+        var sqlQueryText = $"SELECT * FROM {_eventsContainerId} e" +
                            " WHERE e.stream.id = @streamId AND e.stream.version >= @fromVersion" +
                            " ORDER BY e.stream.version";
 
@@ -216,7 +224,7 @@ public class CosmosDbEventStore : IEventStore
             throw new ArgumentException("Partition keys for all events in the stream must be the same");
         }
 
-        Container container = _client.GetContainer(_databaseId, _containerId);
+        Container container = _client.GetContainer(_databaseId, _eventsContainerId);
 
         PartitionKey cosmosPartitionKey = new PartitionKey(events.First().PartitionKey);
 
@@ -250,11 +258,66 @@ public class CosmosDbEventStore : IEventStore
                     Version = ++expectedVersion
                 },
                 EventType = e.GetType().AssemblyQualifiedName,
-                EventData = JsonSerializer.SerializeToElement(e, e.GetType(), EventSerializerOptions.Options),
-                UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType(), EventSerializerOptions.Options)
+                EventData = JsonSerializer.SerializeToElement(e, e.GetType(), EventStoreSerializerOptions.Options),
+                UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType(), EventStoreSerializerOptions.Options)
             }
         );
 
-        return JsonSerializer.Serialize(items, EventSerializerOptions.Options);
+        return JsonSerializer.Serialize(items, EventStoreSerializerOptions.Options);
+    }
+
+    public async Task UpsertItem<T>(string id, string partitionKey, T item, CancellationToken cancellationToken = default)
+    {
+        Container container = _client.GetContainer(_databaseId, _itemsContainerId);
+
+        PartitionKey cosmosPartitionKey = new PartitionKey(partitionKey);
+
+        var response = await container.UpsertItemAsync(
+            new ItemWrapper
+            {
+                Id = id,
+                PartitionKey = partitionKey,
+                ItemData = JsonSerializer.Serialize(item, EventStoreSerializerOptions.Options)
+            },
+            cosmosPartitionKey,
+            null,
+            cancellationToken
+        );
+
+        if (response.StatusCode != System.Net.HttpStatusCode.OK && response.StatusCode != System.Net.HttpStatusCode.Created)
+        {
+            throw new Exception($"Cosmos Db returned status {response.StatusCode}.");
+        }
+    }
+
+    public async Task<T?> LoadItem<T>(string id, string partitionKey, CancellationToken cancellationToken = default)
+    {
+        Container container = _client.GetContainer(_databaseId, _itemsContainerId);
+
+        PartitionKey cosmosPartitionKey = new PartitionKey(partitionKey);
+
+        var sqlQueryText = $"SELECT * FROM {_itemsContainerId} i" + " WHERE i.id = @id OFFSET 0 LIMIT 1";
+
+        QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
+            .WithParameter("@id", id);
+
+        FeedIterator<ItemWrapper> feedIterator = container.GetItemQueryIterator<ItemWrapper>(
+            queryDefinition,
+            requestOptions: new QueryRequestOptions { PartitionKey = cosmosPartitionKey }
+        );
+
+        while (feedIterator.HasMoreResults)
+        {
+            FeedResponse<ItemWrapper> response = await feedIterator.ReadNextAsync(cancellationToken);
+
+            if (response.Count == 0)
+            {
+                return default;
+            }
+
+            return JsonSerializer.Deserialize<T>(response.First().ItemData, EventStoreSerializerOptions.Options);
+        }
+
+        return default;
     }
 }

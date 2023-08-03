@@ -131,7 +131,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         _containerId = containerId;
     }
 
-    public Task EnsureIndex(CancellationToken cancellationToken = default)
+    public async Task EnsureIndex(CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }
