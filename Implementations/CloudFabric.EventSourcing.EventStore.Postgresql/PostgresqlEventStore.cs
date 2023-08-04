@@ -360,7 +360,7 @@ public class PostgresqlEventStore : IEventStore
 
         try
         {
-            var tableExists = await cmd.ExecuteScalarAsync(cancellationToken);
+            await cmd.ExecuteScalarAsync(cancellationToken);
         }
         catch (NpgsqlException ex)
         {
@@ -392,7 +392,7 @@ public class PostgresqlEventStore : IEventStore
 
         try
         {
-            var tableExists = await cmdItemTable.ExecuteScalarAsync(cancellationToken);
+            await cmdItemTable.ExecuteScalarAsync(cancellationToken);
         }
         catch (NpgsqlException ex)
         {

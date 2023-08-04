@@ -1,12 +1,7 @@
-using System.Reflection;
-using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.Tests.Domain;
-using CloudFabric.Projections;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Text.Json;
-using System.Text;
 
 namespace CloudFabric.EventSourcing.Tests;
 public abstract class ItemTests
@@ -35,7 +30,7 @@ public abstract class ItemTests
         {
             Id = Guid.NewGuid(),
             Name = "Item1",
-            Properties = new Dictionary<string, NestedItemClass> 
+            Properties = new Dictionary<string, NestedItemClass>
             {
                 { Guid.NewGuid().ToString(), new NestedItemClass() },
                 { Guid.NewGuid().ToString(), new NestedItemClass() }
@@ -97,10 +92,10 @@ public abstract class ItemTests
 
         item.Properties = new()
         {
-            { propertyGuid, new NestedItemClass() }          
+            { propertyGuid, new NestedItemClass() }
         };
 
-        Func<Task> action = async() => await _eventStore.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
+        Func<Task> action = async () => await _eventStore.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
         await action.Should().NotThrowAsync();
 
         var updatedItem = await _eventStore.LoadItem<Item>($"{item.Id}{item.Name}", $"{item.Id}{item.Name}");

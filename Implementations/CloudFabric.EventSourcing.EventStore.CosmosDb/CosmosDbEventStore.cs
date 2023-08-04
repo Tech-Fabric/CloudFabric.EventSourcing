@@ -266,6 +266,8 @@ public class CosmosDbEventStore : IEventStore
         return JsonSerializer.Serialize(items, EventStoreSerializerOptions.Options);
     }
 
+    #region Item Functionality
+
     public async Task UpsertItem<T>(string id, string partitionKey, T item, CancellationToken cancellationToken = default)
     {
         Container container = _client.GetContainer(_databaseId, _itemsContainerId);
@@ -320,4 +322,6 @@ public class CosmosDbEventStore : IEventStore
 
         return default;
     }
+
+    #endregion
 }

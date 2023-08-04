@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 
@@ -259,6 +258,8 @@ public class InMemoryEventStore : IEventStore
 
     #endregion
 
+    #region Item Functionality
+
     public async Task UpsertItem<T>(string id, string partitionKey, T item, CancellationToken cancellationToken = default)
     {
         var serializedItem = JsonSerializer.Serialize(item, EventStoreSerializerOptions.Options);
@@ -273,8 +274,15 @@ public class InMemoryEventStore : IEventStore
 
     public async Task<T?> LoadItem<T>(string id, string partitionKey, CancellationToken cancellationToken = default)
     {
-        return _itemsContainer.ContainsKey((id, partitionKey)) ?
-            JsonSerializer.Deserialize<T>(_itemsContainer[(id, partitionKey)], EventStoreSerializerOptions.Options)
-            : default;
+        if (_itemsContainer.TryGetValue((id, partitionKey), out string? value))
+        {
+            return value != null
+                ? JsonSerializer.Deserialize<T>(value, EventStoreSerializerOptions.Options)
+                : default;
+        }
+
+        return default;
     }
+
+    #endregion
 }
