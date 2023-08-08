@@ -49,7 +49,7 @@ builder.Services.Configure<UserAccessTokensServiceOptions>(builder.Configuration
 
 #region User Accounts Projections
 
-var userEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "user-events", "user-items")
+var userEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "user-events")
     .AddRepository<AggregateRepository<UserAccount>>()
     .AddRepository<AggregateRepository<UserAccountEmailAddress>>()
     .AddPostgresqlProjections(
@@ -61,7 +61,7 @@ var userEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.
 
 #region Task Lists Projections
 
-var taskListEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "task-list-events", "task-list-items")
+var taskListEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "task-list-events")
     .AddRepository<AggregateRepository<TaskList>>()
     .AddPostgresqlProjections(
         builder.Configuration.GetConnectionString("Default"),
@@ -72,7 +72,7 @@ var taskListEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(buil
 
 #region Task Projections
 
-var taskEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "task-events", "task-items")
+var taskEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "task-events")
     .AddRepository<AggregateRepository<ToDoList.Domain.Task>>()
     .AddPostgresqlProjections(
         builder.Configuration.GetConnectionString("Default"),

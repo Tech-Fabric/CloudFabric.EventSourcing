@@ -26,8 +26,6 @@ public class ItemTestsCosmosDb : ItemTests
 
     public async Task SetUp()
     {
-        ProjectionsUpdateDelay = TimeSpan.FromSeconds(30);
-
         var loggerFactory = new LoggerFactory();
         _logger = loggerFactory.CreateLogger<ItemTestsCosmosDb>();
 
@@ -60,7 +58,7 @@ public class ItemTestsCosmosDb : ItemTests
         );
 
         var database = await ReCreateDatabase(_cosmosClient, DatabaseName);
-        await database.CreateContainerIfNotExistsAsync(new ContainerProperties(ItemContainerName, "/partitionKey"));
+        await database.CreateContainerIfNotExistsAsync(new ContainerProperties(ItemContainerName, "/partition_key"));
 
         ContainerResponse itemContainerResponce =
             await _cosmosClient.GetContainer(DatabaseName, ItemContainerName).ReadContainerAsync();

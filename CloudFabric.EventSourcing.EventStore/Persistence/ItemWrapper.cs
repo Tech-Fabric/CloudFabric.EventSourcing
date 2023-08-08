@@ -7,9 +7,9 @@ public class ItemWrapper
     [JsonPropertyName("id")]
     public string? Id { get; set; }
 
-    [JsonPropertyName("partitionKey")]
+    [JsonPropertyName("partition_key")]
     public string? PartitionKey { get; set; }
 
-    [JsonPropertyName("item_data")]
+    [JsonPropertyName("data")]
     public string? ItemData { get; set; }
 }
