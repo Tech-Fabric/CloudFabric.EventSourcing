@@ -1,6 +1,6 @@
 namespace CloudFabric.EventSourcing.EventStore.Enums;
 
-public static class ItemEventStoreNameSuffix
+public static class ItemsEventStoreNameSuffix
 {
     public const string TableNameSuffix = "-item";
 }
