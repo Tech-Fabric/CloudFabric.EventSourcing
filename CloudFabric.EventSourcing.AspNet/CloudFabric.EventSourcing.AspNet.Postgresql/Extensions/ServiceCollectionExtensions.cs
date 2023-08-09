@@ -47,7 +47,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             return services.AddPostgresqlEventStore(
                 eventsConnectionString,
                 eventsTableName,
-                string.Concat(eventsTableName, ItemEventStoreNameSuffix.TableNameSuffix)
+                string.Concat(eventsTableName, ItemsEventStoreNameSuffix.TableNameSuffix)
             );
         }
 
