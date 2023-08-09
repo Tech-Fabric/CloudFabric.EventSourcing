@@ -1,4 +1,5 @@
 using CloudFabric.EventSourcing.Domain;
+using CloudFabric.EventSourcing.EventStore.Enums;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
@@ -12,10 +13,11 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
         public static IEventSourcingBuilder AddPostgresqlEventStore(
             this IServiceCollection services,
             string eventsConnectionString,
-            string tableName
+            string eventsTableName,
+            string itemsTableName
         )
         {
-            var eventStore = new PostgresqlEventStore(eventsConnectionString, tableName);
+            var eventStore = new PostgresqlEventStore(eventsConnectionString, eventsTableName, itemsTableName);
             eventStore.Initialize().Wait();
 
             // add events observer for projections
@@ -31,6 +33,22 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                 ProjectionEventsObserver = eventStoreObserver,
                 AggregateRepositoryFactory = aggregateRepositoryFactory
             };
+        }
+
+        /// <summary>
+        /// This extension overload initialize event store with default item event store table name.
+        /// </summary>
+        public static IEventSourcingBuilder AddPostgresqlEventStore(
+            this IServiceCollection services,
+            string eventsConnectionString,
+            string eventsTableName
+        )
+        {
+            return services.AddPostgresqlEventStore(
+                eventsConnectionString,
+                eventsTableName,
+                string.Concat(eventsTableName, ItemsEventStoreNameSuffix.TableNameSuffix)
+            );
         }
 
         public static IEventSourcingBuilder AddRepository<TRepo>(this IEventSourcingBuilder builder)

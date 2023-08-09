@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
@@ -11,10 +12,11 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
     {
         public static IEventSourcingBuilder AddInMemoryEventStore(
             this IServiceCollection services,
-            Dictionary<(Guid, string), List<string>> eventsContainer
+            Dictionary<(Guid, string), List<string>> eventsContainer,
+            Dictionary<(string, string), string> itemsContainer
         )
         {
-            var eventStore = new InMemoryEventStore(eventsContainer);
+            var eventStore = new InMemoryEventStore(eventsContainer, itemsContainer);
             eventStore.Initialize().Wait();
 
             // add events observer for projections
@@ -30,6 +32,14 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
                 ProjectionEventsObserver = eventStoreObserver,
                 AggregateRepositoryFactory = aggregateRepositoryFactory
             };
+        }
+
+        public static IEventSourcingBuilder AddInMemoryEventStore(this IServiceCollection services)
+        {
+            return services.AddInMemoryEventStore(
+                new Dictionary<(Guid, string), List<string>>(),
+                new Dictionary<(string, string), string>()
+            );
         }
 
         public static IEventSourcingBuilder AddRepository<TRepo>(this IEventSourcingBuilder builder)

@@ -1,4 +1,4 @@
-﻿using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
@@ -19,7 +19,8 @@ public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTes
         {
             _eventStore = new PostgresqlEventStore(
                 TestsConnectionStrings.CONNECTION_STRING,
-                "orders_events"
+                "orders_events",
+                "stored_items"
             );
             await _eventStore.Initialize();
         }
