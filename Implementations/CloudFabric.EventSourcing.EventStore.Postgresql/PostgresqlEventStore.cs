@@ -13,11 +13,11 @@ public class PostgresqlEventStore : IEventStore
     private readonly string _eventsTableName;
     private readonly string _itemsTableName;
 
-    public PostgresqlEventStore(string connectionString, string eventTableName, string itemTableName)
+    public PostgresqlEventStore(string connectionString, string eventsTableName, string itemsTableName)
     {
         _connectionString = connectionString;
-        _eventsTableName = eventTableName;
-        _itemsTableName = itemTableName;
+        _eventsTableName = eventsTableName;
+        _itemsTableName = itemsTableName;
     }
 
     public async Task Initialize(CancellationToken cancellationToken = default)
@@ -31,10 +31,33 @@ public class PostgresqlEventStore : IEventStore
         await conn.OpenAsync();
 
         await using var eventsTableCmd = new NpgsqlCommand($"DELETE FROM \"{_eventsTableName}\"", conn);
-        await eventsTableCmd.ExecuteScalarAsync(cancellationToken);
+
+        try
+        {
+            await eventsTableCmd.ExecuteScalarAsync(cancellationToken);
+        }
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState != PostgresErrorCodes.UndefinedTable)
+            {
+                throw;
+            }
+        }
 
         await using var itemsTableCmd = new NpgsqlCommand($"DELETE FROM \"{_itemsTableName}\"", conn);
-        await itemsTableCmd.ExecuteScalarAsync(cancellationToken);
+
+        try
+        {
+            await itemsTableCmd.ExecuteScalarAsync(cancellationToken);
+        }
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState != PostgresErrorCodes.UndefinedTable)
+            {
+                throw;
+            }
+        }
+
     }
     public async Task<bool> HardDeleteAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {

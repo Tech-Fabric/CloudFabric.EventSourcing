@@ -45,11 +45,33 @@ public class CosmosDbEventStore : IEventStore
 
     public async Task DeleteAll(CancellationToken cancellationToken = default)
     {
-        //var eventsContainer = _client.GetContainer(_databaseId, _eventsContainerId);
-        //await eventsContainer.DeleteContainerAsync(cancellationToken: cancellationToken);
+        var eventsContainer = _client.GetContainer(_databaseId, _eventsContainerId);
 
-        //var itemsContainer = _client.GetContainer(_databaseId, _eventsContainerId);
-        //await eventsContainer.DeleteContainerAsync(cancellationToken: cancellationToken);
+        try
+        {
+            await eventsContainer.DeleteContainerAsync(cancellationToken: cancellationToken);
+        }
+        catch (CosmosException ex)
+        {
+            if (ex.StatusCode != System.Net.HttpStatusCode.NotFound)
+            {
+                throw;
+            }
+        }
+
+        var itemsContainer = _client.GetContainer(_databaseId, _itemsContainerId);
+
+        try
+        {
+            await itemsContainer.DeleteContainerAsync(cancellationToken: cancellationToken);
+        }
+        catch (CosmosException ex)
+        {
+            if (ex.StatusCode != System.Net.HttpStatusCode.NotFound)
+            {
+                throw;
+            }
+        }
     }
 
     public async Task<bool> HardDeleteAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
