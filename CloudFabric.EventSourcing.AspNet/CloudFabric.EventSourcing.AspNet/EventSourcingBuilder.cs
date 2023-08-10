@@ -11,6 +11,8 @@ public class EventSourcingBuilder : IEventSourcingBuilder
 
     public AggregateRepositoryFactory AggregateRepositoryFactory { get; set; }
 
+    public IStoredItemsRepository StoredItemsRepository { get; set; }
+
     public IServiceCollection Services { get; set; }
 
     public ProjectionsEngine ProjectionsEngine { get; set; }

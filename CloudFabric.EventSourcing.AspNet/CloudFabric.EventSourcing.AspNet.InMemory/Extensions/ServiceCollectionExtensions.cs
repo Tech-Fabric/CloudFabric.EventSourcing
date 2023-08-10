@@ -25,12 +25,16 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
             AggregateRepositoryFactory aggregateRepositoryFactory = new AggregateRepositoryFactory(eventStore);
             services.AddScoped(sp => aggregateRepositoryFactory);
 
+            IStoredItemsRepository storedItemsRepository = new StoredItemsRepository(eventStore);
+            services.AddScoped(sp => storedItemsRepository);
+
             return new EventSourcingBuilder
             {
                 EventStore = eventStore,
                 Services = services,
                 ProjectionEventsObserver = eventStoreObserver,
-                AggregateRepositoryFactory = aggregateRepositoryFactory
+                AggregateRepositoryFactory = aggregateRepositoryFactory,
+                StoredItemsRepository = storedItemsRepository
             };
         }
 

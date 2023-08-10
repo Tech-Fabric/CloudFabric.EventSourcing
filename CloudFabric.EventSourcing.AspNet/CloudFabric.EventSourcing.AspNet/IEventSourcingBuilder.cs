@@ -11,6 +11,8 @@ public interface IEventSourcingBuilder
     
     public AggregateRepositoryFactory AggregateRepositoryFactory { get; set; }
 
+    public IStoredItemsRepository StoredItemsRepository { get; set; }
+
     IServiceCollection Services { get; set; }
 
     IEventsObserver ProjectionEventsObserver { get; set; }
