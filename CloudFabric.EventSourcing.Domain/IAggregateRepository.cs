@@ -14,5 +14,17 @@ public interface IAggregateRepository<T> where T : AggregateBase
 
     Task<bool> SaveAsync(EventUserInfo eventUserInfo, T aggregate, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Provides additional posisbility to store objects within AggregateRepository. 
+    /// </summary>
+    /// <typeparam name="TItem">Generic type parameter</typeparam>
+    Task SaveItem<TItem>(string id, string partitionKey, TItem item, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Load saved object.
+    /// </summary>
+    /// <typeparam name="TItem">Generic type parameter</typeparam>
+    Task<TItem?> LoadItem<TItem>(string id, string partitionKey, CancellationToken cancellationToken = default);
+
     Task<bool> HardDeleteAsync(Guid id, string partitionKey, CancellationToken cancellationToken = default);
 }
