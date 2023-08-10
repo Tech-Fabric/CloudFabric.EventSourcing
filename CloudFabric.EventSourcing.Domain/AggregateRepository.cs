@@ -99,6 +99,26 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         return true;
     }
 
+    public async Task SaveItem<TItem>(string id, string partitionKey, TItem item, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            throw new ArgumentNullException(nameof(id));
+        }
+
+        await _eventStore.UpsertItem(id, partitionKey, item, cancellationToken);
+    }
+
+    public async Task<TItem?> LoadItem<TItem>(string id, string partitionKey, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            throw new ArgumentNullException(nameof(id));
+        }
+
+        return await _eventStore.LoadItem<TItem?>(id, partitionKey, cancellationToken);
+    }
+
     /// <summary>
     /// We should not be able to hard delete events within implementation, but for some development issues we do need to be able to do so.
     /// Use this method carefuly and at your own risk. When something went terribly wrong, there is no way to recover deleted data.
