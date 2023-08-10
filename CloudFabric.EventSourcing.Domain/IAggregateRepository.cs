@@ -18,7 +18,7 @@ public interface IAggregateRepository<T> where T : AggregateBase
     /// Provides additional posisbility to store objects within AggregateRepository. 
     /// </summary>
     /// <typeparam name="TItem">Generic type parameter</typeparam>
-    Task SaveItem<TItem>(string id, string partitionKey, TItem item, CancellationToken cancellationToken = default);
+    Task UpsertItem<TItem>(string id, string partitionKey, TItem item, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Load saved object.

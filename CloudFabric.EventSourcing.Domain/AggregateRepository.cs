@@ -99,7 +99,7 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
         return true;
     }
 
-    public async Task SaveItem<TItem>(string id, string partitionKey, TItem item, CancellationToken cancellationToken = default)
+    public async Task UpsertItem<TItem>(string id, string partitionKey, TItem item, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(id))
         {
