@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace CloudFabric.EventSourcing.EventStore;
 
-public static class EventSerializerOptions
+public static class EventStoreSerializerOptions
 {
     public static JsonSerializerOptions Options
     {

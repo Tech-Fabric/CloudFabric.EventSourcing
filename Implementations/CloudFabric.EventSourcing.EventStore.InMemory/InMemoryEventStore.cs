@@ -11,13 +11,16 @@ public class EventAddedEventArgs : EventArgs
 public class InMemoryEventStore : IEventStore
 {
     private readonly Dictionary<(Guid StreamId, string PartitionKey), List<string>> _eventsContainer;
+    private readonly Dictionary<(string Id, string PartitionKey), string> _itemsContainer;
     private readonly List<Func<IEvent, Task>> _eventAddedEventHandlers = new();
 
     public InMemoryEventStore(
-        Dictionary<(Guid StreamId, string PartitionKey), List<string>> eventsContainer
+        Dictionary<(Guid StreamId, string PartitionKey), List<string>> eventsContainer,
+        Dictionary<(string Id, string PartitionKey), string> itemsContainer
     )
     {
         _eventsContainer = eventsContainer;
+        _itemsContainer = itemsContainer;
     }
 
     public Task Initialize(CancellationToken cancellationToken = default)
@@ -35,9 +38,35 @@ public class InMemoryEventStore : IEventStore
         _eventAddedEventHandlers.Remove(handler);
     }
 
+    
+    public async Task<EventStoreStatistics> GetStatistics(CancellationToken cancellationToken = default)
+    {
+        var stats = new EventStoreStatistics();
+        
+        stats.TotalEventsCount = _eventsContainer.Count;
+
+        var eventsOrderedByTimestamp = _eventsContainer
+            .SelectMany(x => x.Value)
+            .Select(x => JsonSerializer.Deserialize<EventWrapper>(x, EventStoreSerializerOptions.Options).GetEvent())
+            .OrderBy(x => x.Timestamp)
+            .ToList();
+
+        if (eventsOrderedByTimestamp.Count > 0)
+        {
+            stats.FirstEventCreatedAt = eventsOrderedByTimestamp.First().Timestamp;
+        }
+        if (eventsOrderedByTimestamp.Count > 0)
+        {
+            stats.LastEventCreatedAt = eventsOrderedByTimestamp.Last().Timestamp;
+        }
+
+        return stats;
+    }
+    
     public Task DeleteAll(CancellationToken cancellationToken = default)
     {
         _eventsContainer.Clear();
+        _itemsContainer.Clear();
         return Task.CompletedTask;
     }
 
@@ -121,7 +150,7 @@ public class InMemoryEventStore : IEventStore
 
         var events = eventsContainer
             .SelectMany(x => x.Value)
-            .Select(x => JsonSerializer.Deserialize<EventWrapper>(x, EventSerializerOptions.Options).GetEvent())
+            .Select(x => JsonSerializer.Deserialize<EventWrapper>(x, EventStoreSerializerOptions.Options).GetEvent())
             .Where(x => !dateFrom.HasValue || x.Timestamp > dateFrom)
             .OrderBy(x => x.Timestamp)
             .Take(limit)
@@ -163,7 +192,7 @@ public class InMemoryEventStore : IEventStore
 
             foreach (var wrapper in wrappers)
             {
-                stream.Add(JsonSerializer.Serialize(wrapper, EventSerializerOptions.Options));
+                stream.Add(JsonSerializer.Serialize(wrapper, EventStoreSerializerOptions.Options));
             }
 
             if (!_eventsContainer.ContainsKey((streamId, partitionKey)))
@@ -197,7 +226,7 @@ public class InMemoryEventStore : IEventStore
 
         foreach (var data in eventData)
         {
-            var eventWrapper = JsonSerializer.Deserialize<EventWrapper>(data, EventSerializerOptions.Options);
+            var eventWrapper = JsonSerializer.Deserialize<EventWrapper>(data, EventStoreSerializerOptions.Options);
             eventWrappers.Add(eventWrapper);
         }
 
@@ -215,7 +244,7 @@ public class InMemoryEventStore : IEventStore
 
         foreach (var data in eventData)
         {
-            var eventWrapper = JsonSerializer.Deserialize<EventWrapper>(data, EventSerializerOptions.Options);
+            var eventWrapper = JsonSerializer.Deserialize<EventWrapper>(data, EventStoreSerializerOptions.Options);
             if (eventWrapper.StreamInfo.Version >= version)
             {
                 eventWrappers.Add(eventWrapper);
@@ -240,8 +269,8 @@ public class InMemoryEventStore : IEventStore
                 Id = Guid.NewGuid(), //:{e.GetType().Name}",
                 StreamInfo = new StreamInfo { Id = streamId, Version = ++expectedVersion },
                 EventType = e.GetType().AssemblyQualifiedName,
-                EventData = JsonSerializer.SerializeToElement(e, e.GetType(), EventSerializerOptions.Options),
-                UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType(), EventSerializerOptions.Options)
+                EventData = JsonSerializer.SerializeToElement(e, e.GetType(), EventStoreSerializerOptions.Options),
+                UserInfo = JsonSerializer.SerializeToElement(eventUserInfo, eventUserInfo.GetType(), EventStoreSerializerOptions.Options)
             }
         );
 
@@ -266,28 +295,33 @@ public class InMemoryEventStore : IEventStore
     // }
 
     #endregion
-    
-    public async Task<EventStoreStatistics> GetStatistics(CancellationToken cancellationToken = default)
+
+    #region Item Functionality
+
+    public async Task UpsertItem<T>(string id, string partitionKey, T item, CancellationToken cancellationToken = default)
     {
-        var stats = new EventStoreStatistics();
-        
-        stats.TotalEventsCount = _eventsContainer.Count;
+        var serializedItem = JsonSerializer.Serialize(item, EventStoreSerializerOptions.Options);
 
-        var eventsOrderedByTimestamp = _eventsContainer
-            .SelectMany(x => x.Value)
-            .Select(x => JsonSerializer.Deserialize<EventWrapper>(x, EventSerializerOptions.Options).GetEvent())
-            .OrderBy(x => x.Timestamp)
-            .ToList();
+        var itemNotExists = _itemsContainer.TryAdd((id, partitionKey), serializedItem);
 
-        if (eventsOrderedByTimestamp.Count > 0)
+        if (!itemNotExists)
         {
-            stats.FirstEventCreatedAt = eventsOrderedByTimestamp.First().Timestamp;
+            _itemsContainer[(id, partitionKey)] = serializedItem;
         }
-        if (eventsOrderedByTimestamp.Count > 0)
-        {
-            stats.LastEventCreatedAt = eventsOrderedByTimestamp.Last().Timestamp;
-        }
-
-        return stats;
     }
+
+    public async Task<T?> LoadItem<T>(string id, string partitionKey, CancellationToken cancellationToken = default)
+    {
+        if (_itemsContainer.TryGetValue((id, partitionKey), out string? value))
+        {
+            return value != null
+                ? JsonSerializer.Deserialize<T>(value, EventStoreSerializerOptions.Options)
+                : default;
+        }
+
+        return default;
+    }
+
+    #endregion
+    
 }

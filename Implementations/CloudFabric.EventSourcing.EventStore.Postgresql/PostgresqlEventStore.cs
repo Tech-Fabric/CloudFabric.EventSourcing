@@ -29,12 +29,13 @@ public class PostgresqlEventStore : IEventStore
         }
     }
 
-    public PostgresqlEventStore(string connectionString, string tableName)
+    public PostgresqlEventStore(string connectionString, string eventsTableName, string itemsTableName)
     {
         _connectionInformation = new PostgresqlEventStoreConnectionInformation()
         {
             ConnectionString = connectionString,
-            TableName = tableName
+            TableName = eventsTableName,
+            ItemsTableName = itemsTableName
         };
     }
 
@@ -48,6 +49,55 @@ public class PostgresqlEventStore : IEventStore
         await EnsureTableExistsAsync(cancellationToken);
     }
 
+    
+    public async Task<EventStoreStatistics> GetStatistics(CancellationToken cancellationToken = default)
+    {
+        var connectionInformation = ConnectionInformation;
+        var stats = new EventStoreStatistics();
+
+        await using var conn = new NpgsqlConnection(connectionInformation.ConnectionString);
+        await conn.OpenAsync();
+
+        await using var countCmd = new NpgsqlCommand(
+            $"SELECT COUNT(*) FROM \"{connectionInformation.TableName}\"", conn
+        );
+        await using var firstEventTimestampCmd = new NpgsqlCommand(
+            $"SELECT to_timestamp_utc(event_data->>'timestamp') " +
+            $"FROM \"{connectionInformation.TableName}\" " +
+            $"ORDER BY to_timestamp_utc(event_data->>'timestamp') ASC " +
+            $"LIMIT 1", conn
+        );
+        await using var lastEventTimestampCmd = new NpgsqlCommand(
+            $"SELECT to_timestamp_utc(event_data->>'timestamp') " +
+            $"FROM \"{connectionInformation.TableName}\" " +
+            $"ORDER BY to_timestamp_utc(event_data->>'timestamp') DESC " +
+            $"LIMIT 1", conn
+        );
+    
+        var count = await countCmd.ExecuteScalarAsync(cancellationToken);
+
+        if (count != null)
+        {
+            stats.TotalEventsCount = (long)count;
+        }
+        
+        var firstEventDateTime = await firstEventTimestampCmd.ExecuteScalarAsync(cancellationToken);
+
+        if (firstEventDateTime != null)
+        {
+            stats.FirstEventCreatedAt = (DateTime)firstEventDateTime;
+        }
+        
+        var lastEventDateTime = await lastEventTimestampCmd.ExecuteScalarAsync(cancellationToken);
+
+        if (lastEventDateTime != null)
+        {
+            stats.LastEventCreatedAt = (DateTime)lastEventDateTime;
+        }
+
+        return stats;
+    }
+    
     public async Task DeleteAll(CancellationToken cancellationToken = default)
     {
         var connectionInformation = ConnectionInformation;
@@ -55,9 +105,34 @@ public class PostgresqlEventStore : IEventStore
         await using var conn = new NpgsqlConnection(connectionInformation.ConnectionString);
         await conn.OpenAsync();
 
-        await using var cmd = new NpgsqlCommand($"DELETE FROM \"{connectionInformation.TableName}\"", conn);
+        await using var eventsTableCmd = new NpgsqlCommand($"DELETE FROM \"{connectionInformation.TableName}\"", conn);
+        
+        try
+        {
+            await eventsTableCmd.ExecuteScalarAsync(cancellationToken);
+        }
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState != PostgresErrorCodes.UndefinedTable)
+            {
+                throw;
+            }
+        }
 
-        await cmd.ExecuteScalarAsync(cancellationToken);
+        await using var itemsTableCmd = new NpgsqlCommand($"DELETE FROM \"{connectionInformation.ItemsTableName}\"", conn);
+
+        try
+        {
+            await itemsTableCmd.ExecuteScalarAsync(cancellationToken);
+        }
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState != PostgresErrorCodes.UndefinedTable)
+            {
+                throw;
+            }
+        }
+
     }
     public async Task<bool> HardDeleteAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default)
     {
@@ -201,7 +276,7 @@ public class PostgresqlEventStore : IEventStore
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            var streamInfo = JsonSerializer.Deserialize<StreamInfo>(reader.GetString(1), EventSerializerOptions.Options);
+            var streamInfo = JsonSerializer.Deserialize<StreamInfo>(reader.GetString(1), EventStoreSerializerOptions.Options);
 
             if(streamInfo == null) {
                 throw new Exception("Failed to deserialize stream info");
@@ -352,13 +427,13 @@ public class PostgresqlEventStore : IEventStore
                     new NpgsqlParameter()
                     {
                         ParameterName = "event_data",
-                        Value = JsonSerializer.Serialize(evt, evt.GetType(), EventSerializerOptions.Options),
+                        Value = JsonSerializer.Serialize(evt, evt.GetType(), EventStoreSerializerOptions.Options),
                         DataTypeName = "jsonb"
                     },
                     new NpgsqlParameter()
                     {
                         ParameterName = "user_info",
-                        Value = JsonSerializer.Serialize(eventUserInfo, eventUserInfo.GetType(), EventSerializerOptions.Options),
+                        Value = JsonSerializer.Serialize(eventUserInfo, eventUserInfo.GetType(), EventStoreSerializerOptions.Options),
                         DataTypeName = "jsonb"
                     },
                     new NpgsqlParameter("eventstore_schema_version", EVENTSTORE_TABLE_SCHEMA_VERSION)
@@ -405,7 +480,7 @@ public class PostgresqlEventStore : IEventStore
 
         try
         {
-            var tableExists = await cmd.ExecuteScalarAsync(cancellationToken);
+            await cmd.ExecuteScalarAsync(cancellationToken);
         }
         catch (NpgsqlException ex)
         {
@@ -439,6 +514,33 @@ public class PostgresqlEventStore : IEventStore
                 await createTableCommand.ExecuteNonQueryAsync(cancellationToken);
             }
         }
+
+        await using var cmdItemTable = new NpgsqlCommand(
+            $"SELECT 1 FROM \"{connectionInformation.ItemsTableName}\"", conn)
+        {
+        };
+
+        try
+        {
+            await cmdItemTable.ExecuteScalarAsync(cancellationToken);
+        }
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            {                
+                await using var createTableCommand = new NpgsqlCommand(
+                    $"CREATE TABLE \"{connectionInformation.ItemsTableName}\" (" +
+                    $"id varchar(100) UNIQUE NOT NULL, " +
+                    $"partition_key varchar(100) NOT NULL, " +
+                    $"data jsonb" +
+                    $");" +
+                    $"CREATE INDEX \"{connectionInformation.ItemsTableName}_id_idx\" ON \"{connectionInformation.ItemsTableName}\" (id);" +
+                    $"CREATE INDEX \"{connectionInformation.ItemsTableName}_id_with_partition_key_idx\" ON \"{connectionInformation.ItemsTableName}\" (id, partition_key);"
+                    , conn);
+
+                await createTableCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
     }
 
     #region Snapshot Functionality
@@ -460,51 +562,106 @@ public class PostgresqlEventStore : IEventStore
 
     #endregion
 
-    public async Task<EventStoreStatistics> GetStatistics(CancellationToken cancellationToken = default)
+    #region Item Functionality
+
+    public async Task UpsertItem<T>(string id, string partitionKey, T item, CancellationToken cancellationToken = default)
     {
         var connectionInformation = ConnectionInformation;
-        var stats = new EventStoreStatistics();
-
+        
         await using var conn = new NpgsqlConnection(connectionInformation.ConnectionString);
-        await conn.OpenAsync();
+        await conn.OpenAsync(cancellationToken);
 
-        await using var countCmd = new NpgsqlCommand(
-            $"SELECT COUNT(*) FROM \"{connectionInformation.TableName}\"", conn
-        );
-        await using var firstEventTimestampCmd = new NpgsqlCommand(
-            $"SELECT to_timestamp_utc(event_data->>'timestamp') " +
-            $"FROM \"{connectionInformation.TableName}\" " +
-            $"ORDER BY to_timestamp_utc(event_data->>'timestamp') ASC " +
-            $"LIMIT 1", conn
-        );
-        await using var lastEventTimestampCmd = new NpgsqlCommand(
-            $"SELECT to_timestamp_utc(event_data->>'timestamp') " +
-            $"FROM \"{connectionInformation.TableName}\" " +
-            $"ORDER BY to_timestamp_utc(event_data->>'timestamp') DESC " +
-            $"LIMIT 1", conn
-        );
-    
-        var count = await countCmd.ExecuteScalarAsync(cancellationToken);
-
-        if (count != null)
+        await using var cmd = new NpgsqlCommand(
+            $"INSERT INTO \"{connectionInformation.ItemsTableName}\" " +
+            $"(id, partition_key, data) " +
+            $"VALUES" +
+            $"(@id, @partition_key, @data)" +
+            $"ON CONFLICT (id) " +
+            $"DO UPDATE " +
+            $"SET data = @data, partition_key = @partition_key; "
+            , conn
+        )
         {
-            stats.TotalEventsCount = (long)count;
-        }
-        
-        var firstEventDateTime = await firstEventTimestampCmd.ExecuteScalarAsync(cancellationToken);
+            Parameters =
+            {
+                new("id", id),
+                new("partition_key", partitionKey),
+                new NpgsqlParameter()
+                {
+                    ParameterName = "data",
+                    Value = JsonSerializer.Serialize(item, EventStoreSerializerOptions.Options),
+                    DataTypeName = "jsonb"
+                }
+            }
+        };
 
-        if (firstEventDateTime != null)
+        try
         {
-            stats.FirstEventCreatedAt = (DateTime)firstEventDateTime;
-        }
-        
-        var lastEventDateTime = await lastEventTimestampCmd.ExecuteScalarAsync(cancellationToken);
+            int insertItemResult = await cmd.ExecuteNonQueryAsync(cancellationToken);
 
-        if (lastEventDateTime != null)
+            if (insertItemResult == -1)
+            {
+                throw new Exception("Upsert item failed.");
+            }            
+        }
+        catch (NpgsqlException ex)
         {
-            stats.LastEventCreatedAt = (DateTime)lastEventDateTime;
-        }
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            {
+                throw new Exception(
+                    "EventStore table not found, please make sure to call Initialize() on event store first.",
+                    ex);
+            }
 
-        return stats;
+            throw;
+        }
     }
+
+    public async Task<T?> LoadItem<T>(string id, string partitionKey, CancellationToken cancellationToken = default)
+    {
+        var connectionInformation = ConnectionInformation;
+        
+        await using var conn = new NpgsqlConnection(connectionInformation.ConnectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            $"SELECT * FROM \"{connectionInformation.ItemsTableName}\" " +
+            $"WHERE id = @id AND partition_key = @partition_key LIMIT 1; "
+            , conn)
+        {
+            Parameters =
+                {
+                    new("id", id),
+                    new("partition_key", partitionKey)
+                }
+        };
+
+        try
+        {
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                var item = JsonDocument.Parse(reader.GetString("data")).RootElement;
+
+                return JsonSerializer.Deserialize<T>(item, EventStoreSerializerOptions.Options);
+            }
+
+            return default;
+        }
+
+        catch (NpgsqlException ex)
+        {
+            if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+            {
+                throw new Exception(
+                    "EventStore table not found, please make sure to call Initialize() on event store first.",
+                    ex);
+            }
+
+            throw;
+        }        
+    }
+
+    #endregion
 }

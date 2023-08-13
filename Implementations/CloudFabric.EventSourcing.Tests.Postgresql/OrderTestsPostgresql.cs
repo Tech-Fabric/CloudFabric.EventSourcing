@@ -21,7 +21,8 @@ public class OrderTestsPostgresql : OrderTests
         {
             _eventStore = new PostgresqlEventStore(
                 TestsConnectionStrings.CONNECTION_STRING,
-                "orders_events"
+                "orders_events",
+                "stored_items"
             );
             await _eventStore.Initialize();
         }

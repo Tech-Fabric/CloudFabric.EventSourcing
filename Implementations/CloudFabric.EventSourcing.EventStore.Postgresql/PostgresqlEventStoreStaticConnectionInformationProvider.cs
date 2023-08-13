@@ -5,15 +5,18 @@ namespace CloudFabric.EventSourcing.EventStore.Postgresql;
 
 public class PostgresqlEventStoreStaticConnectionInformationProvider : IPostgresqlEventStoreConnectionInformationProvider
 {
-    private readonly string _tableName;
+    private readonly string _eventsTableName;
+    private readonly string _itemsTableName;
     private readonly NpgsqlConnectionStringBuilder _connectionStringBuilder;
     private readonly NpgsqlConnectionStringBuilder _connectionStringBuilderWithoutPasswords;
 
     public PostgresqlEventStoreStaticConnectionInformationProvider(
         string connectionString, 
-        string tableName
+        string eventsTableName,
+        string itemsTableName
     ) {
-        _tableName = tableName;
+        _eventsTableName = eventsTableName;
+        _itemsTableName = itemsTableName;
 
         _connectionStringBuilder = new NpgsqlConnectionStringBuilder(connectionString);
         _connectionStringBuilderWithoutPasswords = new NpgsqlConnectionStringBuilder(connectionString);
@@ -27,9 +30,10 @@ public class PostgresqlEventStoreStaticConnectionInformationProvider : IPostgres
         // we don't care about connection id because it's a static provider - connection string will always be the same.
         return new PostgresqlEventStoreConnectionInformation()
         {
-            ConnectionId = $"{_connectionStringBuilderWithoutPasswords}-{_tableName}",
+            ConnectionId = $"{_connectionStringBuilderWithoutPasswords}-{_eventsTableName}",
             ConnectionString = _connectionStringBuilder.ToString(),
-            TableName = _tableName
+            TableName = _eventsTableName,
+            ItemsTableName = _itemsTableName
         };
     }
 

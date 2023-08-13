@@ -32,4 +32,8 @@ public interface IEventStore
     Task DeleteAll(CancellationToken cancellationToken = default);
 
     Task<bool> HardDeleteAsync(Guid streamId, string partitionKey, CancellationToken cancellationToken = default);
+
+    Task UpsertItem<T>(string id, string partitionKey, T item, CancellationToken cancellationToken = default);
+
+    Task<T?> LoadItem<T>(string id, string partitionKey, CancellationToken cancellationToken = default);
 }

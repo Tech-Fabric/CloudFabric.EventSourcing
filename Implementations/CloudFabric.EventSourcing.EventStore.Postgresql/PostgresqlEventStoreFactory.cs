@@ -12,7 +12,8 @@ public class PostgresqlEventStoreFactory : IEventStoreFactory
 
         return new PostgresqlEventStore(
             connectionInformation.ConnectionString, 
-            connectionInformation.TableName
+            connectionInformation.TableName,
+            connectionInformation.ItemsTableName
         );
     }
 }

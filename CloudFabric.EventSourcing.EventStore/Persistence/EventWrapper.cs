@@ -36,7 +36,7 @@ public record EventWrapper
                 throw new Exception("Couldn't find event type. Make sure it's in correct namespace.");
             }
 
-            var e = (IEvent?)EventData.Deserialize(eventType, EventSerializerOptions.Options);
+            var e = (IEvent?)EventData.Deserialize(eventType, EventStoreSerializerOptions.Options);
 
             if (e == null)
             {

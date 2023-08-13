@@ -8,4 +8,6 @@ public class PostgresqlEventStoreConnectionInformation: EventStoreConnectionInfo
     /// Table where all events will be stored.
     /// </summary>
     public string TableName { get; set; }
+
+    public string ItemsTableName { get; set; }
 }

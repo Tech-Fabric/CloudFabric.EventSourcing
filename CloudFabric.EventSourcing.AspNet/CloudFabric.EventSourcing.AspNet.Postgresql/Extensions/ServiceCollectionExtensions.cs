@@ -1,4 +1,6 @@
 using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.EventSourcing.Domain;
+using CloudFabric.EventSourcing.EventStore.Enums;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
@@ -20,10 +22,13 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
         public static IEventSourcingBuilder AddPostgresqlEventStore(
             this IServiceCollection services,
             string eventsConnectionString,
-            string tableName
+            string eventsTableName,
+            string itemsTableName
         )
         {
-            services.AddPostgresqlEventStore((sp) => new PostgresqlEventStoreStaticConnectionInformationProvider(eventsConnectionString, tableName));
+            services.AddPostgresqlEventStore((sp) => 
+                new PostgresqlEventStoreStaticConnectionInformationProvider(eventsConnectionString, eventsTableName, itemsTableName)
+            );
 
             return new EventSourcingBuilder
             {
@@ -103,6 +108,22 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             return builder;
         }
 
+        /// <summary>
+        /// This extension overload initialize event store with default item event store table name.
+        /// </summary>
+        public static IEventSourcingBuilder AddPostgresqlEventStore(
+            this IServiceCollection services,
+            string eventsConnectionString,
+            string eventsTableName
+        )
+        {
+            return services.AddPostgresqlEventStore(
+                eventsConnectionString,
+                eventsTableName,
+                string.Concat(eventsTableName, ItemsEventStoreNameSuffix.TableNameSuffix)
+            );
+        }
+
         public static IEventSourcingBuilder AddRepository<TRepo>(this IEventSourcingBuilder builder)
             where TRepo : class
         {
@@ -152,7 +173,9 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                     {
                         var connectionInformationProvider = sp.GetRequiredService<IPostgresqlEventStoreConnectionInformationProvider>();
                         var connectionInformation = connectionInformationProvider.GetConnectionInformation(connectionId);
-                        var eventStore = new PostgresqlEventStore(connectionInformation.ConnectionString, connectionInformation.TableName);
+                        var eventStore = new PostgresqlEventStore(
+                            connectionInformation.ConnectionString, connectionInformation.TableName, connectionInformation.ItemsTableName
+                        );
 
                         var eventObserver = new PostgresqlEventStoreEventObserver(
                             (PostgresqlEventStore)eventStore,

@@ -24,7 +24,8 @@ public class OrderStringComparisonTestsElasticSearch : OrderStringComparisonTest
         {
             _eventStore = new PostgresqlEventStore(
                 "Host=localhost;Username=cloudfabric_eventsourcing_test;Password=cloudfabric_eventsourcing_test;Database=cloudfabric_eventsourcing_test;Maximum Pool Size=1000",
-                "orders_events"
+                "orders_events",
+                "orders_items"
             );
             await _eventStore.Initialize();
         }

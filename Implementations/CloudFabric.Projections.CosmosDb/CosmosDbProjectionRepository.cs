@@ -126,7 +126,7 @@ public class CosmosDbProjectionRepository : ProjectionRepository
         _containerId = containerId;
         _projectionDocumentSchema = projectionDocumentSchema;
     }
-    
+
     protected override Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema)
     {
         throw new NotImplementedException();

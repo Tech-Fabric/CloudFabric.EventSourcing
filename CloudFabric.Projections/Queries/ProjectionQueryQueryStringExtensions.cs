@@ -2,6 +2,33 @@ namespace CloudFabric.Projections.Queries;
 
 public static class ProjectionQueryQueryStringExtensions
 {
+    /// <summary>
+    /// Top-level filters are joined using this character
+    /// </summary>
+    public const char FILTERS_JOIN_CHARACTER = '!';
+
+    /// <summary>
+    /// Individual filter properties are joined using this character.
+    /// Example: my_boolean_property|eq|true
+    /// </summary>
+    public const char FILTER_PROPERTIES_JOIN_CHARACTER = '|';
+
+    /// <summary>
+    /// Character used to join filter connector and the filter it's attached to.
+    ///
+    /// Example: AND+my_boolean_property|eq|true
+    /// </summary>
+    public const char FILTER_LOGIC_JOIN_CHARACTER = '$';
+
+    /// <summary>
+    /// Character used to join array of nested filters.
+    /// 
+    /// Example: my_boolean_property|eq|true|and$my_int_property|gt|100000000.or$my_string_property|eq|'yo'
+    ///          ^- main property filter    ^- start of nester filter array  ^- second filter is joined with .
+    ///                                        (joined using | like all props)
+    /// </summary>
+    public const char FILTER_NESTED_FILTERS_JOIN_CHARACTER = '.';
+    
     public static string SerializeToQueryString(
         this ProjectionQuery projectionQuery,
         string? searchText = null,
@@ -39,7 +66,7 @@ public static class ProjectionQueryQueryStringExtensions
 
         if (filtersSerialized.Count > 0)
         {
-            return "sv1_" + string.Join("!", filtersSerialized);
+            return "sv1_" + string.Join(FILTERS_JOIN_CHARACTER, filtersSerialized);
         }
         else
         {
@@ -55,7 +82,7 @@ public static class ProjectionQueryQueryStringExtensions
         }
 
         var searchVersionPlaceholder = "sv";
-        var version = "";
+        var version = "1";
 
         if (filters.IndexOf(searchVersionPlaceholder) == 0)
         {
@@ -63,14 +90,15 @@ public static class ProjectionQueryQueryStringExtensions
             var versionLength = end - searchVersionPlaceholder.Length;
 
             version = filters.Substring(searchVersionPlaceholder.Length, versionLength);
+            
+            // remove version from filters string
+            filters = filters.Substring(filters.IndexOf("_") + 1);
         }
 
         switch (version)
         {
             case "1":
-                // remove version from filters string
-                filters = filters.Substring(filters.IndexOf("_") + 1);
-                var filtersList = filters.Split('!').Where(f => f.Length > 0).ToList();
+                var filtersList = filters.Split(FILTERS_JOIN_CHARACTER).Where(f => f.Length > 0).ToList();
 
                 if (filtersList.Count > 0)
                 {

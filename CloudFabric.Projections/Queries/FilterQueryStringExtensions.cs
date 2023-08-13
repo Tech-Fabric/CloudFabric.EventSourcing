@@ -64,20 +64,27 @@ public static class FilterQueryStringExtensions
 
         if (filter.Filters != null && filter.Filters.Count > 0)
         {
-            filtersSerialized = string.Join(".", filter.Filters.Select(f => f.Serialize()));
+            filtersSerialized = string.Join(
+                ProjectionQueryQueryStringExtensions.FILTER_NESTED_FILTERS_JOIN_CHARACTER, 
+                filter.Filters.Select(f => f.Serialize())
+            );
         }
 
+        const char PROPS_JOIN = ProjectionQueryQueryStringExtensions.FILTER_PROPERTIES_JOIN_CHARACTER;
+
         return $"{(string.IsNullOrEmpty(filter.PropertyName) ? "*" : SanitizeValue(filter.PropertyName))}" +
-               $"|{(string.IsNullOrEmpty(filter.Operator) ? "*" : filter.Operator)}" +
-               $"|{System.Net.WebUtility.UrlEncode(valueSerialized)}" +
-               $"|{(filter.Visible ? 'T' : 'F')}" +
-               $"|{System.Net.WebUtility.UrlEncode(filter.Tag)}" +
-               $"|{filtersSerialized}";
+               $"{PROPS_JOIN}{(string.IsNullOrEmpty(filter.Operator) ? "*" : filter.Operator)}" +
+               $"{PROPS_JOIN}{System.Net.WebUtility.UrlEncode(valueSerialized)}" +
+               $"{PROPS_JOIN}{(filter.Visible.ToString().ToLower())}" +
+               $"{PROPS_JOIN}{System.Net.WebUtility.UrlEncode(filter.Tag)}" +
+               $"{PROPS_JOIN}{filtersSerialized}";
     }
 
     public static Filter Deserialize(string f)
     {
-        if (f.IndexOf("|", StringComparison.Ordinal) < 0)
+        const char PROPS_JOIN = ProjectionQueryQueryStringExtensions.FILTER_PROPERTIES_JOIN_CHARACTER;
+        
+        if (f.IndexOf(PROPS_JOIN, StringComparison.Ordinal) < 0)
         {
             if (FacetFilterShortcuts.ContainsKey(f))
             {
@@ -85,19 +92,19 @@ public static class FilterQueryStringExtensions
             }
         }
 
-        var propertyNameEnd = f.IndexOf("|", StringComparison.Ordinal);
+        var propertyNameEnd = f.IndexOf($"{PROPS_JOIN}", StringComparison.Ordinal);
         var propertyName = DesanitizeValue(f.Substring(0, propertyNameEnd));
 
-        var operatorEnd = f.IndexOf("|", propertyNameEnd + 1, StringComparison.Ordinal);
+        var operatorEnd = f.IndexOf($"{PROPS_JOIN}", propertyNameEnd + 1, StringComparison.Ordinal);
         var operatorValue = f.Substring(propertyNameEnd + 1, operatorEnd - propertyNameEnd - 1);
 
-        var valueEnd = f.IndexOf("|", operatorEnd + 1, StringComparison.Ordinal);
+        var valueEnd = f.IndexOf($"{PROPS_JOIN}", operatorEnd + 1, StringComparison.Ordinal);
         var value = f.Substring(operatorEnd + 1, valueEnd - operatorEnd - 1);
 
-        var visibleEnd = f.IndexOf("|", valueEnd + 1, StringComparison.Ordinal);
-        var visible = f.Substring(valueEnd + 1, visibleEnd - valueEnd - 1) == "T";
+        var visibleEnd = f.IndexOf($"{PROPS_JOIN}", valueEnd + 1, StringComparison.Ordinal);
+        var visible = f.Substring(valueEnd + 1, visibleEnd - valueEnd - 1) == "true";
 
-        var tagEnd = f.IndexOf("|", visibleEnd + 1, StringComparison.Ordinal);
+        var tagEnd = f.IndexOf($"{PROPS_JOIN}", visibleEnd + 1, StringComparison.Ordinal);
         var tag = f.Substring(visibleEnd + 1, tagEnd - visibleEnd - 1);
 
         tag = System.Net.WebUtility.UrlDecode(tag);
@@ -123,7 +130,9 @@ public static class FilterQueryStringExtensions
 
         var filters = new List<FilterConnector>();
 
-        var filtersSerializedList = f.Substring(tagEnd + 1).Split('.');
+        var filtersSerializedList = f.Substring(tagEnd + 1)
+            .Split(ProjectionQueryQueryStringExtensions.FILTER_NESTED_FILTERS_JOIN_CHARACTER);
+        
         if (filtersSerializedList.Length > 0)
         {
             filters = filtersSerializedList
