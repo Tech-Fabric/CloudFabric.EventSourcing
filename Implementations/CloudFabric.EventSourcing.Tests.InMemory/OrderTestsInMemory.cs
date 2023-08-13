@@ -25,11 +25,11 @@ public class OrderTestsInMemory : OrderTests
         return _eventStore;
     }
 
-    protected override IEventsObserver GetEventStoreEventsObserver()
+    protected override EventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
         {
-            _eventStoreEventsObserver = new InMemoryEventStoreEventObserver(_eventStore);
+            _eventStoreEventsObserver = new InMemoryEventStoreEventObserver(_eventStore, NullLogger<InMemoryEventStoreEventObserver>.Instance);
         }
 
         return _eventStoreEventsObserver;

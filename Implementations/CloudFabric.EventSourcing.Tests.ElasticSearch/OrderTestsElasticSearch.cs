@@ -51,7 +51,7 @@ public class OrderTestsElasticSearch : OrderTests
         return _projectionRepositoryFactory;
     }
 
-    protected override IEventsObserver GetEventStoreEventsObserver()
+    protected override EventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
         {

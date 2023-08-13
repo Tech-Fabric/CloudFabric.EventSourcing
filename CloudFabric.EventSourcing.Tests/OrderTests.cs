@@ -302,22 +302,6 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         firstOrderProjection.Should().BeNull();
         secondOrderProjection.Should().BeNull();
 
-        // rebuild the firstOrder document
-        //await ProjectionsEngine.StartRebuildAsync(instanceName, PartitionKeys.GetOrderPartitionKey());
-
-        // wait for the rebuild state to be indexed
-        // await Task.Delay(ProjectionsUpdateDelay);
-        //
-        // // wait for the rebuild to finish
-        // ProjectionRebuildState rebuildState;
-        // do
-        // {
-        //     rebuildState = await ProjectionsEngine.GetRebuildState(instanceName, PartitionKeys.GetOrderPartitionKey());
-        //     await Task.Delay(10);
-        // } while (rebuildState.Status != RebuildStatus.Completed && rebuildState.Status != RebuildStatus.Failed);
-        //
-        // rebuildState.Status.Should().Be(RebuildStatus.Completed);
-
         await ProjectionsRepository.DeleteAll();
         await ProjectionsRepository.EnsureIndex();
         await ProjectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();

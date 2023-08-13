@@ -41,7 +41,7 @@ public class DynamicProjectionsOrderTestsPostgresql : DynamicProjectionSchemaTes
         return _projectionRepositoryFactory;
     }
 
-    protected override IEventsObserver GetEventStoreEventsObserver()
+    protected override EventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
         {

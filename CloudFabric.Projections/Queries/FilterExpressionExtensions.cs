@@ -39,6 +39,8 @@ public static class FilterExpressionExtensions {
         .First(m => m.Name == "Contains" && m.GetParameters().Length == 2);
     private static readonly MethodInfo ArrayIndexOf = typeof(Array).GetMethods()
         .First(m => m.Name == "IndexOf" && m.GetParameters().Length == 2);
+    private static readonly MethodInfo ArrayExists = typeof(Array).GetMethods()
+        .First(m => m.Name == "Exists" && m.GetParameters().Length == 2);
 
     private static readonly MethodInfo EnumerableToArray = typeof(System.Linq.Enumerable).GetMethod("ToArray");
     #endregion
@@ -84,7 +86,8 @@ public static class FilterExpressionExtensions {
                 foreach (var prop in propertyNamesPath.Skip(1))
                 {
                     // Assume that object? is a dictionary whose keys are property names and values are... values with object? type
-                    bool isDictionary = propertyType == typeof(object) || propertyType.Name.Contains("Dictionary");
+                    bool isDictionary = false;//propertyType == typeof(object) || propertyType.Name.Contains("Dictionary");
+                    bool isList = true;
 
                     if (isDictionary)
                     {
@@ -93,6 +96,19 @@ public static class FilterExpressionExtensions {
                             dictionaryIndexProperty,
                             new[] { Expression.Constant(prop) }
                         );
+                    }
+                    else if (isList)
+                    {
+                        var arrayFilterPredicateParameter = Expression.Parameter(typeof(object), "i");
+                        var arrayFilterPredicate = ToExpression(arrayFilterPredicateParameter, filter.Operator, filter.Value, prop);
+                        
+                        property = ConstructArrayExistsExpressionFromFilter(
+                            property, 
+                            arrayFilterPredicateParameter,
+                            arrayFilterPredicate    
+                        );
+                        
+                        return (property, parameter);
                     }
                     else 
                     {
@@ -117,25 +133,26 @@ public static class FilterExpressionExtensions {
         var value = Expression.Constant(filter.Value);
         var operand = filter.Value == null ? (Expression)property : (Expression)Expression.Convert(property, filter.Value.GetType());
 
-        Expression thisExpression = filter.Operator switch
-        {
-            FilterOperator.Equal => Expression.Equal(operand, value),
-            FilterOperator.NotEqual => Expression.NotEqual(operand, value),
-            FilterOperator.Greater => Expression.GreaterThan(operand, value),
-            FilterOperator.GreaterOrEqual => Expression.GreaterThanOrEqual(operand, value),
-            FilterOperator.Lower => Expression.LessThan(operand, value),
-            FilterOperator.LowerOrEqual => Expression.LessThanOrEqual(operand, value),
-            FilterOperator.StartsWith => Expression.Call(operand, StringStartsWith, value),
-            FilterOperator.EndsWith => Expression.Call(operand, StringEndsWith, value),
-            FilterOperator.Contains => Expression.Call(operand, StringContains, value),
-            FilterOperator.StartsWithIgnoreCase => Expression.Call(operand, StringStartsWithStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
-            FilterOperator.EndsWithIgnoreCase => Expression.Call(operand, StringEndsWithStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
-            FilterOperator.ContainsIgnoreCase => Expression.Call(operand, StringContainsStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
-            FilterOperator.ArrayContains => ConstructArrayContainsExpressionFromFilter(property, value),
-            _ => throw new Exception(
-                $"Cannot create an expression. Filter's operator is either incorrect or not supported: {filter.Operator}"
-            )
-        };
+        Expression thisExpression = ToExpression(property, filter.Operator, filter.Value);
+        // Expression thisExpression = filter.Operator switch
+        // {
+        //     FilterOperator.Equal => Expression.Equal(operand, value),
+        //     FilterOperator.NotEqual => Expression.NotEqual(operand, value),
+        //     FilterOperator.Greater => Expression.GreaterThan(operand, value),
+        //     FilterOperator.GreaterOrEqual => Expression.GreaterThanOrEqual(operand, value),
+        //     FilterOperator.Lower => Expression.LessThan(operand, value),
+        //     FilterOperator.LowerOrEqual => Expression.LessThanOrEqual(operand, value),
+        //     FilterOperator.StartsWith => Expression.Call(operand, StringStartsWith, value),
+        //     FilterOperator.EndsWith => Expression.Call(operand, StringEndsWith, value),
+        //     FilterOperator.Contains => Expression.Call(operand, StringContains, value),
+        //     FilterOperator.StartsWithIgnoreCase => Expression.Call(operand, StringStartsWithStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+        //     FilterOperator.EndsWithIgnoreCase => Expression.Call(operand, StringEndsWithStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+        //     FilterOperator.ContainsIgnoreCase => Expression.Call(operand, StringContainsStringComparisonArgument, value, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+        //     FilterOperator.ArrayContains => ConstructArrayContainsExpressionFromFilter(property, value),
+        //     _ => throw new Exception(
+        //         $"Cannot create an expression. Filter's operator is either incorrect or not supported: {filter.Operator}"
+        //     )
+        // };
 
         if (filter.Filters.Count <= 0)
         {
@@ -156,14 +173,73 @@ public static class FilterExpressionExtensions {
         return (thisExpression, parameter);
     }
 
+    private static Expression ToExpression(Expression parameter, string oper, object? value, string? parameterAccessor = null)
+    {
+        var valueExpression = Expression.Constant(value);
+        var operand = value == null ? (Expression)parameter : (Expression)Expression.Convert(parameter, value.GetType());
+
+        if (parameterAccessor != null)
+        {
+            var castExpression = Expression.Convert(operand, typeof(Dictionary<string, object?>));
+            
+            operand = Expression.MakeIndex(
+                castExpression, 
+                typeof(Dictionary<string, object?>).GetProperty("Item"),
+                new[] { Expression.Constant(parameterAccessor) }
+            );
+        }
+
+        Expression thisExpression = oper switch
+        {
+            FilterOperator.Equal => Expression.Equal(operand, valueExpression),
+            FilterOperator.NotEqual => Expression.NotEqual(operand, valueExpression),
+            FilterOperator.Greater => Expression.GreaterThan(operand, valueExpression),
+            FilterOperator.GreaterOrEqual => Expression.GreaterThanOrEqual(operand, valueExpression),
+            FilterOperator.Lower => Expression.LessThan(operand, valueExpression),
+            FilterOperator.LowerOrEqual => Expression.LessThanOrEqual(operand, valueExpression),
+            FilterOperator.StartsWith => Expression.Call(operand, StringStartsWith, valueExpression),
+            FilterOperator.EndsWith => Expression.Call(operand, StringEndsWith, valueExpression),
+            FilterOperator.Contains => Expression.Call(operand, StringContains, valueExpression),
+            FilterOperator.StartsWithIgnoreCase => Expression.Call(operand, StringStartsWithStringComparisonArgument, valueExpression, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+            FilterOperator.EndsWithIgnoreCase => Expression.Call(operand, StringEndsWithStringComparisonArgument, valueExpression, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+            FilterOperator.ContainsIgnoreCase => Expression.Call(operand, StringContainsStringComparisonArgument, valueExpression, Expression.Constant(StringComparison.InvariantCultureIgnoreCase)),
+            FilterOperator.ArrayContains => ConstructArrayContainsExpressionFromFilter(parameter, valueExpression),
+            _ => throw new Exception(
+                $"Cannot create an expression. Filter's operator is either incorrect or not supported: {oper}"
+            )
+        };
+
+        return thisExpression;
+    }
+
     private static Expression ConstructArrayContainsExpressionFromFilter(Expression arrayProperty, Expression value)
     {
-        // Array.IndexOf((storage.First().Value["Tags"] as IEnumerable<string>).ToArray(), "Dixit")
         var castExpression = Expression.Convert(arrayProperty, typeof(IEnumerable<>).MakeGenericType(value.Type));
         var toArrayMethodCallExpression = Expression.Call(EnumerableToArray.MakeGenericMethod(value.Type), castExpression);
         var indexOfMethodCallExpression = Expression.Call(ArrayIndexOf, (Expression)toArrayMethodCallExpression, value);
 
         return Expression.GreaterThan(indexOfMethodCallExpression, Expression.Constant(-1));
+    }
+    
+    private static Expression ConstructArrayExistsExpressionFromFilter(
+        Expression arrayProperty, 
+        ParameterExpression predicateParameter, 
+        Expression predicate
+    )
+    {
+        var arrayElementType = typeof(Dictionary<string, object?>);
+        
+        var castExpression = Expression.Convert(arrayProperty, typeof(IEnumerable<>).MakeGenericType(typeof(object)));
+        var toArrayMethodCallExpression = Expression.Call(EnumerableToArray.MakeGenericMethod(typeof(object)), castExpression);
+
+        Type predicateType = typeof(Predicate<>).MakeGenericType(typeof(object));
+
+        //var parameter = Expression.Parameter(typeof(object), "i");
+        var t = Expression.Lambda(predicateType, predicate, new [] { predicateParameter } );
+        
+        var callExpression = Expression.Call(ArrayExists.MakeGenericMethod(typeof(object)), (Expression)toArrayMethodCallExpression, t);
+
+        return callExpression;
     }
 
     public static Filter Where<T>(Expression<Func<T, bool>> expression, string tag = "")

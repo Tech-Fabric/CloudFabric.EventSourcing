@@ -3,6 +3,8 @@ using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
 {
@@ -25,7 +27,9 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
                     eventStore.Initialize().Wait();
 
                     // add events observer for projections
-                    var eventStoreObserver = new InMemoryEventStoreEventObserver(eventStore);
+                    var eventStoreObserver = new InMemoryEventStoreEventObserver(
+                        eventStore, sp.GetRequiredService<ILogger<InMemoryEventStoreEventObserver>>()
+                    );
 
                     var projectionsRepositoryFactory = sp.GetService<ProjectionRepositoryFactory>();
 
@@ -75,7 +79,11 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
         {
             builder.ProjectionBuilderTypes = projectionBuildersTypes;
 
-            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => new InMemoryProjectionRepositoryFactory());
+            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) =>
+            {
+                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                return new InMemoryProjectionRepositoryFactory(loggerFactory); 
+            });
 
             return builder;
         }

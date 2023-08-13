@@ -17,7 +17,7 @@ public class EventSourcingBuilder : IEventSourcingBuilder
     public string? ProjectionsConnectionString { get; set; }
     public Type[]? ProjectionBuilderTypes { get; set; }
 
-    public IEventsObserver ProjectionEventsObserver { get; set; }
+    public EventsObserver ProjectionEventsObserver { get; set; }
 
     public dynamic ConstructProjectionBuilder(Type projectionBuilderType, ProjectionRepositoryFactory projectionsRepositoryFactory)
     {

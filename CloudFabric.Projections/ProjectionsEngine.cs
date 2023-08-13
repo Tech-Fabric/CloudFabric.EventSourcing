@@ -8,7 +8,7 @@ public class ProjectionsEngine : IProjectionsEngine
     private readonly List<IProjectionBuilder<ProjectionDocument>> _projectionBuilders = new();
     private readonly List<IProjectionBuilder> _dynamicProjectionBuilders = new();
     
-    private IEventsObserver? _observer;
+    private EventsObserver? _observer;
     //private readonly IProjectionRepository<ProjectionRebuildState> _projectionsStateRepository;
 
     public ProjectionsEngine(
@@ -37,7 +37,7 @@ public class ProjectionsEngine : IProjectionsEngine
         return _observer.StopAsync();
     }
 
-    public void SetEventsObserver(IEventsObserver eventsObserver)
+    public void SetEventsObserver(EventsObserver eventsObserver)
     {
         _observer = eventsObserver;
         _observer.SetEventHandler(HandleEvent);
@@ -168,7 +168,7 @@ public class ProjectionsEngine : IProjectionsEngine
         string? partitionKey, 
         DateTime? dateFrom,
         int chunkSize = 250,
-        Func<IEvent, Task>? chunkProcessedCallback = null,
+        Func<int, IEvent, Task>? chunkProcessedCallback = null,
         CancellationToken cancellationToken = default
     ) {
         if (_observer == null)

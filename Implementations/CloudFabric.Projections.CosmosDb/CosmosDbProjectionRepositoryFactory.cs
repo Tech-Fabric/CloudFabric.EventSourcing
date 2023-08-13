@@ -17,7 +17,7 @@ public class CosmosDbProjectionRepositoryFactory : ProjectionRepositoryFactory
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
         string containerId
-    )
+    ): base(loggerFactory)
     {
         _loggerFactory = loggerFactory;
         _connectionString = connectionString;

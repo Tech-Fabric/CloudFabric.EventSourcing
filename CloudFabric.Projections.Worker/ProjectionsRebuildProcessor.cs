@@ -66,18 +66,18 @@ public class ProjectionsRebuildProcessor
         
         indexToRebuild.TotalEventsToProcess = eventStoreStatistics.TotalEventsCount;
         
-        await _projectionRepository.UpdateProjectionRebuildStats(projectionIndexState);
+        await _projectionRepository.SaveProjectionIndexState(projectionIndexState);
         
         await projectionsEngine.ReplayEventsAsync(
             $"{Environment.MachineName}-{Environment.ProcessId}", null, indexToRebuild.LastProcessedEventTimestamp,
             250,
-            async Task(IEvent lastProcessedEvent) =>
+            async Task(int eventsProcessed, IEvent lastProcessedEvent) =>
             {
-                indexToRebuild.RebuildEventsProcessed += 250;
+                indexToRebuild.RebuildEventsProcessed += eventsProcessed;
                 indexToRebuild.LastProcessedEventTimestamp = lastProcessedEvent.Timestamp;
                 indexToRebuild.RebuildHealthCheckAt = DateTime.UtcNow;
                 
-                await _projectionRepository.UpdateProjectionRebuildStats(projectionIndexState);
+                await _projectionRepository.SaveProjectionIndexState(projectionIndexState);
                 
                 _logger.LogInformation("Processed {EventsProcessed}/{TotalEventsInEventStore}", 
                     indexToRebuild.RebuildEventsProcessed, indexToRebuild.TotalEventsToProcess
@@ -91,7 +91,7 @@ public class ProjectionsRebuildProcessor
             indexToRebuild.RebuildHealthCheckAt = DateTime.UtcNow;
             indexToRebuild.RebuildCompletedAt = DateTime.UtcNow;
 
-            await _projectionRepository.UpdateProjectionRebuildStats(projectionIndexState);
+            await _projectionRepository.SaveProjectionIndexState(projectionIndexState);
         }
 
         return true;

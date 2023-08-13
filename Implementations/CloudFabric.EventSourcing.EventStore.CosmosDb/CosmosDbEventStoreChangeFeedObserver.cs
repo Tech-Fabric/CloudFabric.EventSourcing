@@ -18,7 +18,7 @@ public record Change : EventWrapper
     public long TimeStamp { get; set; }
 }
 
-public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
+public class CosmosDbEventStoreChangeFeedObserver : EventsObserver
 {
     protected readonly CosmosClient _eventsClient;
     protected readonly string _eventsContainerId;
@@ -44,7 +44,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         string leaseContainerId,
         string processorName,
         ILogger<CosmosDbEventStoreChangeFeedObserver> logger
-    )
+    ): base(new CosmosDbEventStore(eventsClient, eventsContainerId, eventsContainerId), logger)
     {
         _eventsClient = eventsClient;
         _eventsDatabaseId = eventsDatabaseId;
@@ -64,7 +64,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         _eventHandler = eventHandler;
     }
 
-    public Task StartAsync(string instanceName)
+    public override Task StartAsync(string instanceName)
     {
         Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
         Container leaseContainer = _leaseClient.GetContainer(_leaseDatabaseId, _leaseContainerId);
@@ -85,19 +85,19 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         return _changeFeedProcessor.StartAsync();
     }
 
-    public Task StopAsync()
+    public override Task StopAsync()
     {
         _logger.LogInformation("Stopping");
         
         return _changeFeedProcessor.StopAsync();
     }
 
-    public async Task ReplayEventsAsync(
-        string instanceName,
-        string partitionKey,
+    public override async Task ReplayEventsAsync(
+        string instanceName, 
+        string? partitionKey, 
         DateTime? dateFrom,
         int chunkSize = 250,
-        Func<IEvent, Task>? chunkProcessedCallback = null,
+        Func<int, IEvent, Task>? chunkProcessedCallback = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -150,7 +150,7 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
 
                 if (chunkProcessedCallback != null)
                 {
-                    await chunkProcessedCallback(lastEvent);
+                    await chunkProcessedCallback(events.Count, lastEvent);
                 }
             }
 
@@ -166,54 +166,12 @@ public class CosmosDbEventStoreChangeFeedObserver : IEventsObserver
         }
     }
 
-    public async Task<EventStoreStatistics> GetEventStoreStatistics()
+    public override async Task<EventStoreStatistics> GetEventStoreStatistics()
     {
-        Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
-
-        var stats = new EventStoreStatistics();
-
-        QueryDefinition totalCountQuery = new QueryDefinition($"SELECT * FROM {_eventsContainerId}");
-        IOrderedQueryable<EventWrapper> totalCountQueryable = eventContainer.GetItemLinqQueryable<EventWrapper>();
-        stats.TotalEventsCount = await totalCountQueryable.CountAsync();
-
-        QueryDefinition firstEventQuery = new QueryDefinition(
-            $"SELECT * FROM {_eventsContainerId} e ORDER BY e._ts ASC LIMIT 1"
-        );
-        FeedIterator<EventWrapper> firstEventFeedIterator = eventContainer.GetItemQueryIterator<EventWrapper>(
-            firstEventQuery,
-            requestOptions: new QueryRequestOptions { }
-        );
-        while (firstEventFeedIterator.HasMoreResults)
-        {
-            FeedResponse<EventWrapper> response = await firstEventFeedIterator.ReadNextAsync();
-
-            if (response.Count > 0)
-            {
-                stats.FirstEventCreatedAt = response.First().GetEvent().Timestamp;
-            }
-        }
-        
-        QueryDefinition lastEventQuery = new QueryDefinition(
-            $"SELECT * FROM {_eventsContainerId} e ORDER BY e._ts DESC LIMIT 1"
-        );
-        FeedIterator<EventWrapper> lastEventFeedIterator = eventContainer.GetItemQueryIterator<EventWrapper>(
-            lastEventQuery,
-            requestOptions: new QueryRequestOptions { }
-        );
-        while (lastEventFeedIterator.HasMoreResults)
-        {
-            FeedResponse<EventWrapper> response = await lastEventFeedIterator.ReadNextAsync();
-
-            if (response.Count > 0)
-            {
-                stats.LastEventCreatedAt = response.First().GetEvent().Timestamp;
-            }
-        }
-
-        return stats;
+        return await _eventStore.GetStatistics();
     }
 
-    public async Task ReplayEventsForOneDocumentAsync(Guid documentId, string partitionKey)
+    public override async Task ReplayEventsForOneDocumentAsync(Guid documentId, string partitionKey)
     {
         Container eventContainer = _eventsClient.GetContainer(_eventsDatabaseId, _eventsContainerId);
 

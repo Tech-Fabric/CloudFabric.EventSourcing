@@ -28,7 +28,7 @@ public class QueryStringTestsPostgresql : ProjectionQueryTest
         return _eventStore;
     }
 
-    protected override IEventsObserver GetEventStoreEventsObserver()
+    protected override EventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
         {

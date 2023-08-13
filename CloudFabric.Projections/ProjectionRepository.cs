@@ -122,12 +122,104 @@ public abstract class ProjectionRepository : IProjectionRepository
         ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
     );
 
-    protected abstract Task<IReadOnlyCollection<ProjectionIndexState>> QueryProjectionIndexStates(
-        ProjectionQuery projectionQuery, CancellationToken cancellationToken = default
-    );
-    protected abstract Task<ProjectionIndexState?> GetProjectionIndexState(CancellationToken cancellationToken = default);
-    protected abstract Task<ProjectionIndexState?> GetProjectionIndexState(string schemaName, CancellationToken cancellationToken = default);
-    protected abstract Task SaveProjectionIndexState(ProjectionIndexState state);
+    protected async Task<IReadOnlyCollection<ProjectionIndexState>> QueryProjectionIndexStates(
+        ProjectionQuery projectionQuery, 
+        CancellationToken cancellationToken = default
+    ) {
+        var results = await QueryInternal(
+            new ProjectionOperationIndexDescriptor() {
+                IndexName = PROJECTION_INDEX_STATE_INDEX_NAME,
+                ProjectionDocumentSchema = ProjectionIndexStateSchema 
+            }, 
+            projectionQuery, 
+            PROJECTION_INDEX_STATE_INDEX_NAME,
+            cancellationToken
+        );
+
+        return results.Records
+            .Select(doc => 
+                ProjectionDocumentSerializer.DeserializeFromDictionary<ProjectionIndexState>(doc.Document))
+            .ToList()
+            .AsReadOnly();
+    }
+
+    protected async Task<ProjectionIndexState?> GetProjectionIndexState(
+        string schemaName,
+        CancellationToken cancellationToken = default
+    ) {
+        var projectionQuery = new ProjectionQuery()
+        {
+            Filters = new List<Filter>()
+            {
+                new Filter(
+                    $"{nameof(ProjectionIndexState.ProjectionName)}",
+                    FilterOperator.Equal,
+                    schemaName
+                )
+            }
+        };
+
+        try
+        {
+            var results = await QueryInternal(
+                new ProjectionOperationIndexDescriptor() {
+                    IndexName =PROJECTION_INDEX_STATE_INDEX_NAME,
+                    ProjectionDocumentSchema = ProjectionIndexStateSchema 
+                },
+                projectionQuery,
+                PROJECTION_INDEX_STATE_INDEX_NAME,
+                cancellationToken
+            );
+
+            if (results.Records.Count <= 0)
+            {
+                return null;
+            }
+
+            return ProjectionDocumentSerializer.DeserializeFromDictionary<ProjectionIndexState>(results.Records.First().Document);
+        }
+        catch (InvalidProjectionSchemaException) // on first run there will be no table with a name `PROJECTION_INDEX_STATE_INDEX_NAME`,
+        {                                        // we can safely return null, the system will create the table on SaveProjectionIndexState method.
+            return null;
+        }
+    }
+    
+    protected async Task<ProjectionIndexState?> GetProjectionIndexState(CancellationToken cancellationToken = default) {
+        return await GetProjectionIndexState(ProjectionDocumentSchema.SchemaName, cancellationToken);
+    }
+
+    public virtual async Task SaveProjectionIndexState(ProjectionIndexState state)
+    {
+        try
+        {
+            await UpsertInternal(
+                new ProjectionOperationIndexDescriptor() {
+                    IndexName = PROJECTION_INDEX_STATE_INDEX_NAME,
+                    ProjectionDocumentSchema = ProjectionIndexStateSchema 
+                },
+                ProjectionDocumentSerializer.SerializeToDictionary(state),
+                PROJECTION_INDEX_STATE_INDEX_NAME,
+                state.UpdatedAt
+            );
+        }
+        catch (InvalidProjectionSchemaException)
+        {
+            try
+            {
+                await CreateIndex(
+                    PROJECTION_INDEX_STATE_INDEX_NAME,
+                    ProjectionIndexStateSchema
+                );
+                
+                await SaveProjectionIndexState(state);
+            }
+            catch (Exception createTableException)
+            {
+                var exception = new Exception($"Failed to create a table for projection \"{PROJECTION_INDEX_STATE_INDEX_NAME}\"", createTableException);
+                throw exception;
+            }
+        }
+    }
 
     /// <summary>
     /// Internal method for getting index name to work with.
@@ -292,9 +384,7 @@ public abstract class ProjectionRepository : IProjectionRepository
 
         var projectionIndexState = result.First();
         
-        var dateTimeStarted = DateTime.UtcNow;
-
-        dateTimeStarted = dateTimeStarted.AddTicks(dateTimeStarted.Nanosecond * -1);
+        var dateTimeStarted = DateTime.UtcNow.RoundToMicroseconds();
 
         projectionIndexState.UpdatedAt = dateTimeStarted;
 
@@ -332,6 +422,4 @@ public abstract class ProjectionRepository : IProjectionRepository
 
         return (indexStateResponse, index.IndexName);
     }
-    
-    public abstract Task UpdateProjectionRebuildStats(ProjectionIndexState indexToRebuild);
 }

@@ -29,7 +29,7 @@ public class DynamicProjectionsOrderTestsElasticSearch : DynamicProjectionSchema
         return _eventStore;
     }
 
-    protected override IEventsObserver GetEventStoreEventsObserver()
+    protected override EventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
         {

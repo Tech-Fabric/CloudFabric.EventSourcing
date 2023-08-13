@@ -127,7 +127,7 @@ public abstract class DynamicProjectionSchemaTests
 
     protected abstract ProjectionRepositoryFactory GetProjectionRepositoryFactory();
 
-    protected abstract IEventsObserver GetEventStoreEventsObserver();
+    protected abstract EventsObserver GetEventStoreEventsObserver();
 
     private const string _projectionsSchemaName = "orders-projections";
 
@@ -154,7 +154,7 @@ public abstract class DynamicProjectionSchemaTests
         }
     }
 
-    private async Task<(ProjectionsEngine, IProjectionRepository)> PrepareProjections(IEventsObserver eventsObserver, ProjectionDocumentSchema schema)
+    private async Task<(ProjectionsEngine, IProjectionRepository)> PrepareProjections(EventsObserver eventsObserver, ProjectionDocumentSchema schema)
     {
         // Repository containing projections - `view models` of orders
         var ordersListProjectionsRepository = GetProjectionRepositoryFactory()
@@ -175,7 +175,7 @@ public abstract class DynamicProjectionSchemaTests
         return (projectionsEngine, ordersListProjectionsRepository);
     }
 
-    private ProjectionsRebuildProcessor PrepareProjectionsRebuildProcessor(IEventsObserver eventsObserver, ProjectionDocumentSchema projectionDocumentSchema)
+    private ProjectionsRebuildProcessor PrepareProjectionsRebuildProcessor(EventsObserver eventsObserver, ProjectionDocumentSchema projectionDocumentSchema)
     {
         return new ProjectionsRebuildProcessor(
             GetProjectionRepositoryFactory().GetProjectionsIndexStateRepository(),
@@ -541,25 +541,6 @@ public abstract class DynamicProjectionSchemaTests
         orderProjectionWithNewSchemaTotalPrice["Id"].Should().Be(order.Id);
         orderProjectionWithNewSchemaTotalPrice["ItemsCount"].Should().Be(5);
         
-        // Important! After we added a new projection field it's required
-        // to re-run all projection builders from the first event (rebuild all projections)
-        // Since we didn't rebuild projections, new field will only have data for events that happened after the field was added
-        // Hence total price is nly the price of last added item.
-        //orderProjectionWithNewSchemaTotalPrice["TotalPrice"].Should().Be(6.95m);
-
-        // var query = new ProjectionQuery();
-        // query.Filters = new List<Filter>()
-        // {
-        //     new Filter("TotalPrice", FilterOperator.Greater, 6m)
-        // };
-        //
-        // var searchResult = await TestHelpers.RepeatUntil(
-        //     () => ordersListProjectionsRepository.Query(query),
-        //     (r) => r.Records.Count == 1,
-        //     ProjectionsUpdateDelay
-        // );
-        // searchResult.Records.Count.Should().Be(1);
-
         await projectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();
 
         var orderProjectionWithNewSchemaTotalPriceAfterRebuild = await ordersListProjectionsRepository

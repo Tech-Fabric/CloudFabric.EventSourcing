@@ -13,7 +13,7 @@ public interface IEventSourcingBuilder
 
     IServiceCollection Services { get; set; }
 
-    IEventsObserver ProjectionEventsObserver { get; set; }
+    EventsObserver ProjectionEventsObserver { get; set; }
 
     ProjectionsEngine ProjectionsEngine { get; set; }
     string ProjectionsConnectionString { get; set; }

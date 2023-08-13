@@ -15,7 +15,7 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
     protected TimeSpan ProjectionsUpdateDelay { get; set; } = TimeSpan.FromMilliseconds(1000);
     protected abstract Task<IEventStore> GetEventStore();
     protected abstract ProjectionRepositoryFactory GetProjectionRepositoryFactory();
-    protected abstract IEventsObserver GetEventStoreEventsObserver();
+    protected abstract EventsObserver GetEventStoreEventsObserver();
 
     protected ProjectionsEngine ProjectionsEngine;
     protected IProjectionRepository<TProjectionDocument> ProjectionsRepository;
@@ -83,10 +83,16 @@ public abstract class TestsBaseWithProjections<TProjectionDocument, TProjectionB
     [TestCleanup]
     public async Task Cleanup()
     {
-        await ProjectionsEngine.StopAsync();
-        
-        var store = await GetEventStore();
-        await store.DeleteAll();
+        try
+        {
+            await ProjectionsEngine.StopAsync();
+
+            var store = await GetEventStore();
+            await store.DeleteAll();
+        }
+        catch
+        {
+        }
 
         try
         {

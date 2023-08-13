@@ -11,7 +11,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
     class PostgresqlEventSourcingScope
     {
         public IEventStore EventStore { get; set; }
-        public IEventsObserver EventsObserver { get; set; }
+        public EventsObserver EventsObserver { get; set; }
         public ProjectionsEngine? ProjectionsEngine { get; set; }
     }
 
@@ -91,7 +91,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                 }
             );
             
-            services.AddScoped<IEventsObserver>(
+            services.AddScoped<EventsObserver>(
                 (sp) =>
                 {
                     var eventSourcingScope = sp.GetRequiredService<PostgresqlEventSourcingScope>();
@@ -129,9 +129,11 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             builder.Services.AddScoped<ProjectionRepositoryFactory>(
                 (sp) =>
                 {
+                    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
                     var connectionInformationProvider = sp.GetRequiredService<IPostgresqlEventStoreConnectionInformationProvider>();
 
                     return new PostgresqlProjectionRepositoryFactory(
+                        loggerFactory,
                         connectionInformationProvider.GetConnectionInformation().ConnectionId,
                         projectionsConnectionString
                     );

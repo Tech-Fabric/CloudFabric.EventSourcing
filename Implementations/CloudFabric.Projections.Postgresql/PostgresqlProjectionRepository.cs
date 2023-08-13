@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using CloudFabric.Projections.Exceptions;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
@@ -158,44 +157,7 @@ public class PostgresqlProjectionRepository : ProjectionRepository
             return _keyPropertyName;
         }
     }
-    //
-    // public override async Task EnsureIndex(CancellationToken cancellationToken = default)
-    // {
-    //     try
-    //     {
-    //         var record = await Query(new ProjectionQuery(), null, cancellationToken);
-    //     }
-    //     catch (InvalidProjectionSchemaException ex)
-    //     {
-    //         await using var conn = new NpgsqlConnection(_connectionString);
-    //         await conn.OpenAsync(cancellationToken);
-    //         
-    //         // TODO: we need much better table schema updates which includes saving projection document schema
-    //         // alongside with the table  itself, retrieving it, comparing and updating  table  accordingly
-    //         if ((ex.InnerException as NpgsqlException)?.SqlState == PostgresErrorCodes.UndefinedTable)
-    //         {
-    //             await HandleUndefinedTableException(conn, cancellationToken);
-    //
-    //             await EnsureIndex(cancellationToken);
-    //         }
-    //         else if ((ex.InnerException as NpgsqlException)?.SqlState == PostgresErrorCodes.UndefinedColumn)
-    //         {
-    //             var tableNameRegex = new Regex("[^\"]+\"([^\"]+)+\"[^\"]+", RegexOptions.None, TimeSpan.FromMilliseconds(1));
-    //             var tableMissingMessage = (ex.InnerException as NpgsqlException)?.Message;
-    //
-    //             var result = tableNameRegex.Match(tableMissingMessage);
-    //             var tableName = result.Groups[1].Value;
-    //             await HandleUndefinedColumnException(conn, tableName, cancellationToken);
-    //             
-    //             await EnsureIndex(cancellationToken);
-    //         }
-    //         else
-    //         {
-    //             throw;
-    //         }
-    //     }
-    // }
-
+    
     protected override async Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
@@ -210,7 +172,7 @@ public class PostgresqlProjectionRepository : ProjectionRepository
         }
         catch (NpgsqlException ex)
         {
-            if (ex.SqlState != PostgresErrorCodes.DuplicateTable) // table already create, can be ignored
+            if (ex.SqlState != PostgresErrorCodes.DuplicateTable) // table already created, can be ignored
             {
                 throw;
             }
@@ -221,120 +183,6 @@ public class PostgresqlProjectionRepository : ProjectionRepository
             exception.Data.Add("commandText", commandText);
             throw exception;
         }
-    }
-
-    protected override async Task<IReadOnlyCollection<ProjectionIndexState>> QueryProjectionIndexStates(
-        ProjectionQuery projectionQuery, 
-        CancellationToken cancellationToken = default
-    ) {
-        var results = await QueryInternal(
-            new ProjectionOperationIndexDescriptor() {
-                IndexName =PROJECTION_INDEX_STATE_INDEX_NAME,
-                ProjectionDocumentSchema = ProjectionIndexStateSchema 
-            }, 
-            projectionQuery, 
-            PROJECTION_INDEX_STATE_INDEX_NAME,
-            cancellationToken
-        );
-
-        return results.Records
-            .Select(doc => 
-                ProjectionDocumentSerializer.DeserializeFromDictionary<ProjectionIndexState>(doc.Document))
-            .ToList()
-            .AsReadOnly();
-    }
-
-    protected override async Task<ProjectionIndexState?> GetProjectionIndexState(
-        CancellationToken cancellationToken = default
-    ) {
-        return await GetProjectionIndexState(ProjectionDocumentSchema.SchemaName, cancellationToken);
-    }
-    
-    protected override async Task<ProjectionIndexState?> GetProjectionIndexState(
-        string schemaName,
-        CancellationToken cancellationToken = default
-    ) {
-        var projectionQuery = new ProjectionQuery()
-        {
-            Filters = new List<Filter>()
-            {
-                new Filter(
-                    $"{nameof(ProjectionIndexState.ProjectionName)}",
-                    FilterOperator.Equal,
-                    schemaName
-                )
-            }
-        };
-
-        try
-        {
-            var results = await QueryInternal(
-                new ProjectionOperationIndexDescriptor() {
-                    IndexName =PROJECTION_INDEX_STATE_INDEX_NAME,
-                    ProjectionDocumentSchema = ProjectionIndexStateSchema 
-                },
-                projectionQuery,
-                PROJECTION_INDEX_STATE_INDEX_NAME,
-                cancellationToken
-            );
-
-            if (results.Records.Count <= 0)
-            {
-                return null;
-            }
-
-            return ProjectionDocumentSerializer.DeserializeFromDictionary<ProjectionIndexState>(results.Records.First().Document);
-        }
-        catch (InvalidProjectionSchemaException) // on first run there will be no table with a name `PROJECTION_INDEX_STATE_INDEX_NAME`,
-                                                 // we can safely return null, the system will create the table on SaveProjectionIndexState method.
-        {
-            return null;
-        }
-    }
-
-    protected override async Task SaveProjectionIndexState(ProjectionIndexState state)
-    {
-        try
-        {
-            await UpsertInternal(
-                new ProjectionOperationIndexDescriptor() {
-                    IndexName =PROJECTION_INDEX_STATE_INDEX_NAME,
-                    ProjectionDocumentSchema = ProjectionIndexStateSchema 
-                },
-                ProjectionDocumentSerializer.SerializeToDictionary(state),
-                PROJECTION_INDEX_STATE_INDEX_NAME,
-                state.UpdatedAt
-            );
-        }
-        catch (InvalidProjectionSchemaException)
-        {
-            var commandText = ConstructCreateTableCommandText(
-                PROJECTION_INDEX_STATE_INDEX_NAME, 
-                ProjectionIndexStateSchema
-            );
-            
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync();
-
-            await using var createTableCommand = new NpgsqlCommand(commandText, conn);
-            try
-            {
-                await createTableCommand.ExecuteNonQueryAsync();
-                
-                await SaveProjectionIndexState(state);
-            }
-            catch (Exception createTableException)
-            {
-                var exception = new Exception($"Failed to create a table for projection \"{PROJECTION_INDEX_STATE_INDEX_NAME}\"", createTableException);
-                exception.Data.Add("commandText", commandText);
-                throw exception;
-            }
-        }
-    }
-
-    public override async Task UpdateProjectionRebuildStats(ProjectionIndexState indexToRebuild)
-    {
-        await SaveProjectionIndexState(indexToRebuild);
     }
 
     public override async Task<Dictionary<string, object?>?> Single(
@@ -521,10 +369,13 @@ public class PostgresqlProjectionRepository : ProjectionRepository
             }
         }
 
-        await using var dropIndexTableCmd = new NpgsqlCommand(
-            $"DROP TABLE \"{PROJECTION_INDEX_STATE_INDEX_NAME}\" ", conn
-        );
-        await dropIndexTableCmd.ExecuteNonQueryAsync(cancellationToken);
+        indexState.IndexesStatuses.Clear();
+        await SaveProjectionIndexState(indexState);
+        //
+        // await using var dropIndexTableCmd = new NpgsqlCommand(
+        //     $"DROP TABLE \"{PROJECTION_INDEX_STATE_INDEX_NAME}\" ", conn
+        // );
+        // await dropIndexTableCmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     protected override async Task UpsertInternal(
@@ -543,9 +394,7 @@ public class PostgresqlProjectionRepository : ProjectionRepository
         {
             throw new ArgumentNullException(nameof(partitionKey));
         }
-        
-        indexDescriptor.ProjectionDocumentSchema ??= ProjectionDocumentSchema;
-        
+
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
@@ -1004,50 +853,6 @@ public class PostgresqlProjectionRepository : ProjectionRepository
         );
     }
 
-    // private async Task HandleUndefinedTableException(NpgsqlConnection? conn, CancellationToken cancellationToken)
-    // {
-    //     var commandText = ConstructCreateTableCommandText();
-    //
-    //     await using var createTableCommand = new NpgsqlCommand(commandText, conn);
-    //     try
-    //     {
-    //         await createTableCommand.ExecuteNonQueryAsync(cancellationToken);
-    //     }
-    //     catch (Exception createTableException)
-    //     {
-    //         var exception = new Exception($"Failed to create a table for projection \"{TableName}\"", createTableException);
-    //         exception.Data.Add("commandText", commandText);
-    //         throw exception;
-    //     }
-    // }
-
-    private async Task HandleUndefinedColumnException(NpgsqlConnection conn, string columnName, CancellationToken cancellationToken)
-    {
-        var property = ProjectionDocumentSchema.Properties
-            .FirstOrDefault(p => p.PropertyName.ToLower() == columnName.ToLower());
-
-        if (property == null)
-        {
-            return;
-        }
-
-        var columnSql = ConstructColumnCreateStatementForProperty(property);
-
-        var commandText = $"ALTER TABLE \"{TableName}\" ADD COLUMN {columnSql}";
-        
-        await using var createTableCommand = new NpgsqlCommand(commandText, conn);
-        try
-        {
-            await createTableCommand.ExecuteNonQueryAsync(cancellationToken);
-        }
-        catch (Exception createTableException)
-        {
-            var exception = new Exception($"Failed to alter table to add new column {columnName} for projection \"{TableName}\"", createTableException);
-            exception.Data.Add("commandText", commandText);
-            throw exception;
-        }
-    }
-    
     private string ConstructCreateTableCommandText(string tableName, ProjectionDocumentSchema schema)
     {
         var commandText = new StringBuilder();
