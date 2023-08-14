@@ -4,6 +4,7 @@ using CloudFabric.Projections;
 using CloudFabric.Projections.CosmosDb;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
 {
@@ -22,30 +23,32 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             string processorName
         )
         {
-            var cosmosClient = new CosmosClient(connectionString, cosmosClientOptions);
+            services.AddScoped<AggregateRepositoryFactory>((sp) =>
+            {
+                var logger = sp.GetRequiredService<ILogger<CosmosDbEventStoreChangeFeedObserver>>();
+                
+                var cosmosClient = new CosmosClient(connectionString, cosmosClientOptions);
 
-            var eventStore = new CosmosDbEventStore(cosmosClient, databaseId, eventsContainerId, itemsContainerId);
-            eventStore.Initialize().Wait();
+                var eventStore = new CosmosDbEventStore(cosmosClient, databaseId, eventsContainerId, itemsContainerId);
+                eventStore.Initialize().Wait();
 
-            var eventStoreObserver = new CosmosDbEventStoreChangeFeedObserver(
-                cosmosClient,
-                databaseId,
-                eventsContainerId,
-                leaseClient,
-                leaseDatabaseId,
-                leaseContainerId,
-                processorName
-            );
+                var eventStoreObserver = new CosmosDbEventStoreChangeFeedObserver(
+                    cosmosClient,
+                    databaseId,
+                    eventsContainerId,
+                    leaseClient,
+                    leaseDatabaseId,
+                    leaseContainerId,
+                    processorName,
+                    logger
+                );
 
-            AggregateRepositoryFactory aggregateRepositoryFactory = new AggregateRepositoryFactory(eventStore);
-            services.AddScoped(sp => aggregateRepositoryFactory);
+                return new AggregateRepositoryFactory(eventStore);
+            });
             
             return new EventSourcingBuilder
             {
-                EventStore = eventStore,
-                Services = services,
-                ProjectionEventsObserver = eventStoreObserver,
-                AggregateRepositoryFactory = aggregateRepositoryFactory
+                Services = services
             };
         }
 
@@ -97,16 +100,16 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             // TryAddScoped is used to be able to add a few event stores with separate calls of AddPostgresqlProjections
             builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) => projectionsRepositoryFactory);
             
-            // add repository for saving rebuild states
-            var projectionStateRepository = new CosmosDbProjectionRepository<ProjectionRebuildState>(
-                projectionsConnectionInfo.LoggerFactory,
-                projectionsConnectionInfo.ConnectionString,
-                projectionsConnectionInfo.CosmosClientOptions,
-                projectionsConnectionInfo.DatabaseId,
-                projectionsConnectionInfo.ContainerId
-            );
+            // // add repository for saving rebuild states
+            // var projectionStateRepository = new CosmosDbProjectionRepository<ProjectionRebuildState>(
+            //     projectionsConnectionInfo.LoggerFactory,
+            //     projectionsConnectionInfo.ConnectionString,
+            //     projectionsConnectionInfo.CosmosClientOptions,
+            //     projectionsConnectionInfo.DatabaseId,
+            //     projectionsConnectionInfo.ContainerId
+            // );
 
-            var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
+            var projectionsEngine = new ProjectionsEngine();
 
             if (builder.ProjectionEventsObserver == null)
             {

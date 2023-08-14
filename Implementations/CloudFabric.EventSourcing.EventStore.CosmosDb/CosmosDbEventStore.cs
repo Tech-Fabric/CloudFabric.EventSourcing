@@ -1,6 +1,9 @@
+using System.Collections.ObjectModel;
+using System.Net;
 using System.Text.Json;
 using CloudFabric.EventSourcing.EventStore.Persistence;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Linq;
 
 namespace CloudFabric.EventSourcing.EventStore.CosmosDb;
 
@@ -43,8 +46,70 @@ public class CosmosDbEventStore : IEventStore
         return Task.CompletedTask;
     }
 
+    public async Task<EventStoreStatistics> GetStatistics(CancellationToken cancellationToken = default)
+    {
+        Container eventContainer = _client.GetContainer(_databaseId, _eventsContainerId);
+
+        return await GetStatistics(eventContainer);
+    }
+    
+    protected async Task<EventStoreStatistics> GetStatistics(Container eventsContainer)
+    {
+        var stats = new EventStoreStatistics();
+
+        QueryDefinition totalCountQuery = new QueryDefinition($"SELECT * FROM {eventsContainer.Id}");
+        IOrderedQueryable<EventWrapper> totalCountQueryable = eventsContainer.GetItemLinqQueryable<EventWrapper>();
+        stats.TotalEventsCount = await totalCountQueryable.CountAsync();
+
+        QueryDefinition firstEventQuery = new QueryDefinition(
+            $"SELECT * FROM {eventsContainer.Id} e ORDER BY e._ts ASC LIMIT 1"
+        );
+        FeedIterator<EventWrapper> firstEventFeedIterator = eventsContainer.GetItemQueryIterator<EventWrapper>(
+            firstEventQuery,
+            requestOptions: new QueryRequestOptions { }
+        );
+        while (firstEventFeedIterator.HasMoreResults)
+        {
+            FeedResponse<EventWrapper> response = await firstEventFeedIterator.ReadNextAsync();
+
+            if (response.Count > 0)
+            {
+                stats.FirstEventCreatedAt = response.First().GetEvent().Timestamp;
+            }
+        }
+        
+        QueryDefinition lastEventQuery = new QueryDefinition(
+            $"SELECT * FROM {eventsContainer.Id} e ORDER BY e._ts DESC LIMIT 1"
+        );
+        FeedIterator<EventWrapper> lastEventFeedIterator = eventsContainer.GetItemQueryIterator<EventWrapper>(
+            lastEventQuery,
+            requestOptions: new QueryRequestOptions { }
+        );
+        while (lastEventFeedIterator.HasMoreResults)
+        {
+            FeedResponse<EventWrapper> response = await lastEventFeedIterator.ReadNextAsync();
+
+            if (response.Count > 0)
+            {
+                stats.LastEventCreatedAt = response.First().GetEvent().Timestamp;
+            }
+        }
+
+        return stats;
+    }
+
     public async Task DeleteAll(CancellationToken cancellationToken = default)
     {
+        if (_client == null)
+        {
+            return;
+        }
+
+        var container = _client.GetContainer(_databaseId, _eventsContainerId);
+        if (container != null)
+        {
+            await container.DeleteContainerAsync(cancellationToken: cancellationToken);
+        }
         var eventsContainer = _client.GetContainer(_databaseId, _eventsContainerId);
 
         try
@@ -287,6 +352,53 @@ public class CosmosDbEventStore : IEventStore
 
         return JsonSerializer.Serialize(items, EventStoreSerializerOptions.Options);
     }
+    
+    
+    public async Task<List<IEvent>> LoadEventsAsync(
+        string partitionKey,
+        DateTime? dateFrom,
+        int chunkSize = 250,
+        CancellationToken cancellationToken = default
+    ) {
+        Container eventContainer = _client.GetContainer(_databaseId, _eventsContainerId);
+        
+        DateTime endTime = DateTime.UtcNow;
+
+        using var feedIterator = eventContainer
+            .GetChangeFeedIterator<Change>(
+                dateFrom.HasValue 
+                    ? ChangeFeedStartFrom.Time(dateFrom.Value, FeedRange.FromPartitionKey(new PartitionKey(partitionKey))) 
+                    : ChangeFeedStartFrom.Beginning(FeedRange.FromPartitionKey(new PartitionKey(partitionKey))),
+                ChangeFeedMode.Incremental,
+                new ChangeFeedRequestOptions
+                {
+                    PageSizeHint = chunkSize
+                }
+            );
+
+        var results = new List<IEvent>();
+        
+        while (feedIterator.HasMoreResults)
+        {
+            FeedResponse<Change> response = await feedIterator.ReadNextAsync(cancellationToken);
+
+            if (response.All(x => x.GetEvent().Timestamp > endTime))
+            {
+                break;
+            }
+
+            var totalEventsProcessed = 0;
+            
+            if (response.StatusCode != HttpStatusCode.NotModified)
+            {
+                var events = new ReadOnlyCollection<Change>(response.ToList());
+
+                results.AddRange(events.Select(e => e.GetEvent()));
+            }
+        }
+
+        return results;
+    }
 
     #region Item Functionality
 
@@ -344,6 +456,6 @@ public class CosmosDbEventStore : IEventStore
 
         return default;
     }
-
+    
     #endregion
 }

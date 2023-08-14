@@ -216,7 +216,7 @@ public static class ElasticSearchFilterFactory
             } 
             else if (filter.Operator == FilterOperator.Equal)
             {
-                return $"!(_exists_:{propertyName})";
+                return $"(!(_exists_:{propertyName}))";
             }
             else
             {
@@ -225,7 +225,7 @@ public static class ElasticSearchFilterFactory
         }
         else if (filter.Operator == FilterOperator.NotEqual)
         {
-            return $"!({condition})";
+            return $"(!({condition}))";
         }
 
         return condition;

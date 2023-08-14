@@ -302,21 +302,9 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         firstOrderProjection.Should().BeNull();
         secondOrderProjection.Should().BeNull();
 
-        // rebuild the firstOrder document
-        await ProjectionsEngine.StartRebuildAsync(instanceName, PartitionKeys.GetOrderPartitionKey());
-
-        // wait for the rebuild state to be indexed
-        await Task.Delay(ProjectionsUpdateDelay);
-
-        // wait for the rebuild to finish
-        ProjectionRebuildState rebuildState;
-        do
-        {
-            rebuildState = await ProjectionsEngine.GetRebuildState(instanceName, PartitionKeys.GetOrderPartitionKey());
-            await Task.Delay(10);
-        } while (rebuildState.Status != RebuildStatus.Completed && rebuildState.Status != RebuildStatus.Failed);
-
-        rebuildState.Status.Should().Be(RebuildStatus.Completed);
+        await ProjectionsRepository.DeleteAll();
+        await ProjectionsRepository.EnsureIndex();
+        await ProjectionsRebuildProcessor.RebuildProjectionsThatRequireRebuild();
 
         // check firstOrder document is rebuild and second is not
         firstOrderProjection = await ProjectionsRepository.Single(firstOrder.Id, PartitionKeys.GetOrderPartitionKey());
@@ -337,7 +325,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>());
+        var projectionsEngine = new ProjectionsEngine();
         projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
 
         var ordersListProjectionBuilder = new OrdersListProjectionBuilder(GetProjectionRepositoryFactory());
@@ -631,7 +619,7 @@ public abstract class OrderTests : TestsBaseWithProjections<OrderListProjectionI
         var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>());
+        var projectionsEngine = new ProjectionsEngine();
         projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
 
         var ordersListProjectionBuilder = new OrdersListProjectionBuilder(GetProjectionRepositoryFactory());

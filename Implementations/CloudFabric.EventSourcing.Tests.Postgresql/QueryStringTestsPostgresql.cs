@@ -2,6 +2,7 @@ using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests.Postgresql;
@@ -28,11 +29,14 @@ public class QueryStringTestsPostgresql : ProjectionQueryTest
         return _eventStore;
     }
 
-    protected override IEventsObserver GetEventStoreEventsObserver()
+    protected override EventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
         {
-            _eventStoreEventsObserver = new PostgresqlEventStoreEventObserver(_eventStore);
+            _eventStoreEventsObserver = new PostgresqlEventStoreEventObserver(
+                _eventStore, 
+                NullLogger<PostgresqlEventStoreEventObserver>.Instance
+            );
         }
 
         return _eventStoreEventsObserver;
@@ -43,6 +47,7 @@ public class QueryStringTestsPostgresql : ProjectionQueryTest
         if (_projectionRepositoryFactory == null)
         {
             _projectionRepositoryFactory = new PostgresqlProjectionRepositoryFactory(
+                NullLoggerFactory.Instance,
                 TestsConnectionStrings.CONNECTION_STRING
             );
         }

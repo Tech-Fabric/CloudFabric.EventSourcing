@@ -7,6 +7,7 @@ using CloudFabric.Projections;
 using CloudFabric.Projections.CosmosDb;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests.CosmosDb;
@@ -29,7 +30,8 @@ public class OrderTestsCosmosDb : OrderTests
     private const string LeaseContainerName = "TestContainerLease";
 
     private const string CosmosDbConnectionString =
-        "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
+        "AccountEndpoint=https://cloudfabric-eventsourcing-test.documents.azure.com:443/;AccountKey=Va7mrZPPZfRcUMfcEL1GHorlvCSqiMxOBx5DadoaSKS8hSbJf3dGBVR0xRp8LuzVIWv8f8rSbPrKACDbXc9Adg==";
+
     private readonly Dictionary<Type, object> _projectionsRepositories = new();
 
     CosmosClient _cosmosClient = null;
@@ -43,76 +45,16 @@ public class OrderTestsCosmosDb : OrderTests
     public async Task SetUp()
     {
         ProjectionsUpdateDelay = TimeSpan.FromSeconds(30);
-
-        var loggerFactory = new LoggerFactory();
-        _logger = loggerFactory.CreateLogger<OrderTestsCosmosDb>();
-
-        JsonSerializerOptions jsonSerializerOptions = new JsonSerializerOptions()
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-        CosmosDbSystemTextJsonSerializer cosmosSystemTextJsonSerializer
-            = new CosmosDbSystemTextJsonSerializer(jsonSerializerOptions);
-
-        _cosmosClientOptions = new CosmosClientOptions()
-        {
-            Serializer = cosmosSystemTextJsonSerializer,
-            HttpClientFactory = () =>
-            {
-                HttpMessageHandler httpMessageHandler = new HttpClientHandler()
-                {
-                    ServerCertificateCustomValidationCallback =
-                        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-                };
-
-                return new HttpClient(httpMessageHandler);
-            },
-            ConnectionMode = ConnectionMode.Gateway
-        };
-
-        _cosmosClient = new CosmosClient(
-            CosmosDbConnectionString,
-            _cosmosClientOptions
-        );
-
-
-        var database = await ReCreateDatabase(_cosmosClient, DatabaseName);
-        await database.CreateContainerIfNotExistsAsync(new ContainerProperties(ContainerName, "/eventData/partitionKey"));
-        await database.CreateContainerIfNotExistsAsync(
-            new ContainerProperties(
-                ProjectionsContainerName,
-                "/partitionKey"
-            )
-        );
-        ContainerResponse containerResponse =
-            await _cosmosClient.GetContainer(DatabaseName, ContainerName).ReadContainerAsync();
-        // Set the indexing mode to consistent
-        containerResponse.Resource.IndexingPolicy.IndexingMode = IndexingMode.Consistent;
-        // Add an included path
-        containerResponse.Resource.IndexingPolicy.IncludedPaths.Add(new IncludedPath { Path = "/id" });
-        containerResponse.Resource.IndexingPolicy.IncludedPaths.Add(new IncludedPath { Path = "/stream/*" });
-        // Add an excluded path
-        containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = "/eventData/*" });
-
-
-        var leaseDatabase = await ReCreateDatabase(_cosmosClient, LeaseDatabaseName);
-        await leaseDatabase.CreateContainerIfNotExistsAsync(
-            new ContainerProperties(LeaseContainerName, "/partitionKey")
-        );
-
-        // add stored procedure
-        var migration = new CosmosDbEventStoreMigration(_cosmosClient, DatabaseName, ContainerName);
-        await migration.RunAsync();
     }
 
     private async Task<Database> ReCreateDatabase(CosmosClient cosmosClient, string databaseName)
     {
         await cosmosClient.CreateDatabaseIfNotExistsAsync(databaseName);
+
         var database = cosmosClient.GetDatabase(databaseName);
         await database.DeleteAsync();
         await cosmosClient.CreateDatabaseIfNotExistsAsync(
-            databaseName,
-            ThroughputProperties.CreateManualThroughput(400)
+            databaseName
         );
         return cosmosClient.GetDatabase(databaseName);
     }
@@ -121,6 +63,66 @@ public class OrderTestsCosmosDb : OrderTests
     {
         if (_eventStore == null)
         {
+            var loggerFactory = new LoggerFactory();
+            _logger = loggerFactory.CreateLogger<OrderTestsCosmosDb>();
+
+            JsonSerializerOptions jsonSerializerOptions = new JsonSerializerOptions()
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+            CosmosDbSystemTextJsonSerializer cosmosSystemTextJsonSerializer
+                = new CosmosDbSystemTextJsonSerializer(jsonSerializerOptions);
+
+            _cosmosClientOptions = new CosmosClientOptions()
+            {
+                Serializer = cosmosSystemTextJsonSerializer,
+                HttpClientFactory = () =>
+                {
+                    HttpMessageHandler httpMessageHandler = new HttpClientHandler()
+                    {
+                        ServerCertificateCustomValidationCallback =
+                            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                    };
+
+                    return new HttpClient(httpMessageHandler);
+                },
+                ConnectionMode = ConnectionMode.Gateway
+            };
+
+            _cosmosClient = new CosmosClient(
+                CosmosDbConnectionString,
+                _cosmosClientOptions
+            );
+
+
+            var database = await ReCreateDatabase(_cosmosClient, DatabaseName);
+            await database.CreateContainerIfNotExistsAsync(new ContainerProperties(ContainerName, "/eventData/partitionKey"));
+            await database.CreateContainerIfNotExistsAsync(
+                new ContainerProperties(
+                    ProjectionsContainerName,
+                    "/partitionKey"
+                )
+            );
+            ContainerResponse containerResponse =
+                await _cosmosClient.GetContainer(DatabaseName, ContainerName).ReadContainerAsync();
+            // Set the indexing mode to consistent
+            containerResponse.Resource.IndexingPolicy.IndexingMode = IndexingMode.Consistent;
+            // Add an included path
+            containerResponse.Resource.IndexingPolicy.IncludedPaths.Add(new IncludedPath { Path = "/id" });
+            containerResponse.Resource.IndexingPolicy.IncludedPaths.Add(new IncludedPath { Path = "/stream/*" });
+            // Add an excluded path
+            containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = "/eventData/*" });
+
+
+            var leaseDatabase = await ReCreateDatabase(_cosmosClient, LeaseDatabaseName);
+            await leaseDatabase.CreateContainerIfNotExistsAsync(
+                new ContainerProperties(LeaseContainerName, "/partitionKey")
+            );
+
+            // add stored procedure
+            var migration = new CosmosDbEventStoreMigration(_cosmosClient, DatabaseName, ContainerName);
+            await migration.RunAsync();
+
             _eventStore = new CosmosDbEventStore(
                 _cosmosClient,
                 DatabaseName,
@@ -133,7 +135,7 @@ public class OrderTestsCosmosDb : OrderTests
         return _eventStore;
     }
 
-    protected override IEventsObserver GetEventStoreEventsObserver()
+    protected override EventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
         {
@@ -144,7 +146,8 @@ public class OrderTestsCosmosDb : OrderTests
                 _cosmosClient,
                 LeaseDatabaseName,
                 LeaseContainerName,
-                ""
+                "",
+                NullLogger<CosmosDbEventStoreChangeFeedObserver>.Instance
             );
         }
 
@@ -194,7 +197,7 @@ public class OrderTestsCosmosDb : OrderTests
     {
         return;
     }
-    
+
     [Ignore]
     public override async Task TestProjectionsNestedObjectsSorting()
     {

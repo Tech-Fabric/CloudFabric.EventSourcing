@@ -1,4 +1,3 @@
-using Elasticsearch.Net;
 using Microsoft.Extensions.Logging;
 
 namespace CloudFabric.Projections.ElasticSearch;
@@ -25,7 +24,7 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
         ElasticSearchBasicAuthConnectionSettings connectionSettings,
         ILoggerFactory loggerFactory,
         bool disableRequestStreaming = false
-    )
+    ): base(loggerFactory)
     {
         _basicAuthConnectionSettings = connectionSettings;
         _loggerFactory = loggerFactory;
@@ -47,7 +46,7 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
         ElasticSearchApiKeyAuthConnectionSettings apiKeyAuthConnectionSettings, 
         ILoggerFactory loggerFactory,
         bool disableRequestStreaming = false
-    )
+    ): base(loggerFactory)
     {
         _loggerFactory = loggerFactory;
         _apiKeyAuthConnectionSettings = apiKeyAuthConnectionSettings;
@@ -87,7 +86,7 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
         throw new Exception("Missed Elastic connection settings");
     }
 
-    public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
+    public override ProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
         var cached = GetFromCache(projectionDocumentSchema);
         if (cached != null)
@@ -95,7 +94,7 @@ public class ElasticSearchProjectionRepositoryFactory : ProjectionRepositoryFact
             return cached;
         }
         
-        IProjectionRepository? repository = null;
+        ProjectionRepository? repository = null;
         if (_basicAuthConnectionSettings != null)
         {
             repository = new ElasticSearchProjectionRepository(

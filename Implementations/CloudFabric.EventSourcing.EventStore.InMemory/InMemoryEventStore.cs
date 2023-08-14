@@ -38,6 +38,31 @@ public class InMemoryEventStore : IEventStore
         _eventAddedEventHandlers.Remove(handler);
     }
 
+    
+    public async Task<EventStoreStatistics> GetStatistics(CancellationToken cancellationToken = default)
+    {
+        var stats = new EventStoreStatistics();
+        
+        stats.TotalEventsCount = _eventsContainer.Count;
+
+        var eventsOrderedByTimestamp = _eventsContainer
+            .SelectMany(x => x.Value)
+            .Select(x => JsonSerializer.Deserialize<EventWrapper>(x, EventStoreSerializerOptions.Options).GetEvent())
+            .OrderBy(x => x.Timestamp)
+            .ToList();
+
+        if (eventsOrderedByTimestamp.Count > 0)
+        {
+            stats.FirstEventCreatedAt = eventsOrderedByTimestamp.First().Timestamp;
+        }
+        if (eventsOrderedByTimestamp.Count > 0)
+        {
+            stats.LastEventCreatedAt = eventsOrderedByTimestamp.Last().Timestamp;
+        }
+
+        return stats;
+    }
+    
     public Task DeleteAll(CancellationToken cancellationToken = default)
     {
         _eventsContainer.Clear();
@@ -103,19 +128,32 @@ public class InMemoryEventStore : IEventStore
         return new EventStream(streamId, version, events);
     }
 
-    public async Task<List<IEvent>> LoadEventsAsync(string partitionKey, DateTime? dateFrom)
+    public async Task<List<IEvent>> LoadEventsAsync(
+        string? partitionKey, 
+        DateTime? dateFrom = null, 
+        int limit = 250, 
+        CancellationToken cancellationToken = default)
     {
         if (_eventsContainer == null || !_eventsContainer.Any())
         {
             return new List<IEvent>();
         }
 
-        var events = _eventsContainer
-            .Where(x => x.Key.PartitionKey == partitionKey)
+        var eventsContainer = _eventsContainer;
+
+        if (!string.IsNullOrEmpty(partitionKey))
+        {
+            eventsContainer = _eventsContainer
+                .Where(x => x.Key.PartitionKey == partitionKey)
+                .ToDictionary(x => x.Key, x => x.Value);
+        }
+
+        var events = eventsContainer
             .SelectMany(x => x.Value)
             .Select(x => JsonSerializer.Deserialize<EventWrapper>(x, EventStoreSerializerOptions.Options).GetEvent())
-            .Where(x => !dateFrom.HasValue || x.Timestamp >= dateFrom)
+            .Where(x => !dateFrom.HasValue || x.Timestamp > dateFrom)
             .OrderBy(x => x.Timestamp)
+            .Take(limit)
             .ToList();
 
         return events;
@@ -285,4 +323,5 @@ public class InMemoryEventStore : IEventStore
     }
 
     #endregion
+    
 }

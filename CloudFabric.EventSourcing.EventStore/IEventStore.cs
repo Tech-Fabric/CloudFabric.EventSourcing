@@ -10,6 +10,13 @@ public interface IEventStore
 
     Task<EventStream> LoadStreamAsync(Guid streamId, string partitionKey, int fromVersion, CancellationToken cancellationToken = default);
 
+    Task<List<IEvent>> LoadEventsAsync(
+        string? partitionKey,
+        DateTime? dateFrom = null,
+        int limit = 250,
+        CancellationToken cancellationToken = default
+    );
+    
     Task<bool> AppendToStreamAsync(
         EventUserInfo eventUserInfo,
         Guid streamId,
@@ -19,6 +26,8 @@ public interface IEventStore
     );
 
     Task Initialize(CancellationToken cancellationToken = default);
+
+    Task<EventStoreStatistics> GetStatistics(CancellationToken cancellationToken = default);
 
     Task DeleteAll(CancellationToken cancellationToken = default);
 

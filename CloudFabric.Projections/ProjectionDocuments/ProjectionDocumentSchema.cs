@@ -1,6 +1,6 @@
 namespace CloudFabric.Projections;
 
-public class ProjectionDocumentSchema
+public class ProjectionDocumentSchema : ICloneable
 {
     public string SchemaName { get; set; }
 
@@ -21,4 +21,9 @@ public class ProjectionDocumentSchema
     }
 
     public List<ProjectionDocumentPropertySchema> Properties { get; set; } = new();
+
+    public object Clone()
+    {
+        return MemberwiseClone();
+    }
 }

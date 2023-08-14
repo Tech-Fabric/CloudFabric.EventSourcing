@@ -1,10 +1,12 @@
+using CloudFabric.EventSourcing.EventStore;
 using System.Runtime.CompilerServices;
 using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
 {
@@ -16,22 +18,47 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
             Dictionary<(string, string), string> itemsContainer
         )
         {
-            var eventStore = new InMemoryEventStore(eventsContainer, itemsContainer);
-            eventStore.Initialize().Wait();
-
-            // add events observer for projections
-            var eventStoreObserver = new InMemoryEventStoreEventObserver(eventStore);
-            
-            AggregateRepositoryFactory aggregateRepositoryFactory = new AggregateRepositoryFactory(eventStore);
-            services.AddScoped(sp => aggregateRepositoryFactory);
-
-            return new EventSourcingBuilder
+            var builder = new EventSourcingBuilder
             {
-                EventStore = eventStore,
-                Services = services,
-                ProjectionEventsObserver = eventStoreObserver,
-                AggregateRepositoryFactory = aggregateRepositoryFactory
+                Services = services
             };
+
+            services.AddScoped<IEventStore>(
+                (sp) =>
+                {
+                    var eventStore = new InMemoryEventStore(eventsContainer, itemsContainer);
+                    eventStore.Initialize().Wait();
+
+                    // add events observer for projections
+                    var eventStoreObserver = new InMemoryEventStoreEventObserver(
+                        eventStore, sp.GetRequiredService<ILogger<InMemoryEventStoreEventObserver>>()
+                    );
+
+                    var projectionsRepositoryFactory = sp.GetService<ProjectionRepositoryFactory>();
+
+                    // Postgresql's event observer is synchronous - it just handles all calls to npgsql commands, there is no delay
+                    // or log processing. That means that all events are happening in request context, possibly on multiple threads,
+                    // so having one global projections builder is more complicated than simply creating new projections builder for each request.
+                    if (projectionsRepositoryFactory != null)
+                    {
+                        var projectionsEngine = new ProjectionsEngine();
+                        projectionsEngine.SetEventsObserver(eventStoreObserver);
+
+                        foreach (var projectionBuilderType in builder.ProjectionBuilderTypes)
+                        {
+                            var projectionBuilder = builder.ConstructProjectionBuilder(projectionBuilderType, projectionsRepositoryFactory);
+
+                            projectionsEngine.AddProjectionBuilder(projectionBuilder);
+                        }
+
+                        projectionsEngine.StartAsync("").GetAwaiter().GetResult();
+                    }
+
+                    return eventStore;
+                }
+            );
+
+            return builder;
         }
 
         public static IEventSourcingBuilder AddInMemoryEventStore(this IServiceCollection services)
@@ -45,45 +72,29 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
         public static IEventSourcingBuilder AddRepository<TRepo>(this IEventSourcingBuilder builder)
             where TRepo : class
         {
-            if (builder.EventStore == null)
-            {
-                throw new ArgumentException("Event store is missing");
-            }
-            
-            builder.Services.AddSingleton(sp => ActivatorUtilities.CreateInstance<TRepo>(sp, new object[] { builder.EventStore }));
+            builder.Services.AddScoped(
+                sp =>
+                {
+                    var eventStore = sp.GetRequiredService<IEventStore>();
+                    return ActivatorUtilities.CreateInstance<TRepo>(sp, new object[] { eventStore });
+                }
+            );
+
             return builder;
         }
 
-        // NOTE: projection repositories can't work with different databases for now
         public static IEventSourcingBuilder AddInMemoryProjections(
             this IEventSourcingBuilder builder,
             params Type[] projectionBuildersTypes
         )
         {
-            var projectionsRepositoryFactory = new InMemoryProjectionRepositoryFactory();
+            builder.ProjectionBuilderTypes = projectionBuildersTypes;
 
-            builder.Services.TryAddScoped<ProjectionRepositoryFactory>((sp) => projectionsRepositoryFactory);
-            
-            // add repository for saving rebuild states
-            var projectionStateRepository = new InMemoryProjectionRepository<ProjectionRebuildState>();
-
-            var projectionsEngine = new ProjectionsEngine(projectionStateRepository);
-
-            if (builder.ProjectionEventsObserver == null)
+            builder.Services.AddScoped<ProjectionRepositoryFactory>((sp) =>
             {
-                throw new ArgumentException("Projection events observer is missing");
-            }
-
-            projectionsEngine.SetEventsObserver(builder.ProjectionEventsObserver);
-
-            foreach (var projectionBuilderType in projectionBuildersTypes)
-            {
-                var projectionBuilder = builder.ConstructProjectionBuilder(projectionBuilderType, projectionsRepositoryFactory);
-                
-                projectionsEngine.AddProjectionBuilder(projectionBuilder);
-            }
-
-            builder.ProjectionsEngine = projectionsEngine;
+                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                return new InMemoryProjectionRepositoryFactory(loggerFactory); 
+            });
 
             return builder;
         }

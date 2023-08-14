@@ -43,8 +43,12 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
     {
     }
 
-    public new async Task<TProjectionDocument?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
-    {
+    public new async Task<TProjectionDocument?> Single(
+        Guid id, 
+        string partitionKey, 
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
+    ) {
         var document = await base.Single(id, partitionKey, cancellationToken);
 
         if (document == null) return null;
@@ -52,8 +56,13 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
         return ProjectionDocumentSerializer.DeserializeFromDictionary<TProjectionDocument>(document);
     }
 
-    public Task Upsert(TProjectionDocument document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
-    {
+    public Task Upsert(
+        TProjectionDocument document, 
+        string partitionKey, 
+        DateTime updatedAt, 
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    ) {
         var documentDictionary = ProjectionDocumentSerializer.SerializeToDictionary(document);
         return Upsert(documentDictionary, partitionKey, updatedAt, cancellationToken);
     }
@@ -61,9 +70,9 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
     public new async Task<ProjectionQueryResult<TProjectionDocument>> Query(
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
-        CancellationToken cancellationToken = default
-    )
-    {
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
+    ) {
         var recordsDictionary = await base.Query(projectionQuery, partitionKey, cancellationToken);
 
         var records = new List<QueryResultDocument<TProjectionDocument>>();
@@ -87,7 +96,7 @@ public class CosmosDbProjectionRepository<TProjectionDocument>
     }
 }
 
-public class CosmosDbProjectionRepository : IProjectionRepository
+public class CosmosDbProjectionRepository : ProjectionRepository
 {
     private readonly CosmosClient _client;
     private readonly string _containerId;
@@ -109,7 +118,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         string databaseId,
         string containerId,
         ProjectionDocumentSchema projectionDocumentSchema
-    )
+    ): base(projectionDocumentSchema, loggerFactory.CreateLogger<ProjectionRepository>())
     {
         _logger = loggerFactory.CreateLogger<CosmosDbProjectionRepository>();
         _client = new CosmosClient(connectionString, cosmosClientOptions);
@@ -118,26 +127,19 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         _projectionDocumentSchema = projectionDocumentSchema;
     }
 
-    public CosmosDbProjectionRepository(
-        ILoggerFactory loggerFactory,
-        CosmosClient client,
-        string databaseId,
-        string containerId
-    )
-    {
-        _logger = loggerFactory.CreateLogger<CosmosDbProjectionRepository>();
-        _client = client;
-        _databaseId = databaseId;
-        _containerId = containerId;
-    }
-
-    public async Task EnsureIndex(CancellationToken cancellationToken = default)
+    protected override Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema)
     {
         throw new NotImplementedException();
     }
 
-    public async Task<Dictionary<string, object?>?> Single(Guid id, string partitionKey, CancellationToken cancellationToken = default)
-    {
+    public override async Task<Dictionary<string, object?>?> Single(
+        Guid id, 
+        string partitionKey, 
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.ReadOnly
+    ) {
+        var indexDescriptor = await GetIndexDescriptorForOperation(indexSelector, cancellationToken);
+        
         Container container = _client.GetContainer(_databaseId, _containerId);
         var sw = Stopwatch.StartNew();
 
@@ -175,9 +177,15 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Delete(Guid id, string partitionKey, CancellationToken cancellationToken = default)
-    {
+    public override async Task Delete(
+        Guid id, 
+        string partitionKey, 
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    ) {
         var sw = Stopwatch.StartNew();
+        
+        var indexDescriptor = await GetIndexDescriptorForOperation(indexSelector, cancellationToken);
 
         Container container = _client.GetContainer(_databaseId, _containerId);
 
@@ -209,8 +217,11 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task DeleteAll(string? partitionKey = null, CancellationToken cancellationToken = default)
-    {
+    public override async Task DeleteAll(
+        string? partitionKey = null, 
+        CancellationToken cancellationToken = default,
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    ) {
         Container container = _client.GetContainer(_databaseId, _containerId);
 
         if (string.IsNullOrEmpty(partitionKey))
@@ -223,11 +234,16 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         }
     }
 
-    public async Task Upsert(Dictionary<string, object?> document, string partitionKey, DateTime updatedAt, CancellationToken cancellationToken = default)
-    {
-        if (document[_projectionDocumentSchema.KeyColumnName] == null)
+    protected override async Task UpsertInternal(
+        ProjectionOperationIndexDescriptor indexDescriptor,
+        Dictionary<string, object?> document, 
+        string partitionKey, 
+        DateTime updatedAt, 
+        CancellationToken cancellationToken = default
+    ) {
+        if (document[indexDescriptor.ProjectionDocumentSchema.KeyColumnName] == null)
         {
-            throw new ArgumentException("document primary key cannot be null", _projectionDocumentSchema.KeyColumnName);
+            throw new ArgumentException("document primary key cannot be null", indexDescriptor.ProjectionDocumentSchema.KeyColumnName);
         }
 
         document.TryGetValue(nameof(ProjectionDocument.Id), out object? id);
@@ -250,7 +266,7 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             _logger.LogError(
                 ex, "Failed to upsert Document with {@Id} ({@Partition}/{@Container}) is not found",
-                document[_projectionDocumentSchema.KeyColumnName], partitionKey, container.Id
+                document[indexDescriptor.ProjectionDocumentSchema.KeyColumnName], partitionKey, container.Id
             );
             throw;
         }
@@ -258,18 +274,19 @@ public class CosmosDbProjectionRepository : IProjectionRepository
         {
             _logger.LogDebug(
                 "CosmosDB Upsert Document with {@Id} ({@Partition}/{@Container}) executed in {@ExecutionTime} ms",
-                document[_projectionDocumentSchema.KeyColumnName], partitionKey, container.Id, sw.ElapsedMilliseconds
+                document[indexDescriptor.ProjectionDocumentSchema.KeyColumnName], partitionKey, container.Id, sw.ElapsedMilliseconds
             );
         }
     }
 
-    public async Task<ProjectionQueryResult<Dictionary<string, object?>>> Query(
+    protected override async Task<ProjectionQueryResult<Dictionary<string, object?>>> QueryInternal(
+        ProjectionOperationIndexDescriptor indexDescriptor,
         ProjectionQuery projectionQuery,
         string? partitionKey = null,
         CancellationToken cancellationToken = default
     )
     {
-        var properties = _projectionDocumentSchema.Properties;
+        var properties = indexDescriptor.ProjectionDocumentSchema.Properties;
 
         var sb = new StringBuilder();
         sb.Append("SELECT ");

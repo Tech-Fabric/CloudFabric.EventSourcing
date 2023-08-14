@@ -17,7 +17,7 @@ public class Filter
         Tag = tag;
     }
 
-    public Filter(string propertyName, string oper, object value, string tag = "")
+    public Filter(string propertyName, string oper, object? value, string tag = "")
     {
         PropertyName = propertyName;
         Operator = oper;

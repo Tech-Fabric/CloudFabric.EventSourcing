@@ -17,7 +17,7 @@ public class CosmosDbProjectionRepositoryFactory : ProjectionRepositoryFactory
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
         string containerId
-    )
+    ): base(loggerFactory)
     {
         _loggerFactory = loggerFactory;
         _connectionString = connectionString;
@@ -46,7 +46,7 @@ public class CosmosDbProjectionRepositoryFactory : ProjectionRepositoryFactory
         return repository;
     }
 
-    public override IProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
+    public override ProjectionRepository GetProjectionRepository(ProjectionDocumentSchema projectionDocumentSchema)
     {
         var cached = GetFromCache(projectionDocumentSchema);
         if (cached != null)

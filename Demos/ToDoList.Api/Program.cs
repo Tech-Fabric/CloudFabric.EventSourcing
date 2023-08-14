@@ -1,6 +1,8 @@
 using System.Text;
 using CloudFabric.EventSourcing.AspNet.Postgresql.Extensions;
 using CloudFabric.EventSourcing.Domain;
+using CloudFabric.EventSourcing.EventStore;
+using CloudFabric.EventSourcing.EventStore.Postgresql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using ToDoList.Api.Extensions;
@@ -49,35 +51,20 @@ builder.Services.Configure<UserAccessTokensServiceOptions>(builder.Configuration
 
 #region User Accounts Projections
 
-var userEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "user-events")
+builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "user-events")
     .AddRepository<AggregateRepository<UserAccount>>()
     .AddRepository<AggregateRepository<UserAccountEmailAddress>>()
-    .AddPostgresqlProjections(
-        builder.Configuration.GetConnectionString("Default"),
-        typeof(UserAccountsProjectionBuilder)
-    );
 
-#endregion
-
-#region Task Lists Projections
-
-var taskListEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "task-list-events")
-    .AddRepository<AggregateRepository<TaskList>>()
-    .AddPostgresqlProjections(
-        builder.Configuration.GetConnectionString("Default"),
-        typeof(TaskListsProjectionBuilder)
-    );
-
-#endregion
-
-#region Task Projections
-
-var taskEventSourcingBuilder = builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "task-events")
     .AddRepository<AggregateRepository<ToDoList.Domain.Task>>()
+    .AddRepository<AggregateRepository<TaskList>>()
+
     .AddPostgresqlProjections(
         builder.Configuration.GetConnectionString("Default"),
-        typeof(TasksProjectionBuilder)
-    );
+        typeof(UserAccountsProjectionBuilder),
+        typeof(TasksProjectionBuilder),
+        typeof(TaskListsProjectionBuilder)
+    )
+    .AddProjectionsRebuildProcessor();
 
 #endregion
 
@@ -111,8 +98,33 @@ app.MapControllerRoute(
 //await eventStore.Initialize();
 #endregion
 
-await userEventSourcingBuilder.ProjectionsEngine.StartAsync(Environment.MachineName);
-await taskListEventSourcingBuilder.ProjectionsEngine.StartAsync(Environment.MachineName);
-await taskEventSourcingBuilder.ProjectionsEngine.StartAsync(Environment.MachineName);
-
 app.Run();
+
+class P : IPostgresqlEventStoreConnectionInformationProvider
+{
+    private readonly IServiceProvider _serviceProvider;
+    public P(IServiceProvider sp)
+    {
+        _serviceProvider = sp;
+    }
+
+    EventStoreConnectionInformation IEventStoreConnectionInformationProvider.GetConnectionInformation(string? connectionId)
+    {
+        return GetConnectionInformation(connectionId);
+    }
+
+    public PostgresqlEventStoreConnectionInformation GetConnectionInformation(string? connectionId = null)
+    {
+        var httpContext = _serviceProvider.GetRequiredService<IHttpContextAccessor>();
+
+        var tenantId = httpContext.HttpContext.User.Claims.First(c => c.Type == "TenantId");
+        var configuration = _serviceProvider.GetRequiredService<IConfiguration>(); 
+
+        return new PostgresqlEventStoreConnectionInformation()
+        {
+            ConnectionId = tenantId.ToString(),
+            ConnectionString = configuration.GetConnectionString("Default"),
+            TableName = $"event_store_tenant_{tenantId}"
+        };
+    }
+}

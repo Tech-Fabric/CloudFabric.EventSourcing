@@ -14,7 +14,7 @@ public static class ProjectionDocumentSchemaFactory
             .Select(p => GetPropertySchema(p.Key, p.Value.DocumentPropertyAttribute, p.Value.NestedDictionary))
             .ToList();
 
-        schema.SchemaName = $"{typeof(T).Name}_{GetPropertiesUniqueHash(schema.Properties)}";
+        schema.SchemaName = typeof(T).Name;
         
         return schema;
     }

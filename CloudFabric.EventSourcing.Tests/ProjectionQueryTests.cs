@@ -28,7 +28,7 @@ public abstract class ProjectionQueryTest : TestsBaseWithProjections<OrderListPr
         var orderRepositoryEventsObserver = GetEventStoreEventsObserver();
 
         // Projections engine - takes events from events observer and passes them to multiple projection builders
-        var projectionsEngine = new ProjectionsEngine(GetProjectionRepositoryFactory().GetProjectionRepository<ProjectionRebuildState>());
+        var projectionsEngine = new ProjectionsEngine();
         projectionsEngine.SetEventsObserver(orderRepositoryEventsObserver);
 
         var ordersListProjectionBuilder = new OrdersListProjectionBuilder(GetProjectionRepositoryFactory());
@@ -122,7 +122,7 @@ public abstract class ProjectionQueryTest : TestsBaseWithProjections<OrderListPr
         ordersFromSerializedQuery.TotalRecordsFound.Should().Be(2);
         ordersFromSerializedQuery.Records.Count.Should().Be(1);
 
-        orders.Should().BeEquivalentTo(ordersFromSerializedQuery);
+        orders.Records.Should().BeEquivalentTo(ordersFromSerializedQuery.Records);
 
         await projectionsEngine.StopAsync();
     }

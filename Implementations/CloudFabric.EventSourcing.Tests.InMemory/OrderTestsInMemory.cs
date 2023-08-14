@@ -2,6 +2,7 @@ using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.InMemory;
 using CloudFabric.Projections;
 using CloudFabric.Projections.InMemory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CloudFabric.EventSourcing.Tests.InMemory;
@@ -27,11 +28,11 @@ public class OrderTestsInMemory : OrderTests
         return _eventStore;
     }
 
-    protected override IEventsObserver GetEventStoreEventsObserver()
+    protected override EventsObserver GetEventStoreEventsObserver()
     {
         if (_eventStoreEventsObserver == null)
         {
-            _eventStoreEventsObserver = new InMemoryEventStoreEventObserver(_eventStore);
+            _eventStoreEventsObserver = new InMemoryEventStoreEventObserver(_eventStore, NullLogger<InMemoryEventStoreEventObserver>.Instance);
         }
 
         return _eventStoreEventsObserver;
@@ -41,7 +42,7 @@ public class OrderTestsInMemory : OrderTests
     {
         if (_projectionRepositoryFactory == null)
         {
-            _projectionRepositoryFactory = new InMemoryProjectionRepositoryFactory();
+            _projectionRepositoryFactory = new InMemoryProjectionRepositoryFactory(NullLoggerFactory.Instance);
         }
 
         return _projectionRepositoryFactory;

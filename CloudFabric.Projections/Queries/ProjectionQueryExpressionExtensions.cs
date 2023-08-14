@@ -17,7 +17,7 @@ public static class ProjectionQueryExpressionExtensions
         var parameter = Expression.Parameter(typeof(TObject), "document");
         Expression? expressionToReturn = null;
 
-        var filterExpressions = projectionQuery.Filters.Select(f => f.ToLambdaExpression<TObject>(parameter)).ToList();
+        var filterExpressions = projectionQuery.Filters.Select(f => f.ToExpression<TObject>(parameter)).ToList();
 
         if (filterExpressions.Count == 0)
         {
@@ -25,15 +25,15 @@ public static class ProjectionQueryExpressionExtensions
         }
         else if (filterExpressions.Count == 1)
         {
-            expressionToReturn = filterExpressions[0].Body;
+            expressionToReturn = filterExpressions[0].Item1;
         }
         else if (filterExpressions.Count > 1)
         {
-            expressionToReturn = Expression.AndAlso(filterExpressions[0].Body, filterExpressions[1].Body);
+            expressionToReturn = Expression.AndAlso(filterExpressions[0].Item1, filterExpressions[1].Item1);
 
             foreach (var filterToAdd in filterExpressions.Skip(2))
             {
-                expressionToReturn = Expression.AndAlso(expressionToReturn, filterToAdd.Body);
+                expressionToReturn = Expression.AndAlso(expressionToReturn, filterToAdd.Item1);
             }
         }
 

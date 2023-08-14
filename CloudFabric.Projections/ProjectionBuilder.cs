@@ -6,8 +6,18 @@ namespace CloudFabric.Projections;
 
 public class ProjectionBuilder : IProjectionBuilder
 {
-    protected ProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory)
-    {
+    protected ProjectionBuilder(
+        ProjectionRepositoryFactory projectionRepositoryFactory, 
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    ) {
+        if (indexSelector != ProjectionOperationIndexSelector.Write && indexSelector != ProjectionOperationIndexSelector.ProjectionRebuild)
+        {
+            throw new ArgumentException($"For projection builder the only possible values are {nameof(ProjectionOperationIndexSelector.Write)} " +
+                                        $"and {nameof(ProjectionOperationIndexSelector.ProjectionRebuild)}");
+        }
+
+        IndexSelector = indexSelector;
+
         var interfaces = GetType()
             .FindInterfaces(
                 new TypeFilter(
@@ -21,6 +31,8 @@ public class ProjectionBuilder : IProjectionBuilder
 
         ProjectionRepositoryFactory = projectionRepositoryFactory;
     }
+
+    private readonly ProjectionOperationIndexSelector IndexSelector;
 
     protected readonly ProjectionRepositoryFactory ProjectionRepositoryFactory;
     public HashSet<Type> HandledEventTypes { get; }
@@ -60,7 +72,7 @@ public class ProjectionBuilder : IProjectionBuilder
     {
         return ProjectionRepositoryFactory
             .GetProjectionRepository(projectionDocumentSchema)
-            .Upsert(document, partitionKey, updatedAt, cancellationToken);
+            .Upsert(document, partitionKey, updatedAt, cancellationToken, IndexSelector);
     }
 
     protected Task UpdateDocument(
@@ -71,8 +83,7 @@ public class ProjectionBuilder : IProjectionBuilder
         Action<Dictionary<string, object?>> callback,
         Action? documentNotFound = null,
         CancellationToken cancellationToken = default
-    )
-    {
+    ) {
         return UpdateDocument(
             projectionDocumentSchema,
             id,
@@ -101,7 +112,7 @@ public class ProjectionBuilder : IProjectionBuilder
         var repository = ProjectionRepositoryFactory
             .GetProjectionRepository(projectionDocumentSchema);
 
-        Dictionary<string, object?>? document = await repository.Single(id, partitionKey, cancellationToken);
+        Dictionary<string, object?>? document = await repository.Single(id, partitionKey, cancellationToken, IndexSelector);
 
         if (document == null)
         {
@@ -111,7 +122,7 @@ public class ProjectionBuilder : IProjectionBuilder
         {
             await callback(document);
 
-            await repository.Upsert(document, partitionKey, updatedAt, cancellationToken);
+            await repository.Upsert(document, partitionKey, updatedAt, cancellationToken, IndexSelector);
         }
     }
 
@@ -127,14 +138,14 @@ public class ProjectionBuilder : IProjectionBuilder
         var repository = ProjectionRepositoryFactory
             .GetProjectionRepository(projectionDocumentSchema);
 
-        var documents = await repository.Query(projectionQuery, partitionKey, cancellationToken);
+        var documents = await repository.Query(projectionQuery, partitionKey, cancellationToken, IndexSelector);
 
         var updateTasks = documents.Records.Select(
             document =>
             {
                 callback(document.Document!);
 
-                return repository.Upsert(document.Document!, partitionKey, updatedAt, cancellationToken);
+                return repository.Upsert(document.Document!, partitionKey, updatedAt, cancellationToken, IndexSelector);
             }
         );
 
@@ -151,15 +162,25 @@ public class ProjectionBuilder : IProjectionBuilder
         var repository = ProjectionRepositoryFactory
             .GetProjectionRepository(projectionDocumentSchema);
 
-        return repository.Delete(id, partitionKey, cancellationToken);
+        return repository.Delete(id, partitionKey, cancellationToken, IndexSelector);
     }
 }
 
 public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocument>
     where TDocument : ProjectionDocument
 {
-    protected ProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory)
-    {
+    protected ProjectionBuilder(
+        ProjectionRepositoryFactory projectionRepositoryFactory, 
+        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+    ) {
+        if (indexSelector != ProjectionOperationIndexSelector.Write && indexSelector != ProjectionOperationIndexSelector.ProjectionRebuild)
+        {
+            throw new ArgumentException($"For projection builder the only possible values are {nameof(ProjectionOperationIndexSelector.Write)} " +
+                                        $"and {nameof(ProjectionOperationIndexSelector.ProjectionRebuild)}");
+        }
+
+        IndexSelector = indexSelector;
+        
         var interfaces = GetType()
             .FindInterfaces(
                 new TypeFilter(
@@ -173,6 +194,8 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
 
         ProjectionRepositoryFactory = projectionRepositoryFactory;
     }
+
+    private readonly ProjectionOperationIndexSelector IndexSelector;
 
     protected readonly ProjectionRepositoryFactory ProjectionRepositoryFactory;
 
@@ -206,7 +229,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
     {
         return ProjectionRepositoryFactory
             .GetProjectionRepository<TDocument>()
-            .Upsert(document, partitionKey, updatedAt, cancellationToken);
+            .Upsert(document, partitionKey, updatedAt, cancellationToken, IndexSelector);
     }
 
     protected Task UpdateDocument(
@@ -249,7 +272,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         var repository = ProjectionRepositoryFactory
             .GetProjectionRepository<TDocument>();
 
-        TDocument? document = await repository.Single(id, partitionKey, cancellationToken);
+        TDocument? document = await repository.Single(id, partitionKey, cancellationToken, IndexSelector);
 
         if (document == null)
         {
@@ -259,7 +282,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         {
             await callback(document);
 
-            await repository.Upsert(document, partitionKey, updatedAt, cancellationToken);
+            await repository.Upsert(document, partitionKey, updatedAt, cancellationToken, IndexSelector);
         }
     }
 
@@ -274,14 +297,14 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
         var repository = ProjectionRepositoryFactory
             .GetProjectionRepository<TDocument>();
 
-        var documents = await repository.Query(projectionQuery, partitionKey, cancellationToken);
+        var documents = await repository.Query(projectionQuery, partitionKey, cancellationToken, IndexSelector);
 
         var updateTasks = documents.Records.Select(
             document =>
             {
                 callback(document.Document!);
 
-                return repository.Upsert(document.Document!, partitionKey, updatedAt, cancellationToken);
+                return repository.Upsert(document.Document!, partitionKey, updatedAt, cancellationToken, IndexSelector);
             }
         );
 
@@ -296,6 +319,6 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
     {
         return ProjectionRepositoryFactory
             .GetProjectionRepository<TDocument>()
-            .Delete(id, partitionKey, cancellationToken);
+            .Delete(id, partitionKey, cancellationToken, IndexSelector);
     }
 }
