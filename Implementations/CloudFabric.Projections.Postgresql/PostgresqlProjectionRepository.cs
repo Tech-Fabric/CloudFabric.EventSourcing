@@ -348,7 +348,7 @@ public class PostgresqlProjectionRepository : ProjectionRepository
             if (partitionKey == null)
             {
                 await using var dropTableCmd = new NpgsqlCommand(
-                    $"DROP TABLE \"{indexStatus.IndexName}\" ", conn
+                    $"DROP TABLE IF EXISTS \"{indexStatus.IndexName}\" ", conn
                 );
                 await dropTableCmd.ExecuteNonQueryAsync(cancellationToken);
             }
@@ -420,7 +420,7 @@ public class PostgresqlProjectionRepository : ProjectionRepository
         await using var cmd = new NpgsqlCommand(
             $"INSERT INTO \"{indexDescriptor.IndexName}\" ({string.Join(',', propertyNames)}) " +
             $"VALUES ({string.Join(',', propertyNames.Select(p => $"@{p}"))}) " +
-            $"ON CONFLICT ({KeyColumnName}) " +
+            $"ON CONFLICT ({indexDescriptor.ProjectionDocumentSchema.KeyColumnName}) " +
             $"DO UPDATE SET {string.Join(',', propertyNames.Select(p => $"{p} = @{p}"))} "
             , conn
         );
