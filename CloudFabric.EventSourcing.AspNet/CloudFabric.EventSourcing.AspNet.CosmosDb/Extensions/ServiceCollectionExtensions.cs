@@ -49,13 +49,11 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             var storeRepository = new StoreRepository(
                 new CosmosDbStore(connectionString, cosmosClientOptions, databaseId, itemsContainerId)
             );
-
             services.AddScoped<IStoreRepository>(sp => storeRepository);
             
             return new EventSourcingBuilder
             {
-                Services = services,
-                StoreRepository = storeRepository                
+                Services = services
             };
         }
 

@@ -9,8 +9,6 @@ public class EventSourcingBuilder : IEventSourcingBuilder
 {
     public IEventStore EventStore { get; set; }
 
-    public IStoreRepository StoreRepository { get; set; }
-
     public AggregateRepositoryFactory AggregateRepositoryFactory { get; set; }
 
     public IServiceCollection Services { get; set; }

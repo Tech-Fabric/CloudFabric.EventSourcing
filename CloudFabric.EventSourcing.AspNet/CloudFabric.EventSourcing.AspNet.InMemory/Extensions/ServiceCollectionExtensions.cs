@@ -58,16 +58,7 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
                 }
             );
 
-            services.AddScoped<IStoreRepository>(
-                (sp) =>
-                {
-                    var store = new InMemoryStore(itemsContainer);
-
-                    builder.StoreRepository = new StoreRepository(store);
-
-                    return builder.StoreRepository;
-                }
-            );
+            services.AddScoped<IStoreRepository>(sp => new StoreRepository(new InMemoryStore(itemsContainer)));
 
             return builder;
         }
