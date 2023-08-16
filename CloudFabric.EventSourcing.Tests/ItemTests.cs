@@ -6,19 +6,19 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace CloudFabric.EventSourcing.Tests;
 public abstract class ItemTests
 {
-    protected abstract Task<IEventStore> GetEventStore();
-    private IEventStore _eventStore;
+    protected abstract Task<IStore> GetStore();
+    private IStore _store;
 
     [TestInitialize]
     public async Task Initialize()
     {
-        _eventStore = await GetEventStore();
+        _store = await GetStore();
     }
 
     [TestCleanup]
     public async Task Cleanup()
     {
-        await _eventStore.DeleteAll();
+        await _store.DeleteAll();
     }
 
     [TestMethod]
@@ -35,7 +35,7 @@ public abstract class ItemTests
             }
         };
 
-        Func<Task> action = async () => await _eventStore.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
+        Func<Task> action = async () => await _store.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
         await action.Should().NotThrowAsync();
     }
 
@@ -52,9 +52,9 @@ public abstract class ItemTests
             }
         };
 
-        await _eventStore.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
+        await _store.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
 
-        var loadedItem = await _eventStore.LoadItem<TestItem>($"{item.Id}{item.Name}", $"{item.Id}{item.Name}");
+        var loadedItem = await _store.LoadItem<TestItem>($"{item.Id}{item.Name}", $"{item.Id}{item.Name}");
 
         loadedItem.Id.Should().Be(item.Id);
         loadedItem.Name.Should().Be(item.Name);
@@ -65,7 +65,7 @@ public abstract class ItemTests
     [TestMethod]
     public async Task LoadItem_NullIfNotFound()
     {
-        var loadedItem = await _eventStore.LoadItem<TestItem>($"{Guid.NewGuid()}", $"{Guid.NewGuid()}");
+        var loadedItem = await _store.LoadItem<TestItem>($"{Guid.NewGuid()}", $"{Guid.NewGuid()}");
 
         loadedItem.Should().BeNull();
     }
@@ -84,7 +84,7 @@ public abstract class ItemTests
             }
         };
 
-        await _eventStore.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
+        await _store.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
 
         string propertyGuid = Guid.NewGuid().ToString();
 
@@ -93,10 +93,10 @@ public abstract class ItemTests
             { propertyGuid, new TestNestedItemClass() }
         };
 
-        Func<Task> action = async () => await _eventStore.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
+        Func<Task> action = async () => await _store.UpsertItem($"{item.Id}{item.Name}", $"{item.Id}{item.Name}", item);
         await action.Should().NotThrowAsync();
 
-        var updatedItem = await _eventStore.LoadItem<TestItem>($"{item.Id}{item.Name}", $"{item.Id}{item.Name}");
+        var updatedItem = await _store.LoadItem<TestItem>($"{item.Id}{item.Name}", $"{item.Id}{item.Name}");
         updatedItem.Properties.ContainsKey(propertyGuid).Should().BeTrue();
     }
 }

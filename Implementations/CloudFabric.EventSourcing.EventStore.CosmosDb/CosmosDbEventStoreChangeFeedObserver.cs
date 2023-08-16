@@ -44,7 +44,7 @@ public class CosmosDbEventStoreChangeFeedObserver : EventsObserver
         string leaseContainerId,
         string processorName,
         ILogger<CosmosDbEventStoreChangeFeedObserver> logger
-    ): base(new CosmosDbEventStore(eventsClient, eventsDatabaseId, eventsContainerId, eventsContainerId), logger)
+    ): base(new CosmosDbEventStore(eventsClient, eventsDatabaseId, eventsContainerId), logger)
     {
         _eventsClient = eventsClient;
         _eventsDatabaseId = eventsDatabaseId;

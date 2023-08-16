@@ -8,6 +8,8 @@ namespace CloudFabric.EventSourcing.AspNet;
 public interface IEventSourcingBuilder
 {
     IEventStore EventStore { get; set; }
+
+    IStoreRepository StoreRepository { get; set; }
     
     public AggregateRepositoryFactory AggregateRepositoryFactory { get; set; }
 

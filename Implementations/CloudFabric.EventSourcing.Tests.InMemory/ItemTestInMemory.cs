@@ -7,19 +7,18 @@ namespace CloudFabric.EventSourcing.Tests.InMemory;
 [TestClass]
 public class ItemTestInMemory : ItemTests
 {
-    private InMemoryEventStore? _eventStore = null;
+    private InMemoryStore? _store = null;
 
-    protected override async Task<IEventStore> GetEventStore()
+    protected override async Task<IStore> GetStore()
     {
-        if (_eventStore == null)
+        if (_store == null)
         {
-            _eventStore = new InMemoryEventStore(
-                new Dictionary<(Guid, string), List<string>>(),
+            _store = new InMemoryStore(                
                 new Dictionary<(string, string), string>()
             );
-            await _eventStore.Initialize();
+            await _store.Initialize();
         }
 
-        return _eventStore;
+        return _store;
     }
 }

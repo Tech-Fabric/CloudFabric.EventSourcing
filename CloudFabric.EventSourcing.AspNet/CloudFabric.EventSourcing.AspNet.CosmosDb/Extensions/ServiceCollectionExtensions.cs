@@ -29,7 +29,7 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
                 
                 var cosmosClient = new CosmosClient(connectionString, cosmosClientOptions);
 
-                var eventStore = new CosmosDbEventStore(cosmosClient, databaseId, eventsContainerId, itemsContainerId);
+                var eventStore = new CosmosDbEventStore(cosmosClient, databaseId, eventsContainerId);
                 eventStore.Initialize().Wait();
 
                 var eventStoreObserver = new CosmosDbEventStoreChangeFeedObserver(
@@ -45,10 +45,17 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
 
                 return new AggregateRepositoryFactory(eventStore);
             });
+
+            var storeRepository = new StoreRepository(
+                new CosmosDbStore(connectionString, cosmosClientOptions, databaseId, itemsContainerId)
+            );
+
+            services.AddScoped<IStoreRepository>(sp => storeRepository);
             
             return new EventSourcingBuilder
             {
-                Services = services
+                Services = services,
+                StoreRepository = storeRepository                
             };
         }
 
@@ -56,11 +63,10 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             this IServiceCollection services,
             CosmosClient client,
             string databaseId,
-            string eventsContainerId,
-            string itemsContainerId
+            string eventsContainerId
         )
         {
-            var eventStore = new CosmosDbEventStore(client, databaseId, eventsContainerId, itemsContainerId);
+            var eventStore = new CosmosDbEventStore(client, databaseId, eventsContainerId);
             eventStore.Initialize().Wait();
 
             return new EventSourcingBuilder

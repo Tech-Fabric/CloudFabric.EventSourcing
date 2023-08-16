@@ -126,8 +126,7 @@ public class OrderTestsCosmosDb : OrderTests
             _eventStore = new CosmosDbEventStore(
                 _cosmosClient,
                 DatabaseName,
-                ContainerName,
-                "NotUsedItemContainer"
+                ContainerName                
             );
             await _eventStore.Initialize();
         }

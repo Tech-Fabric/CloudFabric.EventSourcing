@@ -7,21 +7,20 @@ namespace CloudFabric.EventSourcing.Tests.Postgresql;
 [TestClass]
 public class ItemtestsPostgresql : ItemTests
 {
-    private PostgresqlEventStore? _eventStore;
+    private PostgresqlStore? _store;
 
-    protected override async Task<IEventStore> GetEventStore()
+    protected override async Task<IStore> GetStore()
     {
-        if (_eventStore == null)
+        if (_store == null)
         {
-            _eventStore = new PostgresqlEventStore(
+            _store = new PostgresqlStore(
                 TestsConnectionStrings.CONNECTION_STRING,
-                "orders_events",
                 "stored_items"
             );
-            await _eventStore.Initialize();
+            await _store.Initialize();
         }
 
-        return _eventStore;
+        return _store;
     }
 
 }

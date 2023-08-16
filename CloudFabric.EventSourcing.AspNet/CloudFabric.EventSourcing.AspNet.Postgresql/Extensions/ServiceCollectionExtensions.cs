@@ -105,6 +105,19 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                 }
             );
 
+            services.AddScoped<IStoreRepository>(
+                (sp) =>
+                {
+                    var eventSourcingScope = sp.GetRequiredService<PostgresqlEventSourcingScope>();
+
+                    var connectionInformationProvider = sp.GetRequiredService<IPostgresqlEventStoreConnectionInformationProvider>();
+
+                    builder.StoreRepository = new StoreRepository(new PostgresqlStore(connectionInformationProvider));
+
+                    return builder.StoreRepository;
+                }
+            );
+
             return builder;
         }
 
@@ -120,7 +133,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             return services.AddPostgresqlEventStore(
                 eventsConnectionString,
                 eventsTableName,
-                string.Concat(eventsTableName, ItemsEventStoreNameSuffix.TableNameSuffix)
+                ItemsStoreNameDefaults.AddDefaultTableNameSuffix(eventsTableName)
             );
         }
 
