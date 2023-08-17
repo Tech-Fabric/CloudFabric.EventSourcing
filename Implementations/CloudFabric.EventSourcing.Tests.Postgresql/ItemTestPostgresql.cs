@@ -5,7 +5,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace CloudFabric.EventSourcing.Tests.Postgresql;
 
 [TestClass]
-public class ItemTestsPostgresql : ItemTests
+public class ItemTestPostgresql : ItemTests
 {
     private PostgresqlStore? _store;
 
