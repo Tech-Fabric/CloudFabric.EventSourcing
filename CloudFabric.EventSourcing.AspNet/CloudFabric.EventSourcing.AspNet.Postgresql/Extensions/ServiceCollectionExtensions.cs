@@ -15,6 +15,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
         public IEventStore EventStore { get; set; }
         public EventsObserver EventsObserver { get; set; }
         public ProjectionsEngine? ProjectionsEngine { get; set; }
+        public IStoreRepository StoreRepository { get; set; }
     }
 
     public static class ServiceCollectionExtensions
@@ -83,6 +84,8 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                         scope.ProjectionsEngine.StartAsync(connectionInformationProvider.GetConnectionInformation().ConnectionId).GetAwaiter().GetResult();
                     }
 
+                    scope.StoreRepository = new StoreRepository(new PostgresqlStore(connectionInformationProvider));
+
                     return scope;
                 }
             );
@@ -105,6 +108,15 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                 }
             );
 
+            services.AddScoped<IStoreRepository>(
+                (sp) =>
+                {
+                    var eventSourcingScope = sp.GetRequiredService<PostgresqlEventSourcingScope>();
+
+                    return eventSourcingScope.StoreRepository;
+                }
+            );
+
             return builder;
         }
 
@@ -120,7 +132,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             return services.AddPostgresqlEventStore(
                 eventsConnectionString,
                 eventsTableName,
-                string.Concat(eventsTableName, ItemsEventStoreNameSuffix.TableNameSuffix)
+                ItemsStoreNameDefaults.AddDefaultTableNameSuffix(eventsTableName)
             );
         }
 

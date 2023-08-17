@@ -12,7 +12,6 @@ namespace CloudFabric.EventSourcing.Tests.CosmosDb;
 public class ItemTestsCosmosDb : ItemTests
 {
     private const string DatabaseName = "TestDatabase";
-    private const string EventContainerName = "TestEventContainer";
     private const string ItemContainerName = "TestItemContainer";
 
     private const string CosmosDbConnectionString =
@@ -21,7 +20,7 @@ public class ItemTestsCosmosDb : ItemTests
     CosmosClient _cosmosClient = null;
     CosmosClientOptions _cosmosClientOptions;
 
-    private IEventStore? _eventStore = null;
+    private IStore? _store = null;
     private ILogger _logger;
 
     public async Task SetUp()
@@ -82,21 +81,21 @@ public class ItemTestsCosmosDb : ItemTests
         return cosmosClient.GetDatabase(databaseName);
     }
 
-    protected override async Task<IEventStore> GetEventStore()
+    protected override async Task<IStore> GetStore()
     {
-        if (_eventStore == null)
+        if (_store == null)
         {
             await SetUp();
 
-            _eventStore = new CosmosDbEventStore(
-                _cosmosClient,
+            _store = new CosmosDbStore(
+                CosmosDbConnectionString,
+                _cosmosClientOptions,
                 DatabaseName,
-                EventContainerName,
                 ItemContainerName
             );
-            await _eventStore.Initialize();
+            await _store.Initialize();
         }
 
-        return _eventStore;
+        return _store;
     }
 }
