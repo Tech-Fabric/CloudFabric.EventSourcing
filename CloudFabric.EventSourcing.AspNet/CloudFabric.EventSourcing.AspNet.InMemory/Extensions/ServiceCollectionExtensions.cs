@@ -26,7 +26,7 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
             services.AddScoped<IEventStore>(
                 (sp) =>
                 {
-                    var eventStore = new InMemoryEventStore(eventsContainer, itemsContainer);
+                    var eventStore = new InMemoryEventStore(eventsContainer);
                     eventStore.Initialize().Wait();
 
                     // add events observer for projections
@@ -63,6 +63,8 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
                     return eventStore;
                 }
             );
+
+            services.AddScoped<IStoreRepository>(sp => new StoreRepository(new InMemoryStore(itemsContainer)));
 
             return builder;
         }
