@@ -11,7 +11,7 @@
     "CloudFabric.EventSourcing.Demos.ToDoList": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
+      "launchBrowser": false,
       "applicationUrl": "https://localhost:50501;http://localhost:50500",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"

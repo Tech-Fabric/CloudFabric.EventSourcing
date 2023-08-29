@@ -1,10 +1,12 @@
 @using ToDoList.Ui.Services;
 @using ToDoList.Models;
+@using ToDoList.Models.ViewModels.UserAccounts
 
 @inject UserAccountService userAccountService
 @inject NavigationManager navigationManager
 
-<FormComponent OnSubmit="@OnSubmit" Model="model">
+<FormComponent TFormModel="RegisterNewUserAccountRequest" TSubmitResultModel="UserAccountPersonalViewModel" 
+    OnSubmit="@OnSubmit" Model="model">
     <FormBody>
         <h2>Happy to meet you!</h2>
 
@@ -45,7 +47,7 @@
 @code {
     public readonly RegisterNewUserAccountRequest model = new();
 
-    private async Task<ServiceResult> OnSubmit(RegisterNewUserAccountRequest model)
+    private async Task<ServiceResult<UserAccountPersonalViewModel>> OnSubmit(RegisterNewUserAccountRequest model)
     {
         var serviceResult = await userAccountService
             .Register(model);

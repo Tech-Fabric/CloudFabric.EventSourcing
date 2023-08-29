@@ -86,7 +86,10 @@ public class ProjectionDocumentAttribute : Attribute
                             .Invoke(null, new object[] { });
                     }
 
-                    properties.Add(prop, (propertyAttribute, nestedProperties));
+                    if (properties.Keys.All(p => p.Name != prop.Name))
+                    {
+                        properties.Add(prop, (propertyAttribute, nestedProperties));
+                    }
                 }
             }
         }

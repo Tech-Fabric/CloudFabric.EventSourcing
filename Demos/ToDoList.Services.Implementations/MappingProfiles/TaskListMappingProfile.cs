@@ -10,5 +10,6 @@ public class TaskListMappingProfile : Profile
     public TaskListMappingProfile()
     {
         CreateMap<TaskListProjectionItem, TaskListViewModel>();
+        CreateMap<TaskList, TaskListViewModel>();
     }
 }

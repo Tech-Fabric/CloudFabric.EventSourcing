@@ -4,16 +4,21 @@
 @inject TaskListsService taskListsService
 @inject NavigationManager navigationManager
 
-<FormComponent OnSubmit="@OnSubmit" Model="model">
-    <FormBody>
-        <h2>Create new task list</h2>
+<FormComponent TFormModel="CreateTaskListRequest" TSubmitResultModel="TaskListViewModel"
+               OnSubmit="@OnSubmit"
+               Model="model">
 
-        <div class="col-sm-12">
-            <label for="taskListName" class="form-label">Task List Name</label>
-            <InputText class="form-control" id="taskListName" @bind-Value="model.Name" />
-            <ValidationMessage For="@(() => model.Name)" />
-            <div class="invalid-feedback">
-                Looks good!
+    <FormBody>
+        <div class="task-list card text-left">
+            <div class="card-header">Create new task list</div>
+
+            <div class="col-sm-12">
+                <label for="taskListName" class="form-label">Task List Name</label>
+                <InputText class="form-control" id="taskListName" @bind-Value="model.Name"/>
+                <ValidationMessage For="@(() => model.Name)"/>
+                <div class="invalid-feedback">
+                    Looks good!
+                </div>
             </div>
         </div>
     </FormBody>
@@ -30,11 +35,12 @@
 @code {
     public readonly CreateTaskListRequest model = new();
 
-    private async Task<ServiceResult> OnSubmit(CreateTaskListRequest model)
+    private async Task<ServiceResult<TaskListViewModel>> OnSubmit(CreateTaskListRequest createTaskListViewModel)
     {
         var serviceResult = await taskListsService
-            .CreateTaskList(model);
+            .CreateTaskList(createTaskListViewModel);
 
         return serviceResult;
     }
+
 }

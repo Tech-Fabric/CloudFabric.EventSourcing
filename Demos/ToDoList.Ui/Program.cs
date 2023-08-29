@@ -1,16 +1,13 @@
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
+using System.Text.Json;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Server.Circuits;
 using ToDoList.Ui.Authentication;
 using ToDoList.Ui.Services;
-
-
-
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpClient();
+
+builder.Services.AddScoped<JsonSerializerOptions>(provider => new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
 builder.Services.AddScoped<AuthState, AuthState>();
 builder.Services.AddHttpClient(

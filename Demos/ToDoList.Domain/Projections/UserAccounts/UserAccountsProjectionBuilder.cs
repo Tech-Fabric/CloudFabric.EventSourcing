@@ -10,7 +10,9 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
     IHandleEvent<UserAccountEmailAddressConfirmed>,
     IHandleEvent<UserAccountEmailAssigned>
 {
-    public UserAccountsProjectionBuilder(ProjectionRepositoryFactory projectionRepositoryFactory) : base(projectionRepositoryFactory)
+    public UserAccountsProjectionBuilder(
+        ProjectionRepositoryFactory projectionRepositoryFactory,
+        ProjectionOperationIndexSelector indexSelector) : base(projectionRepositoryFactory, indexSelector)
     {
     }
 

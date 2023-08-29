@@ -42,6 +42,28 @@ public record ServiceResult<T> : ServiceResult
             Result = result
         };
     }
+    
+    public new static ServiceResult<T> ValidationFailedOneParam(string paramName, string reason)
+    {
+        return new ServiceResult<T>()
+        {
+            Succeed = false,
+            Result = default,
+            ProblemDetails = new ServiceResultProblemDetails()
+            {
+                Type = "validation_error",
+                Title = "Request is not valid",
+                InvalidParams = new List<ServiceResultProblemDetailsInvalidParam>()
+                {
+                    new ServiceResultProblemDetailsInvalidParam()
+                    {
+                        Name = paramName,
+                        Reason = reason
+                    }
+                }
+            }
+        };
+    }
 
     public new static ServiceResult<T> Failed(string problemType, string problemTitle, string? problemDetail = null, string? instance = null, List<ServiceResultProblemDetailsInvalidParam> invalidParams = null)
     {

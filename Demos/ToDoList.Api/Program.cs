@@ -93,9 +93,9 @@ app.MapControllerRoute(
 );
 
 # region Database init
-//var initScope = app.Services.CreateScope();
-//var eventStore = initScope.ServiceProvider.GetRequiredService<IEventStore>();
-//await eventStore.Initialize();
+var initScope = app.Services.CreateScope();
+var eventStore = initScope.ServiceProvider.GetRequiredService<IEventStore>();
+await eventStore.Initialize();
 #endregion
 
 app.Run();

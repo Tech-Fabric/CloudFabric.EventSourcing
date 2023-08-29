@@ -12,18 +12,21 @@ public class UserAccountEmailAddress : AggregateBase
 
     public DateTime? ConfirmedAt { get; protected set; }
 
+    public override string PartitionKey => Id.ToString();
+
+    public override Guid Id
+    {
+        get => HashStringToGuid(EmailAddress);
+    }
 
     public UserAccountEmailAddress(IEnumerable<IEvent> events) : base(events)
     {
     }
 
-    public UserAccountEmailAddress(Guid id, string emailAddress) : base()
+    public UserAccountEmailAddress(string emailAddress) : base()
     {
-        Apply(new UserAccountEmailRegistered(id, emailAddress));
+        Apply(new UserAccountEmailRegistered(emailAddress));
     }
-
-    public override string PartitionKey => PartitionKeys.GetUserAccountEmailAddressPartitionKey();
-
     public void ChangeEmailAddress(string newEmail)
     {
         Apply(new UserAccountEmailAddressChanged(UserAccountId, newEmail));

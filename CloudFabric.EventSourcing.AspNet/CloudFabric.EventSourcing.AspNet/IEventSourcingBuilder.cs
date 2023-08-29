@@ -8,8 +8,6 @@ namespace CloudFabric.EventSourcing.AspNet;
 public interface IEventSourcingBuilder
 {
     IEventStore EventStore { get; set; }
-    
-    public AggregateRepositoryFactory AggregateRepositoryFactory { get; set; }
 
     IServiceCollection Services { get; set; }
 
@@ -19,5 +17,11 @@ public interface IEventSourcingBuilder
     string ProjectionsConnectionString { get; set; }
     Type[] ProjectionBuilderTypes { get; set; }
 
-    dynamic ConstructProjectionBuilder(Type projectionBuilderType, ProjectionRepositoryFactory projectionsRepositoryFactory);
+    dynamic ConstructProjectionBuilder(
+        Type projectionBuilderType, 
+        ProjectionRepositoryFactory projectionsRepositoryFactory, 
+        AggregateRepositoryFactory aggregateRepositoryFactory,
+        IServiceProvider serviceProvider,
+        ProjectionOperationIndexSelector indexSelector
+    );
 }

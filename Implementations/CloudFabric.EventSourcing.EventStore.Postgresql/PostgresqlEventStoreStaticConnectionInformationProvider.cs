@@ -20,9 +20,9 @@ public class PostgresqlEventStoreStaticConnectionInformationProvider : IPostgres
 
         _connectionStringBuilder = new NpgsqlConnectionStringBuilder(connectionString);
         _connectionStringBuilderWithoutPasswords = new NpgsqlConnectionStringBuilder(connectionString);
-        _connectionStringBuilderWithoutPasswords.Password = "";
-        _connectionStringBuilderWithoutPasswords.SslPassword = "";
-        _connectionStringBuilderWithoutPasswords.SslCertificate = "";
+        _connectionStringBuilderWithoutPasswords.Password = null;
+        _connectionStringBuilderWithoutPasswords.SslPassword = null;
+        _connectionStringBuilderWithoutPasswords.SslCertificate = null;
     }
 
     public PostgresqlEventStoreConnectionInformation GetConnectionInformation(string? connectionId)

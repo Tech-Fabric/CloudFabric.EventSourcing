@@ -8,7 +8,7 @@ public class ProjectionBuilder : IProjectionBuilder
 {
     protected ProjectionBuilder(
         ProjectionRepositoryFactory projectionRepositoryFactory, 
-        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+        ProjectionOperationIndexSelector indexSelector
     ) {
         if (indexSelector != ProjectionOperationIndexSelector.Write && indexSelector != ProjectionOperationIndexSelector.ProjectionRebuild)
         {
@@ -171,7 +171,7 @@ public class ProjectionBuilder<TDocument> : IProjectionBuilder<ProjectionDocumen
 {
     protected ProjectionBuilder(
         ProjectionRepositoryFactory projectionRepositoryFactory, 
-        ProjectionOperationIndexSelector indexSelector = ProjectionOperationIndexSelector.Write
+        ProjectionOperationIndexSelector indexSelector
     ) {
         if (indexSelector != ProjectionOperationIndexSelector.Write && indexSelector != ProjectionOperationIndexSelector.ProjectionRebuild)
         {

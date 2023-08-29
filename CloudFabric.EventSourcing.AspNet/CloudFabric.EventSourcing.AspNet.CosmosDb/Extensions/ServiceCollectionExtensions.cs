@@ -109,23 +109,26 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
             //     projectionsConnectionInfo.ContainerId
             // );
 
-            var projectionsEngine = new ProjectionsEngine();
+            // TODO: this needs refactoring to scoped (see postgresql example)
+            // var projectionsEngine = new ProjectionsEngine();
+            //
+            // if (builder.ProjectionEventsObserver == null)
+            // {
+            //     throw new ArgumentException("Projection events observer is missing");
+            // }
+            //
+            // projectionsEngine.SetEventsObserver(builder.ProjectionEventsObserver);
+            //
+            // foreach (var projectionBuilderType in projectionBuildersTypes)
+            // {
+            //     var projectionBuilder = builder.ConstructProjectionBuilder(
+            //         projectionBuilderType, 
+            //         projectionsRepositoryFactory, new AggregateRepositoryFactory(builder.EventStore), serviceProvider, ProjectionOperationIndexSelector.Write);
+            //     
+            //     projectionsEngine.AddProjectionBuilder(projectionBuilder);
+            // }
 
-            if (builder.ProjectionEventsObserver == null)
-            {
-                throw new ArgumentException("Projection events observer is missing");
-            }
-
-            projectionsEngine.SetEventsObserver(builder.ProjectionEventsObserver);
-
-            foreach (var projectionBuilderType in projectionBuildersTypes)
-            {
-                var projectionBuilder = builder.ConstructProjectionBuilder(projectionBuilderType, projectionsRepositoryFactory);
-                
-                projectionsEngine.AddProjectionBuilder(projectionBuilder);
-            }
-
-            builder.ProjectionsEngine = projectionsEngine;
+            //builder.ProjectionsEngine = projectionsEngine;
 
             return builder;
         }

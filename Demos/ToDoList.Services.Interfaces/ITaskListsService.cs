@@ -17,6 +17,11 @@ public interface ITaskListsService
         CancellationToken cancellationToken
     );
 
+    Task<ServiceResult<Dictionary<Guid, List<TaskViewModel>>>> GetTasks(
+        string taskListIds,
+        CancellationToken cancellationToken
+    );
+    
     Task<ServiceResult<List<TaskViewModel>>> GetTasks(
         Guid taskListId,
         string search,

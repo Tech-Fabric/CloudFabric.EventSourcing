@@ -1,10 +1,12 @@
 @using ToDoList.Models
+@using ToDoList.Ui.Authentication
 @using ToDoList.Ui.Services
 
 @inject UserAccountService userAccountService
 @inject NavigationManager navigationManager
 
-<FormComponent OnSubmit="@OnSubmit" Model="model">
+<FormComponent TFormModel="GenerateNewAccessTokenRequest" TSubmitResultModel="TokenResponse"
+    OnSubmit="@OnSubmit" Model="model">
     <FormBody>
         <h2>Welcome back!</h2>
 
@@ -34,7 +36,7 @@
 @code {
     public readonly GenerateNewAccessTokenRequest model = new();
 
-    private async Task<ServiceResult> OnSubmit(GenerateNewAccessTokenRequest model)
+    private async Task<ServiceResult<TokenResponse>> OnSubmit(GenerateNewAccessTokenRequest model)
     {
         var serviceResult = await userAccountService.Login(model);
 

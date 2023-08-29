@@ -8,16 +8,149 @@
 }
 
 .task-lists-container {
-  display: block;
+  display: flex;
   height: 100%;
-  padding-bottom: 10px;
+  background: #f4f6f5;
+  border-radius: 15px;
+  padding: 30px 45px;
+  border: 1px solid #d7d9db;
+  overflow: hidden;
 }
-.task-lists-container .task-list {
+.task-lists-container .task-list-container {
+  transition: padding-left 250ms, padding-right 250ms, box-shadow 250ms;
+  box-shadow: 0px 0px 0px rgba(0, 0, 0, 0);
+}
+.task-lists-container .task-list-container.no-animation {
+  -webkit-transition: none !important;
+  -moz-transition: none !important;
+  -o-transition: none !important;
+  transition: none !important;
+}
+.task-lists-container .task-list-container.dragging {
+  animation: dragging-horizontal 1s linear infinite;
+}
+.task-lists-container .task-list-container.dragging .task-list {
+  box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.14);
+}
+.task-lists-container .task-list-container .task-list {
   margin-right: 15px;
-  overflow-y: scroll;
   max-height: 100%;
   width: 200px;
   display: inline-block;
+  border: 0;
+  background: none;
+}
+.task-lists-container .task-list-container .task-list .card-header {
+  background: none;
+  border: 0;
+  font-weight: bold;
+  padding-left: 0px;
+  font-size: 27px;
+  display: flex;
+  justify-content: space-between;
+}
+.task-lists-container .task-list-container .task-list .card-header .counter {
+  font-weight: normal;
+}
+.task-lists-container .task-list-container .task-list .card-header .bi {
+  align-self: flex-end;
+  flex-grow: 10;
+  cursor: grab;
+}
+.task-lists-container .task-list-container .task-list .card-header .bi:active {
+  cursor: grabbing;
+}
+.task-lists-container .task-list-container .task-list .card-body {
+  padding: 0px 10px;
+  margin-top: 15px;
+  overflow-y: scroll;
+  height: calc(100% - 145px);
+  scrollbar-color: rgba(95, 95, 95, 0.75) transparent;
+  scrollbar-face-color: #367CD2;
+  scrollbar-shadow-color: #FFFFFF;
+  scrollbar-highlight-color: #FFFFFF;
+  scrollbar-3dlight-color: #FFFFFF;
+  scrollbar-darkshadow-color: #FFFFFF;
+  scrollbar-track-color: #FFFFFF;
+  scrollbar-arrow-color: #FFFFFF;
+  /* Let's get this party started */
+  /* Track */
+  /* Handle */
+}
+.task-lists-container .task-list-container .task-list .card-body::-webkit-scrollbar {
+  width: 6px;
+}
+.task-lists-container .task-list-container .task-list .card-body::-webkit-scrollbar-track {
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+  background: transparent;
+}
+.task-lists-container .task-list-container .task-list .card-body::-webkit-scrollbar-thumb {
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+  background: #5f5f5f;
+}
+
+@keyframes dragging-vertical {
+  0% {
+    transform: translateY(0px);
+  }
+  25% {
+    transform: translateY(-4px);
+  }
+  75% {
+    transform: translateY(4px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+@keyframes dragging-horizontal {
+  0% {
+    transform: translateX(0px);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+  100% {
+    transform: translateX(0px);
+  }
+}
+.task-container {
+  display: block;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 10px;
+  transition: padding-top 250ms, padding-bottom 250ms, box-shadow 250ms;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+.task-container.no-animation {
+  -webkit-transition: none !important;
+  -moz-transition: none !important;
+  -o-transition: none !important;
+  transition: none !important;
+}
+.task-container.dragging {
+  animation: dragging-vertical 1s linear infinite;
+}
+.task-container.dragging .task-content {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+}
+.task-container .task-content {
+  background: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 15px;
+  padding: 10px;
+  box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
+  display: block;
+}
+
+.no-pointer-events-on-children > * {
+  pointer-events: none;
 }
 
 html, body {
@@ -25,8 +158,16 @@ html, body {
   height: 100%;
 }
 
+.page {
+  height: 100%;
+}
+
 div.content {
   height: calc(100% - 3.5rem);
+}
+
+.no-pointer-events {
+  pointer-events: none;
 }
 
 .login-page form, .registration-page form {

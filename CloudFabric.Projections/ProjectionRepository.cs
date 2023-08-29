@@ -126,21 +126,50 @@ public abstract class ProjectionRepository : IProjectionRepository
         ProjectionQuery projectionQuery, 
         CancellationToken cancellationToken = default
     ) {
-        var results = await QueryInternal(
-            new ProjectionOperationIndexDescriptor() {
-                IndexName = PROJECTION_INDEX_STATE_INDEX_NAME,
-                ProjectionDocumentSchema = ProjectionIndexStateSchema 
-            }, 
-            projectionQuery, 
-            PROJECTION_INDEX_STATE_INDEX_NAME,
-            cancellationToken
-        );
+        try
+        {
+            var results = await QueryInternal(
+                new ProjectionOperationIndexDescriptor()
+                {
+                    IndexName = PROJECTION_INDEX_STATE_INDEX_NAME,
+                    ProjectionDocumentSchema = ProjectionIndexStateSchema
+                },
+                projectionQuery,
+                PROJECTION_INDEX_STATE_INDEX_NAME,
+                cancellationToken
+            );
 
-        return results.Records
-            .Select(doc => 
-                ProjectionDocumentSerializer.DeserializeFromDictionary<ProjectionIndexState>(doc.Document))
-            .ToList()
-            .AsReadOnly();
+            return results.Records
+                .Select(
+                    doc =>
+                        ProjectionDocumentSerializer.DeserializeFromDictionary<ProjectionIndexState>(doc.Document)
+                )
+                .ToList()
+                .AsReadOnly();
+        }
+        catch (InvalidProjectionSchemaException ex)
+        {
+            await HandleProjectionIndexStateIndexNotFound();
+            return await QueryProjectionIndexStates(projectionQuery, cancellationToken);
+        }
+    }
+
+    private async Task HandleProjectionIndexStateIndexNotFound()
+    {
+        Logger.LogInformation("Projection index state index not found, creating...");
+
+        try
+        {
+            await CreateIndex(
+                PROJECTION_INDEX_STATE_INDEX_NAME,
+                ProjectionIndexStateSchema
+            );
+        }
+        catch (Exception ex)
+        {
+            var exception = new Exception($"Failed to create a table for projection \"{PROJECTION_INDEX_STATE_INDEX_NAME}\"", ex);
+            throw exception;
+        }
     }
 
     protected async Task<ProjectionIndexState?> GetProjectionIndexState(
@@ -204,20 +233,8 @@ public abstract class ProjectionRepository : IProjectionRepository
         }
         catch (InvalidProjectionSchemaException)
         {
-            try
-            {
-                await CreateIndex(
-                    PROJECTION_INDEX_STATE_INDEX_NAME,
-                    ProjectionIndexStateSchema
-                );
-                
-                await SaveProjectionIndexState(state);
-            }
-            catch (Exception createTableException)
-            {
-                var exception = new Exception($"Failed to create a table for projection \"{PROJECTION_INDEX_STATE_INDEX_NAME}\"", createTableException);
-                throw exception;
-            }
+            await HandleProjectionIndexStateIndexNotFound();
+            await SaveProjectionIndexState(state);
         }
     }
 
