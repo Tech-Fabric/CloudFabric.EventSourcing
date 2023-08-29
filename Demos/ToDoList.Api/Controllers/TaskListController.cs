@@ -44,6 +44,12 @@ public class TaskListController : ControllerBase
         return this.ServiceResult(await _taskListsService.GetTaskLists(search, limit, offset, cancellationToken));
     }
 
+    [HttpGet("tasks")]
+    public async Task<IActionResult> GetTaskListsTasks([FromQuery]string taskListIds, CancellationToken cancellationToken)
+    {
+        return this.ServiceResult(await _taskListsService.GetTasks(taskListIds, cancellationToken));
+    }
+    
     [HttpGet("task_list/{taskListId}/tasks")]
     public async Task<IActionResult> GetTaskListTasks(Guid taskListId, [FromQuery] string search, [FromQuery] int limit, [FromQuery] int offset, CancellationToken cancellationToken)
     {
@@ -51,7 +57,7 @@ public class TaskListController : ControllerBase
     }
 
     [HttpPost("task_list/{taskListId}/tasks")]
-    public async Task<IActionResult> CreateTaskListTask([FromQuery] Guid taskListId, [FromBody] CreateTaskRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateTaskListTask([FromRoute] Guid taskListId, [FromBody] CreateTaskRequest request, CancellationToken cancellationToken)
     {
         request.TaskListId = taskListId;
         return this.ServiceResult(await _taskListsService.CreateTask(request, cancellationToken));

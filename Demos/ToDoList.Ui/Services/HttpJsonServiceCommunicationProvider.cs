@@ -6,17 +6,25 @@ using ToDoList.Ui.Authentication;
 
 namespace ToDoList.Ui.Services;
 
-public class HttpJsonServiceCommunicationProvider : IServiceCommunicationProvider {
+public class HttpJsonServiceCommunicationProvider : IServiceCommunicationProvider
+{
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly AuthState _authState;
+    private readonly JsonSerializerOptions _jsonSerializerOptions;
 
-    public HttpJsonServiceCommunicationProvider(AuthState authState, IHttpClientFactory httpClientFactory)
+    public HttpJsonServiceCommunicationProvider(
+        AuthState authState,
+        IHttpClientFactory httpClientFactory,
+        JsonSerializerOptions jsonSerializerOptions
+    )
     {
         _authState = authState;
         _httpClientFactory = httpClientFactory;
+        _jsonSerializerOptions = jsonSerializerOptions;
     }
 
-    public async Task<ServiceResult<TViewModel>> Get<TViewModel>(string path) {
+    public async Task<ServiceResult<TViewModel>> Get<TViewModel>(string path)
+    {
         var httpClient = _httpClientFactory.CreateClient("ServerApi");
 
         var requestMessage = new HttpRequestMessage()
@@ -35,12 +43,24 @@ public class HttpJsonServiceCommunicationProvider : IServiceCommunicationProvide
             return ServiceResult<TViewModel>.Failed(problemDetails!);
         }
 
-        var viewModel = await httpResponseMessage.Content.ReadFromJsonAsync<TViewModel>();
-
-        return ServiceResult<TViewModel>.Success(viewModel);
+        var content = await httpResponseMessage.Content.ReadAsStringAsync();
+        try
+        {
+            var viewModel = JsonSerializer.Deserialize<TViewModel>(content, _jsonSerializerOptions);
+            return ServiceResult<TViewModel>.Success(viewModel);
+        }
+        catch (JsonException jsonException)
+        {
+            return ServiceResult<TViewModel>.Failed(
+                "failed_to_read_response",
+                "Failed to deserialize server response",
+                $"Response: {content}, error: {jsonException.Message}"
+            );
+        }
     }
 
-    public async Task<ServiceResult<TViewModel>> SendCommand<TViewModel>(string path, object command) {
+    public async Task<ServiceResult<TViewModel>> SendCommand<TViewModel>(string path, object command)
+    {
         var httpClient = _httpClientFactory.CreateClient("ServerApi");
 
         var requestContent = new StringContent(
@@ -53,7 +73,7 @@ public class HttpJsonServiceCommunicationProvider : IServiceCommunicationProvide
             Method = HttpMethod.Post,
             Content = requestContent
         };
-        
+
         requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _authState.Token);
 
         var httpResponseMessage = await httpClient.SendAsync(requestMessage);

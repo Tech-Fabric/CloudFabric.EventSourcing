@@ -12,4 +12,13 @@ public record Event : IEvent
     public string PartitionKey { get; set; }
     
     public string AggregateType { get; set; }
+
+    public Event()
+    {
+    }
+
+    public Event(Guid aggregateId)
+    {
+        AggregateId = aggregateId;
+    }
 }

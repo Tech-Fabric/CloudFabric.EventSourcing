@@ -49,16 +49,21 @@ public class UserAccountsService : IUserAccountsService
         if(validationProblemDetails != null) {
             return ServiceResult<UserAccountPersonalViewModel>.Failed(validationProblemDetails);
         }
+        
+        var userAccountEmail = new UserAccountEmailAddress(request.Email);
+        
+        var emailAlreadyExists = await _userAccountEmailAddressesRepository.LoadAsync(userAccountEmail.Id, userAccountEmail.PartitionKey, ct);
 
-        var emailAlreadyExists = (await _userAccountsProjectionRepository.Query(
-                ProjectionQueryExpressionExtensions.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email)
-        ))
-        .Records
-        .FirstOrDefault()
-        ?.Document;
+        // var emailAlreadyExists = (await _userAccountsProjectionRepository.Query(
+        //         ProjectionQueryExpressionExtensions.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email)
+        // ))
+        // .Records
+        // .FirstOrDefault()
+        // ?.Document;
+
+        var userId = Guid.NewGuid();
 
         // it may happen that email record was created but then something went wrong and email was left unatached.
-        UserAccountEmailAddress? userAccountEmail;
         if (emailAlreadyExists != null)
         {
             return ServiceResult<UserAccountPersonalViewModel>.Failed(
@@ -74,20 +79,14 @@ public class UserAccountsService : IUserAccountsService
         }
         else
         {
-            userAccountEmail = await _userAccountEmailAddressesRepository.LoadAsync(emailAlreadyExists.Id.Value, PartitionKeys.GetUserAccountEmailAddressPartitionKey());
+            userAccountEmail.AssignUserAccount(userId);
         }
+        
+        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(userId), userAccountEmail, ct);
 
-        var userId = Guid.NewGuid();
-        userAccountEmail ??= new UserAccountEmailAddress(userId, request.Email);
+        var userAccount = new UserAccount(userId, request.FirstName, PasswordHelper.HashPassword(request.Password));
 
-        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(), userAccountEmail, ct);
-
-        var userAccount = new UserAccount(Guid.NewGuid(), request.FirstName, PasswordHelper.HashPassword(request.Password));
-
-        await _userAccountsRepository.SaveAsync(new EventUserInfo(), userAccount, ct);
-
-        userAccountEmail.AssignUserAccount(userAccount.Id);
-        await _userAccountEmailAddressesRepository.SaveAsync(new EventUserInfo(userAccount.Id), userAccountEmail, ct);
+        await _userAccountsRepository.SaveAsync(new EventUserInfo(userId), userAccount, ct);
 
         return ServiceResult<UserAccountPersonalViewModel>.Success(_mapper.Map<UserAccountPersonalViewModel>(userAccount));
     }
@@ -127,22 +126,17 @@ public class UserAccountsService : IUserAccountsService
         if(validationProblemDetails != null) {
             return ServiceResult<UserAccessTokenViewModel>.Failed(validationProblemDetails);
         }
-
-        var userAccountEmailAddress = (await _userAccountsProjectionRepository.Query(
-                ProjectionQueryExpressionExtensions.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email),
-            PartitionKeys.GetUserAccountEmailAddressPartitionKey()
-        ))
-        .Records
-        .FirstOrDefault()
-        ?.Document;
+        
+        var userAccountEmail = new UserAccountEmailAddress(request.Email);
+        var userAccountEmailAddress = await _userAccountEmailAddressesRepository.LoadAsync(userAccountEmail.Id, userAccountEmail.PartitionKey, cancellationToken);
 
         if(userAccountEmailAddress == null) {
             return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");
         }
 
         var userAccount = await _userAccountsRepository.LoadAsync(
-            userAccountEmailAddress.Id.Value,
-            userAccountEmailAddress.Id.ToString(),
+            userAccountEmailAddress.UserAccountId,
+            userAccountEmailAddress.UserAccountId.ToString(),
             cancellationToken
         );
 
@@ -150,7 +144,7 @@ public class UserAccountsService : IUserAccountsService
             return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");
         }
 
-        var tokenServiceResult = _userAccessTokensService.GenerateAccessTokenForUser(userAccountEmailAddress.Id.Value, userAccount.FirstName);
+        var tokenServiceResult = _userAccessTokensService.GenerateAccessTokenForUser(userAccountEmailAddress.UserAccountId, userAccount.FirstName);
 
         return tokenServiceResult;
     }

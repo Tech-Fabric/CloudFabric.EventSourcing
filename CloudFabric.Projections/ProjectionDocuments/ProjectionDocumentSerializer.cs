@@ -68,10 +68,11 @@ public static class ProjectionDocumentSerializer
     public static TDocument DeserializeFromDictionary<TDocument>(Dictionary<string, object?> document)
     {
         var documentTypedInstance = Activator.CreateInstance<TDocument>();
-
+        var allProperties = typeof(TDocument).GetProperties();
+        
         foreach (var propertyName in document.Keys)
         {
-            var propertyInfo = typeof(TDocument).GetProperty(propertyName);
+            var propertyInfo = allProperties.FirstOrDefault(p => p.Name == propertyName);
 
             if (propertyInfo == null)
             {

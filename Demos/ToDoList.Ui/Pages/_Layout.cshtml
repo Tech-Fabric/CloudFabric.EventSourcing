@@ -5,15 +5,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="~/" />
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <base href="~/"/>
     <title>Tasks</title>
-    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
-    <link href="css/index.css" rel="stylesheet" />
-    <link href="css/site.css" rel="stylesheet" />
-    <link href="ToDoList.Ui.styles.css" rel="stylesheet" />
-    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css"/>
+    <link rel="stylesheet" href="css/bootstrap-icons/bootstrap-icons.min.css"/>
+    <link href="css/index.css" rel="stylesheet"/>
+    <link href="css/site.css" rel="stylesheet"/>
+    <link href="ToDoList.Ui.styles.css" rel="stylesheet"/>
+    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered"/>
+    
+    <script type="text/javascript" src="js/TasksPage.js"></script>
 </head>
 <body>
     @RenderBody()
@@ -30,7 +33,7 @@
     </div>
 
     <script src="_framework/blazor.server.js"></script>
-    <script>
+    <script type="text/javascript">
         window.Blazor.defaultReconnectionHandler.onConnectionDown = function () {
             console.log('reloading')
             window.location.reload();

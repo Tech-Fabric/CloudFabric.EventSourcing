@@ -325,7 +325,7 @@ public class PostgresqlEventStore : IEventStore
             (wheres.Count > 0
                 ? $"WHERE {string.Join(" AND ", wheres)} " 
                 : "") +
-            $"ORDER BY stream_version ASC " +
+            $"ORDER BY to_timestamp_utc(event_data->>'timestamp') ASC " +
             $"LIMIT {limit}", conn);
 
         try
@@ -362,6 +362,11 @@ public class PostgresqlEventStore : IEventStore
 
     public async Task<bool> AppendToStreamAsync(EventUserInfo eventUserInfo, Guid streamId, int expectedVersion, IEnumerable<IEvent> events, CancellationToken cancellationToken = default)
     {
+        if (streamId == Guid.Empty)
+        {
+            throw new ArgumentNullException("StreamId cannot be an empty Guid");
+        }
+
         var connectionInformation = ConnectionInformation;
 
         if (events.GroupBy(x => x.PartitionKey).Count() != 1)

@@ -8,6 +8,7 @@ public class TaskMappingProfile : Profile
 {
     public TaskMappingProfile()
     {
+        CreateMap<ToDoList.Domain.Task, TaskViewModel>();
         CreateMap<TaskProjectionItem, TaskViewModel>();
     }
 }

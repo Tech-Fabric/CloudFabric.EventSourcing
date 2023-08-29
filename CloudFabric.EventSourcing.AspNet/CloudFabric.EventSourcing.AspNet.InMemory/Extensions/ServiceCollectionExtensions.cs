@@ -46,7 +46,13 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
 
                         foreach (var projectionBuilderType in builder.ProjectionBuilderTypes)
                         {
-                            var projectionBuilder = builder.ConstructProjectionBuilder(projectionBuilderType, projectionsRepositoryFactory);
+                            var projectionBuilder = builder.ConstructProjectionBuilder(
+                                projectionBuilderType, 
+                                projectionsRepositoryFactory, 
+                                new AggregateRepositoryFactory(eventStore), 
+                                sp, 
+                                ProjectionOperationIndexSelector.Write
+                            );
 
                             projectionsEngine.AddProjectionBuilder(projectionBuilder);
                         }

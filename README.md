@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/Tech-Fabric/CloudFabric.EventSourcing/graph/badge.svg?token=NR55NTMBTP)](https://codecov.io/gh/Tech-Fabric/CloudFabric.EventSourcing)
+
 # Event Sourcing Concepts
 
 Event sourcing is a design pattern that captures all changes made to an application's state as a sequence of events. It stores a log of events instead of the current state of the application. This log can be used to recreate the application's state at any point in time.

@@ -2,6 +2,7 @@
 
 @attribute [Authorize]
 
+@inject IJSRuntime JS
 @inject TaskListsService taskListsService
 
 <PageTitle>Tasks</PageTitle>
@@ -23,20 +24,36 @@
     {
         foreach (var taskList in _taskLists)
         {
-            <div class="task-list card text-left">
-                <div class="card-header">
-                    @taskList.Name
-                </div>
-                <div class="card-body">
-                    @* @foreach (var task in taskList.Tasks) *@
-                    @* { *@
-                    @*     <div class="task-container"> *@
-                    @* *@
-                    @*     </div> *@
-                    @* } *@
-                </div>
-                <div class="card-footer text-muted text-left">
-                    <CreateNewTaskComponent></CreateNewTaskComponent>
+            <div class="task-list-container" draggable="true">
+                <div class="task-list card text-left"
+                     data-hover="@taskList.Id">
+                    <div class="card-header">
+                        <div class="task-list-title">
+                            @taskList.Name <span class="counter">@taskList.TasksCount</span>
+                        </div>
+                        <i class="bi bi-arrow-left-right"></i>
+                    </div>
+                    @if (_tasks != null && _tasks.ContainsKey(taskList.Id))
+                    {
+                        <div class="card-body">
+                            @foreach (var task in _tasks[taskList.Id])
+                            {
+                                <div class="task-container"
+                                     draggable="true"
+                                     data-hover="@(taskList.Id + "|" + task.Id)"
+                                     @ref="_taskContainerRefs[task.Id]"
+                                     @ondragstart="@(e => OnTaskDragStart(e, taskList.Id, task.Id))"
+                                     @ondragend="@(e => OnTaskDragEnd(e, taskList.Id, task.Id))">
+                                    <div class="task-content">
+                                        @task.Title
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    <div class="card-footer text-muted text-left">
+                        <CreateNewTaskComponent TaskListId="taskList.Id" OnTaskCreated="OnTaskCreated"></CreateNewTaskComponent>
+                    </div>
                 </div>
             </div>
         }
@@ -49,9 +66,25 @@
 </div>
 
 @code {
+    private DotNetObjectReference<TasksPage> _selfJsRef;
+
+    Dictionary<Guid, ElementReference> _taskContainerRefs { get; set; } = new Dictionary<Guid, ElementReference>();
+    private string _hoveredTaskPlaceholderId { get; set; }
+
     private bool _initialLoadingCompleted = false;
 
     private List<TaskListViewModel> _taskLists = new List<TaskListViewModel>();
+
+    private Dictionary<Guid, List<TaskViewModel>> _tasks = new Dictionary<Guid, List<TaskViewModel>>();
+
+    private string _lastHoveredTaskListId = String.Empty;
+    private string _lastHoveredTaskId = String.Empty;
+    private bool _lastHoveredAbove = false;
+
+    protected override void OnInitialized()
+    {
+        _selfJsRef = DotNetObjectReference.Create(this);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -66,7 +99,77 @@
             _initialLoadingCompleted = true;
 
             StateHasChanged();
+
+            foreach (var taskList in _taskLists)
+            {
+                var tasksServiceResult = await taskListsService.GetTasks(_taskLists.Select(l => l.Id).ToList());
+
+                _tasks = tasksServiceResult.Result;
+            }
+
+            StateHasChanged();
+
+            await JS.InvokeVoidAsync("window.ToDoList.initializeTaskDragAndDrop", ".task-lists-container", ".task-container", _selfJsRef);
+            await JS.InvokeVoidAsync("window.ToDoList.initializeTaskDragAndDrop", ".task-lists-container", ".task-list-container", _selfJsRef, true);
         }
+    }
+
+    [JSInvokable]
+    public void UpdateHoveredTaskInformation(string data, bool above)
+    {
+        if (string.IsNullOrEmpty(data))
+        {
+            return;
+        }
+        
+        var splitted = data.Split("|");
+        if (splitted.Length < 2)
+        {
+            return;
+        }
+
+        _lastHoveredTaskListId = splitted[0];
+        _lastHoveredTaskId = splitted[1];
+        _lastHoveredAbove = above;
+    }
+
+    private async Task OnTaskCreated(TaskViewModel obj)
+    {
+        var serviceResult = await taskListsService.GetTaskLists(100, 0);
+        if (serviceResult.Succeed && serviceResult.Result != null)
+        {
+            _taskLists = serviceResult.Result;
+        }
+
+        _initialLoadingCompleted = true;
+
+        StateHasChanged();
+    }
+
+    private void OnTaskDragStart(DragEventArgs eventArgs, Guid taskListId, Guid taskId)
+    {
+        Console.WriteLine("Draaagg!");
+    }
+
+    private void OnTaskDragEnd(DragEventArgs eventArgs, Guid taskListId, Guid taskId)
+    {
+    // _hoveredTaskPlaceholderId = String.Empty;
+    // Console.WriteLine("Drag end");
+    //
+    // var task = _tasks[taskListId].First(t => t.Id == taskId);
+    // _tasks[taskListId].Remove(task);
+    //
+    // var position = _tasks[Guid.Parse(_lastHoveredTaskListId)].FindIndex(t => t.Id == Guid.Parse(_lastHoveredTaskId));
+    //
+    // _tasks[Guid.Parse(_lastHoveredTaskListId)].Insert(_lastHoveredAbove ? position : position + 1, task);
+    //
+    // StateHasChanged();
+    }
+
+    private void OnDragOver(DragEventArgs eventArgs, string hoveredTaskId)
+    {
+        Console.WriteLine("Drag over");
+        _hoveredTaskPlaceholderId = hoveredTaskId;
     }
 
 }
