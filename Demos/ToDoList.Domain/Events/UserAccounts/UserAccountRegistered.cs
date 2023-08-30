@@ -6,4 +6,4 @@ public record UserAccountRegistered(
     Guid Id,
     string FirstName,
     string HashedPassword
-) : Event;
+) : Event(Id);

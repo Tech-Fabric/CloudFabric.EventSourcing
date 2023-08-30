@@ -26,7 +26,7 @@ public class UserAccount : AggregateBase
 
     public void UpdatePassword(string newHashedPassword)
     {
-        Apply(new UserAccountPasswordUpdated(newHashedPassword));
+        Apply(new UserAccountPasswordUpdated(Id, newHashedPassword));
     }
 
     #region Event Handlers

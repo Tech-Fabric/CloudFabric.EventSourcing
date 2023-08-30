@@ -6,4 +6,4 @@ public record TaskTitleUpdated(
     Guid? TaskListId, 
     Guid Id, 
     string NewTitle
-) : Event;
+) : Event(Id);
