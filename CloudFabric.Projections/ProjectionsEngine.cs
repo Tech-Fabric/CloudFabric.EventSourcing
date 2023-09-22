@@ -9,12 +9,9 @@ public class ProjectionsEngine : IProjectionsEngine
     private readonly List<IProjectionBuilder> _dynamicProjectionBuilders = new();
     
     private EventsObserver? _observer;
-    //private readonly IProjectionRepository<ProjectionRebuildState> _projectionsStateRepository;
 
     public ProjectionsEngine(
-        //IProjectionRepository<ProjectionRebuildState> projectionsStateRepository
     ) {
-        //_projectionsStateRepository = projectionsStateRepository;
     }
 
     public Task StartAsync(string instanceName)
@@ -52,39 +49,6 @@ public class ProjectionsEngine : IProjectionsEngine
     {
         _dynamicProjectionBuilders.Add(projectionBuilder);
     }
-    //
-    // /// <summary>
-    // /// Starts rebuilding of a projection. Note that this method returns instantly and rebuild continues in the background.
-    // /// use `GetRebuildState` method to track the progress.
-    // /// </summary>
-    // /// <param name="instanceName">
-    // /// The name of current rebuild processor. Can be any string.
-    // /// Used to identify and track different rebuild processes.</param>
-    // /// <param name="partitionKey">Partition of events to process</param>
-    // /// <param name="dateFrom"></param>
-    // /// <exception cref="InvalidOperationException"></exception>
-    // public async Task StartRebuildAsync(string instanceName, string partitionKey, DateTime? dateFrom = null)
-    // {
-    //     if (_observer == null)
-    //     {
-    //         throw new InvalidOperationException("SetEventsObserver should be called before RebuildAsync");
-    //     }
-    //
-    //     await _projectionsStateRepository.EnsureIndex();
-    //     
-    //     await _projectionsStateRepository.Upsert(new ProjectionRebuildState
-    //     {
-    //         Id = Guid.NewGuid(),
-    //         PartitionKey = partitionKey,
-    //         InstanceName = instanceName,
-    //         Status = RebuildStatus.Running
-    //     }, 
-    //     partitionKey,
-    //     DateTime.UtcNow);
-    //
-    //     // run in background
-    //     _observer.LoadAndHandleEventsAsync(instanceName, partitionKey, dateFrom, OnRebuildCompleted, OnRebuildFailed);
-    // }
 
     public async Task RebuildOneAsync(Guid documentId, string partitionKey)
     {
@@ -95,18 +59,6 @@ public class ProjectionsEngine : IProjectionsEngine
         
         await _observer.ReplayEventsForOneDocumentAsync(documentId, partitionKey);
     }
-
-    // public async Task<ProjectionRebuildState?> GetRebuildState(string instanceName, string partitionKey)
-    // {
-    //     var rebuildState = (await _projectionsStateRepository.Query(
-    //         ProjectionQueryExpressionExtensions.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName),
-    //         partitionKey: partitionKey
-    //     ))
-    //     .Records
-    //     .LastOrDefault();
-    //
-    //     return rebuildState?.Document;
-    // }
 
     private async Task HandleEvent(IEvent @event)
     {
@@ -186,53 +138,6 @@ public class ProjectionsEngine : IProjectionsEngine
         );
     }
 
-    //
-    // private async Task OnRebuildCompleted(string instanceName, string partitionKey)
-    // {
-    //     var rebuildState = (await _projectionsStateRepository.Query(
-    //         ProjectionQueryExpressionExtensions.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
-    //     ))
-    //     .Records
-    //     .Select(x => x.Document)
-    //     .FirstOrDefault();
-    //     
-    //     if (rebuildState == null)
-    //     {
-    //         rebuildState = new ProjectionRebuildState
-    //         {
-    //             Id = Guid.NewGuid(),
-    //             InstanceName = instanceName
-    //         };
-    //     }
-    //     
-    //     rebuildState.Status = RebuildStatus.Completed;
-    //
-    //     await _projectionsStateRepository.Upsert(rebuildState, partitionKey, DateTime.UtcNow);
-    // }
-    //
-    // private async Task OnRebuildFailed(string instanceName, string partitionKey, string errorMessage)
-    // {
-    //     var rebuildState = (await _projectionsStateRepository.Query(
-    //         ProjectionQueryExpressionExtensions.Where<ProjectionRebuildState>(x => x.InstanceName == instanceName)
-    //     ))
-    //     .Records
-    //     .Select(x => x.Document)
-    //     .FirstOrDefault();
-    //     
-    //     if (rebuildState == null)
-    //     {
-    //         rebuildState = new ProjectionRebuildState
-    //         {
-    //             Id = Guid.NewGuid(),
-    //             InstanceName = instanceName
-    //         };
-    //     }
-    //     
-    //     rebuildState.Status = RebuildStatus.Failed;
-    //     rebuildState.ErrorMessage = errorMessage;
-    //
-    //     await _projectionsStateRepository.Upsert(rebuildState, partitionKey, DateTime.UtcNow);
-    // }
     public async Task<EventStoreStatistics> GetEventStoreStatistics()
     {
         return await _observer.GetEventStoreStatistics();

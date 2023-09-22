@@ -39,7 +39,7 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
                     leaseClient,
                     leaseDatabaseId,
                     leaseContainerId,
-                    processorName,
+                    string.IsNullOrEmpty(processorName) ? "EventStoreObserver" : processorName,
                     logger
                 );
 

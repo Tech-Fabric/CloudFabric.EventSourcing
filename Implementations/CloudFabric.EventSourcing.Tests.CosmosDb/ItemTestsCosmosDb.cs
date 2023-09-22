@@ -74,10 +74,28 @@ public class ItemTestsCosmosDb : ItemTests
         await cosmosClient.CreateDatabaseIfNotExistsAsync(databaseName);
         var database = cosmosClient.GetDatabase(databaseName);
         await database.DeleteAsync();
-        await cosmosClient.CreateDatabaseIfNotExistsAsync(
-            databaseName,
-            ThroughputProperties.CreateManualThroughput(400)
-        );
+
+        try
+        {
+            await cosmosClient.CreateDatabaseIfNotExistsAsync(
+                databaseName,
+                ThroughputProperties.CreateManualThroughput(400)
+            );
+        }
+        catch (CosmosException ex)
+        {
+            if (ex.Message.Contains("Shared throughput database creation is not supported for serverless accounts."))
+            {
+                await cosmosClient.CreateDatabaseIfNotExistsAsync(
+                    databaseName
+                );
+            }
+            else
+            {
+                throw;
+            }
+        }
+
         return cosmosClient.GetDatabase(databaseName);
     }
 
