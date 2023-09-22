@@ -5,6 +5,7 @@ namespace CloudFabric.Projections.Postgresql;
 public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
 {
     private readonly string _projectionsConnectionString;
+    private readonly bool _includeDebugInformation;
     private readonly string? _sourceEventStoreConnectionId;
 
     /// <summary>
@@ -23,11 +24,13 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
     public PostgresqlProjectionRepositoryFactory(
         ILoggerFactory loggerFactory,
         string projectionsConnectionString,
-        string? sourceEventStoreConnectionId = null
+        string? sourceEventStoreConnectionId = null,
+        bool includeDebugInformation = false
     ): base(loggerFactory)
     {
         _projectionsConnectionString = projectionsConnectionString;
         _sourceEventStoreConnectionId = sourceEventStoreConnectionId;
+        _includeDebugInformation = includeDebugInformation;
     }
     
     public override IProjectionRepository<TProjectionDocument> GetProjectionRepository<TProjectionDocument>()
@@ -39,7 +42,7 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
         }
         
         var repository = new PostgresqlProjectionRepository<TProjectionDocument>(
-            _projectionsConnectionString, _loggerFactory
+            _projectionsConnectionString, _loggerFactory, _includeDebugInformation
         );
         SetToCache<TProjectionDocument>(repository);
         return repository;
@@ -56,7 +59,8 @@ public class PostgresqlProjectionRepositoryFactory: ProjectionRepositoryFactory
         var repository = new PostgresqlProjectionRepository(
             _projectionsConnectionString, 
             projectionDocumentSchema,
-            _loggerFactory
+            _loggerFactory,
+            _includeDebugInformation
         );
         SetToCache(projectionDocumentSchema, repository);
         return repository;

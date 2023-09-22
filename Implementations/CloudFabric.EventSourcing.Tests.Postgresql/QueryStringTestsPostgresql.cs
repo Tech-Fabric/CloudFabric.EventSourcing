@@ -48,7 +48,8 @@ public class QueryStringTestsPostgresql : ProjectionQueryTest
         {
             _projectionRepositoryFactory = new PostgresqlProjectionRepositoryFactory(
                 NullLoggerFactory.Instance,
-                TestsConnectionStrings.CONNECTION_STRING
+                TestsConnectionStrings.CONNECTION_STRING,
+                includeDebugInformation: true
             );
         }
 

@@ -19,8 +19,11 @@ public class QueryChunk
 public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlProjectionRepository, IProjectionRepository<TProjectionDocument>
     where TProjectionDocument : ProjectionDocument
 {
-    public PostgresqlProjectionRepository(string connectionString, ILoggerFactory loggerFactory)
-        : base(connectionString, ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>(), loggerFactory)
+    public PostgresqlProjectionRepository(
+        string connectionString, 
+        ILoggerFactory loggerFactory,
+        bool includeDebugInformation = false)
+        : base(connectionString, ProjectionDocumentSchemaFactory.FromTypeWithAttributes<TProjectionDocument>(), loggerFactory, includeDebugInformation)
     {
     }
 
@@ -98,6 +101,7 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
 
         return new ProjectionQueryResult<TProjectionDocument>
         {
+            DebugInformation = recordsDictionary.DebugInformation,
             IndexName = recordsDictionary.IndexName,
             TotalRecordsFound = recordsDictionary.TotalRecordsFound,
             Records = records
@@ -107,6 +111,8 @@ public class PostgresqlProjectionRepository<TProjectionDocument> : PostgresqlPro
 
 public class PostgresqlProjectionRepository : ProjectionRepository
 {
+    private bool _includeDebugInformation = false;
+
     private readonly string _connectionString;
 
     private string? _keyPropertyName;
@@ -115,10 +121,12 @@ public class PostgresqlProjectionRepository : ProjectionRepository
     public PostgresqlProjectionRepository(
         string connectionString,
         ProjectionDocumentSchema projectionDocumentSchema,
-        ILoggerFactory loggerFactory
+        ILoggerFactory loggerFactory,
+        bool includeDebugInformation = false
     ) : base(projectionDocumentSchema, loggerFactory.CreateLogger<ProjectionRepository>())
     {
         _connectionString = connectionString;
+        _includeDebugInformation = includeDebugInformation;
 
         // for dynamic projection document schemas we need to ensure 'partitionKey' column is always there
         if (ProjectionDocumentSchema.Properties.All(p => p.PropertyName != "PartitionKey"))
@@ -597,7 +605,34 @@ public class PostgresqlProjectionRepository : ProjectionRepository
 
                 records.Add(document);
             }
-            
+
+            var debugInformation = "";
+
+            if (_includeDebugInformation)
+            {
+                debugInformation += cmd.CommandText;
+                
+                foreach (NpgsqlParameter param in cmd.Parameters)
+                {
+                    var paramValue = "";
+
+                    switch (param.NpgsqlDbType)
+                    {
+                        case NpgsqlDbType.Text:
+                            paramValue = $"'{param.NpgsqlValue}'";
+                            break;
+                        default: 
+                            paramValue = param.NpgsqlValue.ToString();
+                            break;
+                    }
+
+                    debugInformation = debugInformation.Replace($"@{param.ParameterName}", paramValue);
+                }
+                
+                debugInformation += $"\n\nOriginal command:\n{cmd.CommandText}; " +
+                    $"{string.Join(',', cmd.Parameters.Select(p => $"@{p.ParameterName}:{p.NpgsqlDbType}={p.NpgsqlValue}"))}";
+            }
+
             await reader.DisposeAsync();
             // clear previous command in order to prevent conflicts
             cmd.Parameters.Clear();
@@ -605,8 +640,9 @@ public class PostgresqlProjectionRepository : ProjectionRepository
             
             return new ProjectionQueryResult<Dictionary<string, object?>>
             {
+                DebugInformation = _includeDebugInformation ? debugInformation : String.Empty, 
                 IndexName = TableName,
-                TotalRecordsFound = totalCount.Value,
+                TotalRecordsFound = totalCount,
                 Records = records.Select(x =>
                     new QueryResultDocument<Dictionary<string, object?>>
                     {
