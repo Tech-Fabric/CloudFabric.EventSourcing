@@ -29,17 +29,17 @@ public class UserAccountEmailAddress : AggregateBase
     }
     public void ChangeEmailAddress(string newEmail)
     {
-        Apply(new UserAccountEmailAddressChanged(UserAccountId, newEmail));
+        Apply(new UserAccountEmailAddressChanged(Id, UserAccountId, newEmail));
     }
 
     public void ConfirmEmailAddress()
     {
-        Apply(new UserAccountEmailAddressConfirmed(UserAccountId));
+        Apply(new UserAccountEmailAddressConfirmed(Id, UserAccountId));
     }
 
     public void AssignUserAccount(Guid userAccountId)
     {
-        Apply(new UserAccountEmailAssigned(userAccountId, EmailAddress));
+        Apply(new UserAccountEmailAssigned(Id, userAccountId, EmailAddress));
     }
 
     #region Event Handlers
@@ -53,7 +53,7 @@ public class UserAccountEmailAddress : AggregateBase
 
     public void On(UserAccountEmailAssigned @event)
     {
-        UserAccountId = @event.AggregateId;
+        UserAccountId = @event.UserAccountId;
     }
 
     public void On(UserAccountEmailAddressChanged @event)
