@@ -10,5 +10,6 @@ export enum FilterOperator {
     Contains = "string-contains",
     StartsWithIgnoreCase = "string-starts-with-ignore-case",
     EndsWithIgnoreCase = "string-ends-with-ignore-case",
-    ContainsIgnoreCase = "string-contains-ignore-case"
+    ContainsIgnoreCase = "string-contains-ignore-case",
+    ArrayContains = "array-contains"
 }
