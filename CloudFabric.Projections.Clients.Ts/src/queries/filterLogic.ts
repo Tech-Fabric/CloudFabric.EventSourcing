@@ -1,4 +1,4 @@
 export enum FilterLogic {
-    or = 'or',
-    and = 'and'
+    OR = 'or',
+    AND = 'and'
 }

@@ -19,13 +19,13 @@ export class Filter {
     }
 
     public or(f: Filter): Filter {
-        let connector = new FilterConnector(FilterLogic.or, f);
+        let connector = new FilterConnector(FilterLogic.OR, f);
         this.filters.push(connector);
         return this;
     }
 
     public and(f: Filter): Filter {
-        let connector = new FilterConnector(FilterLogic.and, f);
+        let connector = new FilterConnector(FilterLogic.AND, f);
         this.filters.push(connector);
         return this;
     }
