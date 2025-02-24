@@ -1,6 +1,6 @@
 {
     "name": "@cloudfabric/projections.client",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Client request models for working with CloudFabric.Projections",
     "main": "index.js",
     "scripts": {
