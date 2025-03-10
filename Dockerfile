@@ -19,7 +19,7 @@ RUN dotnet tool install --global dotnet-sonarscanner
 RUN apt-get update && apt-get install -y openjdk-11-jdk
 #sonarcloud
 
-ENV PATH="/root/.dotnet/tools:${PATH}" 
+ENV PATH="/root/.dotnet/tools:${PATH}"
 
 RUN curl -L https://raw.githubusercontent.com/Microsoft/artifacts-credprovider/master/helpers/installcredprovider.sh | sh
 #---------------------------------------------------------------------
@@ -55,7 +55,7 @@ WORKDIR /
 #---------------------------------------------------------------------
 RUN wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.5.0-amd64.deb
 RUN wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.5.0-amd64.deb.sha512
-RUN shasum -a 512 -c elasticsearch-8.5.0-amd64.deb.sha512 
+RUN shasum -a 512 -c elasticsearch-8.5.0-amd64.deb.sha512
 RUN dpkg -i elasticsearch-8.5.0-amd64.deb
 # Replace home dir - needed for su
 RUN sed -i "s|elasticsearch\(.*\)\/nonexistent\(.*\)|elasticsearch\1/usr/share/elasticsearch\2|g" /etc/passwd
@@ -72,7 +72,7 @@ RUN printf '%s\n' 'cluster.routing.allocation.disk.watermark.low: "1gb"' \
 #---------------------------------------------------------------------
 
 #---------------------------------------------------------------------
-# Nuget restore 
+# Nuget restore
 # !Important: this is a nice hack to avoid package restoration on each docker build step.
 # Since we only copy nuget.config and csproj files, docker will not run restore unless nuget.config or csproj files change.
 #---------------------------------------------------------------------
@@ -109,19 +109,19 @@ COPY CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj /s
 
 #RUN dotnet restore /src/CloudFabric.EventSourcing.Domain/CloudFabric.EventSourcing.Domain.csproj
 #---------------------------------------------------------------------
-# /Nuget restore 
+# /Nuget restore
 #---------------------------------------------------------------------
 
 #---------------------------------------------------------------------
 # Build artifacts
-# 
+#
 # you can copy sql migration scripts and coverage report files with following script:
-# containerId=$(docker create $(docker images --format='{{.ID}}' | head -1) 
+# containerId=$(docker create $(docker images --format='{{.ID}}' | head -1)
 # docker cp $containerId:/artifacts/* ./artifacts
 # docker rm -v $containerId
 #
-# !Important all commands must be run in one layer since we will have to copy them later 
-# and we don't want to run copy commands on 4 different layers 
+# !Important all commands must be run in one layer since we will have to copy them later
+# and we don't want to run copy commands on 4 different layers
 #---------------------------------------------------------------------
 COPY /. /src
 
@@ -145,7 +145,7 @@ RUN if [ -n "$SONAR_TOKEN" ] && [ -n "$PULLREQUEST_TARGET_BRANCH" ] ; then echo 
   /d:sonar.host.url="$SONAR_HOST_URL" \
   /d:sonar.login="$SONAR_TOKEN" \
   /d:sonar.branch.name="$BRANCH_NAME" \
-  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; fi  
+  /d:sonar.cs.opencover.reportsPaths=/artifacts/tests/*/coverage.opencover.xml ; fi
 
 
 # Elasticsearch tests require both elastic and postgresql

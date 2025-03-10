@@ -1,0 +1,14 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+@await Html.PartialAsync("_Head")
+<body>
+
+<div class="container р-100 h-100">
+    <main role="main" class="pb-3 h-100 d-flex align-items-center">
+        @RenderBody()
+    </main>
+</div>
+
+@await Html.PartialAsync("_FooterScripts")
+</body>
+</html>

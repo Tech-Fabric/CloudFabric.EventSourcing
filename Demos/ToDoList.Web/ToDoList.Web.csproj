@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Htmx" Version="1.8.1"/>
+        <PackageReference Include="Htmx.TagHelpers" Version="1.8.1"/>
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.11" />
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0"/>
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.9.0"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\CloudFabric.EventSourcing.AspNet\CloudFabric.EventSourcing.AspNet.Postgresql\CloudFabric.EventSourcing.AspNet.Postgresql.csproj"/>
+        <ProjectReference Include="..\ToDoList.Services.Implementations\ToDoList.Services.Implementations.csproj"/>
+        <ProjectReference Include="..\ToDoList.Services.Interfaces\ToDoList.Services.Interfaces.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="wwwroot\css\fonts\bootstrap-icons.woff" />
+      <_ContentIncludedByDefault Remove="wwwroot\css\fonts\bootstrap-icons.woff2" />
+      <_ContentIncludedByDefault Remove="wwwroot\lib\css\fonts\bootstrap-icons.woff\bootstrap-icons.woff" />
+      <_ContentIncludedByDefault Remove="wwwroot\lib\css\fonts\bootstrap-icons.woff2\bootstrap-icons.woff2" />
+      <_ContentIncludedByDefault Remove="wwwroot\lib\js\bootstrap.bundle.min.js\bootstrap.bundle.min.js" />
+      <_ContentIncludedByDefault Remove="wwwroot\lib\js\htmx.min.js\htmx.min.js" />
+      <_ContentIncludedByDefault Remove="wwwroot\lib\js\Sortable.min.js\Sortable.min.js" />
+      <_ContentIncludedByDefault Remove="wwwroot\css\index.css\Index.css" />
+    </ItemGroup>
+
+   
+    <Target Name="NpmInstall" Inputs="package.json" Outputs="node_modules/.install-stamp">
+        <Exec Command="npm install" />
+
+        <!-- Write the stamp file, so incremental builds work -->
+        <Touch Files="node_modules/.install-stamp" AlwaysCreate="true" />
+    </Target>
+
+<!--    <Target Name="PreBuildCustomCommand" BeforeTargets="BeforeBuild">-->
+<!--        <Message Text="Compiling sass" Importance="High"/>-->
+<!--        <Exec Command="sass &#45;&#45;load-path=node_modules &#45;&#45;update ./Scss/Index.scss wwwroot/css/index.css"/>-->
+<!--    </Target>-->
+
+
+<!--    <Target Name="CopyJsLibs" BeforeTargets="BeforeBuild">-->
+<!--        <Message Text="Executing copy node_modules files to wwwroot task" Importance="High"/>-->
+
+<!--        <Copy SourceFiles="node_modules\bootstrap\dist\js\bootstrap.bundle.min.js" DestinationFolder="wwwroot\lib\js\"/>-->
+<!--        <Copy SourceFiles="node_modules\htmx.org\dist\htmx.min.js" DestinationFolder="wwwroot\lib\js\"/>-->
+<!--        <Copy SourceFiles="node_modules\sortablejs\Sortable.min.js" DestinationFolder="wwwroot\lib\js\"/>-->
+
+<!--        <Copy SourceFiles="node_modules\bootstrap-icons\font\fonts\bootstrap-icons.woff" DestinationFolder="wwwroot\css\fonts\"/>-->
+<!--        <Copy SourceFiles="node_modules\bootstrap-icons\font\fonts\bootstrap-icons.woff2" DestinationFolder="wwwroot\css\fonts\"/>-->
+
+<!--        <Message Text="Copied node_modules files to wwwroot" Importance="High"/>-->
+<!--    </Target>-->
+
+</Project>

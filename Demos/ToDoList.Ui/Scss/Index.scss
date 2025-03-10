@@ -1,6 +1,6 @@
-@import "../Shared/UnauthorizedLayout";
-@import "../Pages/LoginPage";
-@import "../Pages/TasksPage";
+@use "../Shared/UnauthorizedLayout";
+@use "../Pages/LoginPage";
+@use "../Pages/TasksPage";
 
 html, body {
     margin: 0;

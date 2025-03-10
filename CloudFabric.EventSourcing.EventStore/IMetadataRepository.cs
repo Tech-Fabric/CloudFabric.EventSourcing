@@ -1,6 +1,6 @@
 namespace CloudFabric.EventSourcing.EventStore;
 
-public interface IStore
+public interface IMetadataRepository
 {
     Task Initialize(CancellationToken cancellationToken = default);
 

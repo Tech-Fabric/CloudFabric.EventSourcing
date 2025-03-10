@@ -1,0 +1,7 @@
+@model ToDoList.Models.ViewModels.TaskLists.TaskViewModel
+
+<div class="task-container" data-position="@Model.Position" data-task-id="@Model.Id">
+    <div class="task-content user-select-none">
+        @Model.Title
+    </div>
+</div>

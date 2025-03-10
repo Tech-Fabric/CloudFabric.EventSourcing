@@ -66,6 +66,7 @@ public abstract class ProjectionRepository : IProjectionRepository
     }
     
     protected abstract Task CreateIndex(string indexName, ProjectionDocumentSchema projectionDocumentSchema);
+    
     public abstract Task<Dictionary<string, object?>?> Single(
         Guid id, 
         string partitionKey, 
@@ -156,7 +157,7 @@ public abstract class ProjectionRepository : IProjectionRepository
 
     private async Task HandleProjectionIndexStateIndexNotFound()
     {
-        Logger.LogInformation("Projection index state index not found, creating...");
+        Logger.LogInformation($"Projection index state index not found, creating {PROJECTION_INDEX_STATE_INDEX_NAME} index...");
 
         try
         {
@@ -164,6 +165,8 @@ public abstract class ProjectionRepository : IProjectionRepository
                 PROJECTION_INDEX_STATE_INDEX_NAME,
                 ProjectionIndexStateSchema
             );
+            
+            Logger.LogInformation($"{PROJECTION_INDEX_STATE_INDEX_NAME} index created");
         }
         catch (Exception ex)
         {
@@ -192,7 +195,7 @@ public abstract class ProjectionRepository : IProjectionRepository
         {
             var results = await QueryInternal(
                 new ProjectionOperationIndexDescriptor() {
-                    IndexName =PROJECTION_INDEX_STATE_INDEX_NAME,
+                    IndexName = PROJECTION_INDEX_STATE_INDEX_NAME,
                     ProjectionDocumentSchema = ProjectionIndexStateSchema 
                 },
                 projectionQuery,
@@ -368,8 +371,6 @@ public abstract class ProjectionRepository : IProjectionRepository
             };
         }
     }
-    
-    //public abstract Task<(ProjectionIndexState?, string?)> AcquireAndLockProjectionThatRequiresRebuild();
     
     public async Task<(ProjectionIndexState?, string?)> AcquireAndLockProjectionThatRequiresRebuild()
     {

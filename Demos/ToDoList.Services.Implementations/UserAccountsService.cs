@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AutoMapper;
 
 using CloudFabric.EventSourcing.Domain;
@@ -7,6 +8,7 @@ using CloudFabric.Projections.Queries;
 using ToDoList.Domain;
 using ToDoList.Domain.Projections.UserAccounts;
 using ToDoList.Models;
+using ToDoList.Models.RequestModels.TaskLists;
 using ToDoList.Models.RequestModels.UserAccounts;
 using ToDoList.Models.ViewModels.UserAccounts;
 using ToDoList.Services.Interfaces;
@@ -23,6 +25,8 @@ public class UserAccountsService : IUserAccountsService
     private readonly IProjectionRepository<UserAccountsProjectionItem> _userAccountsProjectionRepository;
 
     private readonly IUserAccessTokensService _userAccessTokensService;
+
+    private readonly ITaskListsService _taskListsService;
     
 
     public UserAccountsService(
@@ -31,7 +35,8 @@ public class UserAccountsService : IUserAccountsService
         AggregateRepository<UserAccount> userRepository,
         AggregateRepository<UserAccountEmailAddress> userAccountEmailAddressesRepository,
         ProjectionRepositoryFactory projectionRepositoryFactory,
-        IUserAccessTokensService userAccessTokensService
+        IUserAccessTokensService userAccessTokensService,
+        ITaskListsService taskListsService
     )
     {
         _mapper = mapper;
@@ -40,6 +45,7 @@ public class UserAccountsService : IUserAccountsService
         _userAccountEmailAddressesRepository = userAccountEmailAddressesRepository;
         _userAccountsProjectionRepository = projectionRepositoryFactory.GetProjectionRepository<UserAccountsProjectionItem>();
         _userAccessTokensService = userAccessTokensService;
+        _taskListsService = taskListsService;
     }
 
     public async Task<ServiceResult<UserAccountPersonalViewModel>> RegisterNewUserAccount(RegisterNewUserAccountRequest request, CancellationToken ct)
@@ -53,13 +59,6 @@ public class UserAccountsService : IUserAccountsService
         var userAccountEmail = new UserAccountEmailAddress(request.Email);
         
         var emailAlreadyExists = await _userAccountEmailAddressesRepository.LoadAsync(userAccountEmail.Id, userAccountEmail.PartitionKey, ct);
-
-        // var emailAlreadyExists = (await _userAccountsProjectionRepository.Query(
-        //         ProjectionQueryExpressionExtensions.Where<UserAccountsProjectionItem>(x => x.EmailAddress == request.Email)
-        // ))
-        // .Records
-        // .FirstOrDefault()
-        // ?.Document;
 
         var userId = Guid.NewGuid();
 
@@ -87,6 +86,30 @@ public class UserAccountsService : IUserAccountsService
         var userAccount = new UserAccount(userId, request.FirstName, PasswordHelper.HashPassword(request.Password));
 
         await _userAccountsRepository.SaveAsync(new EventUserInfo(userId), userAccount, ct);
+
+        await _taskListsService.CreateTaskList(
+            new CreateTaskListRequest()
+            {
+                Name = "To Do"
+            }, 
+            ct
+        );
+        
+        await _taskListsService.CreateTaskList(
+            new CreateTaskListRequest()
+            {
+                Name = "In Progress"
+            }, 
+            ct
+        );
+        
+        await _taskListsService.CreateTaskList(
+            new CreateTaskListRequest()
+            {
+                Name = "Done"
+            }, 
+            ct
+        );
 
         return ServiceResult<UserAccountPersonalViewModel>.Success(_mapper.Map<UserAccountPersonalViewModel>(userAccount));
     }
@@ -117,21 +140,22 @@ public class UserAccountsService : IUserAccountsService
         return ServiceResult.Success();
     }
 
-    public async Task<ServiceResult<UserAccessTokenViewModel>> GenerateAccessTokenForUser(
-        GenerateNewAccessTokenRequest request,
+    public async Task<ServiceResult<UserAccountPersonalViewModel>> AuthenticateUser(
+        AuthenticateUserRequest request,
         CancellationToken cancellationToken
-    ) {
+    )
+    {
         var validationProblemDetails = ValidationHelper.Validate(request);
 
         if(validationProblemDetails != null) {
-            return ServiceResult<UserAccessTokenViewModel>.Failed(validationProblemDetails);
+            return ServiceResult<UserAccountPersonalViewModel>.Failed(validationProblemDetails);
         }
         
-        var userAccountEmail = new UserAccountEmailAddress(request.Email);
+        var userAccountEmail = new UserAccountEmailAddress(request.Email!);
         var userAccountEmailAddress = await _userAccountEmailAddressesRepository.LoadAsync(userAccountEmail.Id, userAccountEmail.PartitionKey, cancellationToken);
 
         if(userAccountEmailAddress == null) {
-            return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");
+            return ServiceResult<UserAccountPersonalViewModel>.Failed("invalid_credentials", "Credentials were invalid");
         }
 
         var userAccount = await _userAccountsRepository.LoadAsync(
@@ -141,10 +165,25 @@ public class UserAccountsService : IUserAccountsService
         );
 
         if(userAccount == null) {
-            return ServiceResult<UserAccessTokenViewModel>.Failed("invalid_credentials", "Credentials were invalid");
+            return ServiceResult<UserAccountPersonalViewModel>.Failed("invalid_credentials", "Incorrect email or password");
         }
+        
+        return ServiceResult<UserAccountPersonalViewModel>.Success(_mapper.Map<UserAccountPersonalViewModel>(userAccount));
+    }
 
-        var tokenServiceResult = _userAccessTokensService.GenerateAccessTokenForUser(userAccountEmailAddress.UserAccountId, userAccount.FirstName);
+    public async Task<ServiceResult<UserAccessTokenViewModel>> GenerateAccessTokenForUser(
+        AuthenticateUserRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        var authenticationResult = await AuthenticateUser(request, cancellationToken);
+
+        if (!authenticationResult.Succeed)
+        {
+            return ServiceResult<UserAccessTokenViewModel>.Failed(authenticationResult.ProblemDetails!);
+        }
+        
+        var tokenServiceResult = _userAccessTokensService.GenerateAccessTokenForUser(authenticationResult.Result!.Claims);
 
         return tokenServiceResult;
     }

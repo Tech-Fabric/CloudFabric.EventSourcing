@@ -1,4 +1,5 @@
 using CloudFabric.EventSourcing.Domain;
+using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.CosmosDb;
 using CloudFabric.Projections;
 using CloudFabric.Projections.CosmosDb;
@@ -46,10 +47,9 @@ namespace CloudFabric.EventSourcing.AspNet.CosmosDb.Extensions
                 return new AggregateRepositoryFactory(eventStore);
             });
 
-            var storeRepository = new StoreRepository(
-                new CosmosDbStore(connectionString, cosmosClientOptions, databaseId, itemsContainerId)
-            );
-            services.AddScoped<IStoreRepository>(sp => storeRepository);
+            var metadataRepository = new CosmosDbMetadataRepository(connectionString, cosmosClientOptions, databaseId, itemsContainerId);
+
+            services.AddScoped<IMetadataRepository>(sp => metadataRepository);
             
             return new EventSourcingBuilder
             {

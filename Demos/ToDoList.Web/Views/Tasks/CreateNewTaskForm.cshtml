@@ -1,0 +1,42 @@
+@using Microsoft.AspNetCore.Mvc.ModelBinding
+
+@model ToDoList.Models.RequestModels.TaskLists.CreateTaskRequest
+
+
+<form hx-post="@Url.Action("CreateTask", "Tasks")"
+      hx-swap="beforeend"
+      hx-target=".task-list-@Model.TaskListId .card-body"
+      class="form-horizontal needs-validation create-new-task"
+      _="on htmx:beforeSend set #createTaskSubmitButton@(Model.TaskListId).disabled to 'disabled'
+         on htmx:responseError set #createTaskSubmitButton@(Model.TaskListId).disabled to ''
+         on htmx:afterRequest set #taskInput@(Model.TaskListId).value to ''
+    ">
+
+    <input type="hidden" asp-for="@Model.TaskListId" value="@Model.TaskListId">
+    
+    <div class="mb-2">
+        <input id="createTaskInput@(Model.TaskListId)" type="text" class="form-control" asp-for="@Model.Name" placeholder="Create new task...">
+        <div class="invalid-feedback">
+            <span asp-validation-for="@Model.Name"></span>
+        </div>
+    </div>
+
+    @if (ViewContext.ViewData.ModelState.ValidationState == ModelValidationState.Invalid)
+    {
+        <div>EFDSFDSrrors!11</div>
+    }
+
+    <div class="flex-column flex-sm-row d-flex align-items-end">
+        <div class="control d-flex flex-fill justify-content-end">
+            <button id="createTaskSubmitButton" type="submit" class="btn btn-primary">
+                <span class="htmx-indicator">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span class="visually-hidden">Processing...</span>
+                </span>
+                Create
+            </button>
+        </div>
+    </div>
+
+    @Html.AntiForgeryToken()
+</form>

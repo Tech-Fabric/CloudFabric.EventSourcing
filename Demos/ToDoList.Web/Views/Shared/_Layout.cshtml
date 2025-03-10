@@ -1,0 +1,29 @@
+﻿@using Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="en">
+@await Html.PartialAsync("_Head")
+
+<body class="d-flex flex-column">
+
+<header class="p-3 mb-3 border-bottom">
+    <div class="container">
+        <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
+            <a class="navbar-brand text-dark" asp-area="" asp-controller="Home" asp-action="Index">ToDo List</a>
+
+            <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
+                <li>
+                    <a href="/tasks" class="nav-link text-dark px-2 link-secondary">Tasks</a>
+                </li>
+            </ul>
+
+            @await Html.PartialAsync("_AuthenticationHeader")
+        </div>
+    </div>
+</header>
+
+@RenderBody()
+
+@await Html.PartialAsync("_FooterScripts")
+</body>
+</html>

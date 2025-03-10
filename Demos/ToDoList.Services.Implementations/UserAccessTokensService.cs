@@ -21,21 +21,15 @@ public class UserAccessTokensService : IUserAccessTokensService
         _options = options;
     }
 
-    public ServiceResult<UserAccessTokenViewModel> GenerateAccessTokenForUser(Guid userAccountId, string userFirstName)
+    public ServiceResult<UserAccessTokenViewModel> GenerateAccessTokenForUser(List<Claim> userClaims)
     {
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.PrimarySid, userAccountId.ToString(), ClaimValueTypes.Integer),
-            new Claim(ClaimTypes.Name, userFirstName, ClaimValueTypes.String)
-        };
-
         var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Value.TokenSigningKey));
 
         var token = new JwtSecurityToken(
             issuer: _options.Value.Issuer,
             audience: _options.Value.Audience,
             expires: DateTime.Now.AddDays(_options.Value.TokenLifetimeDays),
-            claims: claims,
+            claims: userClaims,
             signingCredentials: new Microsoft.IdentityModel.Tokens.SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
         );
 

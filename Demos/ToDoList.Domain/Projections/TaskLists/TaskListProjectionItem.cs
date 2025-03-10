@@ -14,6 +14,9 @@ public class TaskListProjectionItem : ProjectionDocument
     public string Name { get; set; }
 
     [ProjectionDocumentProperty(IsSearchable = true, IsFilterable = true)]
+    public DateTime? CreatedAt { get; set; }
+    
+    [ProjectionDocumentProperty(IsSearchable = true, IsFilterable = true)]
     public DateTime? UpdatedAt { get; set; }
 
     [ProjectionDocumentProperty(IsSearchable = true, IsFilterable = true)]
@@ -24,4 +27,7 @@ public class TaskListProjectionItem : ProjectionDocument
 
     [ProjectionDocumentProperty]
     public int ClosedTasksCount { get; set; }
+    
+    [ProjectionDocumentProperty]
+    public double Position { get; set; }
 }

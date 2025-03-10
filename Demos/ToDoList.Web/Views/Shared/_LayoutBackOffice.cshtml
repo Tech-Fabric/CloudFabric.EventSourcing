@@ -1,0 +1,64 @@
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="en">
+@await Html.PartialAsync("_Head")
+<body>
+
+<header class="p-3 mb-3 border-bottom">
+    <div class="container">
+        <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
+            <a class="navbar-brand text-dark" asp-area="" asp-controller="Home" asp-action="Index">Storeetsa</a>
+
+            <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
+                <li>
+                    <a href="#" class="nav-link text-dark px-2 link-secondary">"Overview"</a>
+                </li>
+                <li>
+                    <a href="#" class="nav-link text-dark px-2 link-body-emphasis">"Documentation"</a>
+                </li>
+            </ul>
+
+            @await Html.PartialAsync("_AuthenticationHeader")
+        </div>
+    </div>
+</header>
+
+<div class="container d-flex flex-column flex-sm-row">
+    <div class="d-flex flex-column flex-shrink-0 p-3 bg-body-tertiary" style="width: 230px;">
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item">
+                <a href="#" class="nav-link active" aria-current="page">
+                    <svg class="bi pe-none me-2" width="16" height="16">
+                        <use xlink:href="#home"></use>
+                    </svg>
+                    "Home"
+                </a>
+            </li>
+        </ul>
+        <hr>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item">
+                <a href="#" class="nav-link" aria-current="page">
+                    <svg class="bi pe-none me-2" width="16" height="16">
+                        <use xlink:href="#home"></use>
+                    </svg>
+                    Home
+                </a>
+            </li>
+        </ul>
+    </div>
+    <main role="main" class="pb-3">
+        @RenderBody()
+    </main>
+</div>
+
+<footer class="border-top footer text-muted">
+    <div class="container">
+        &copy; 2024 - CloudFabric.EventSourcing.ToDoList.Web
+    </div>
+</footer>
+
+@await Html.PartialAsync("_FooterScripts")
+</body>
+</html>

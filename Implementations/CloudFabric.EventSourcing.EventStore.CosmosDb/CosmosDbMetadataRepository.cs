@@ -3,14 +3,14 @@ using CloudFabric.EventSourcing.EventStore.Persistence;
 using Microsoft.Azure.Cosmos;
 
 namespace CloudFabric.EventSourcing.EventStore.CosmosDb;
-public class CosmosDbStore : IStore
+public class CosmosDbMetadataRepository : IMetadataRepository
 {
     private readonly CosmosClient _client;
     private readonly string _itemsContainerId;
     private readonly string _databaseId;
 
 
-    public CosmosDbStore(
+    public CosmosDbMetadataRepository(
         string connectionString,
         CosmosClientOptions cosmosClientOptions,
         string databaseId,
@@ -22,7 +22,7 @@ public class CosmosDbStore : IStore
         _itemsContainerId = itemsContainerId;
     }
 
-    public CosmosDbStore(
+    public CosmosDbMetadataRepository(
         CosmosClient client,
         string databaseId,
         string itemsContainerId

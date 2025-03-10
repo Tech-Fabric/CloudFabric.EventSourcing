@@ -5,7 +5,7 @@
 @inject UserAccountService userAccountService
 @inject NavigationManager navigationManager
 
-<FormComponent TFormModel="GenerateNewAccessTokenRequest" TSubmitResultModel="TokenResponse"
+<FormComponent TFormModel="AuthenticateUserRequest" TSubmitResultModel="TokenResponse"
     OnSubmit="@OnSubmit" Model="model">
     <FormBody>
         <h2>Welcome back!</h2>
@@ -34,9 +34,9 @@
 </FormComponent>
 
 @code {
-    public readonly GenerateNewAccessTokenRequest model = new();
+    public readonly AuthenticateUserRequest model = new();
 
-    private async Task<ServiceResult<TokenResponse>> OnSubmit(GenerateNewAccessTokenRequest model)
+    private async Task<ServiceResult<TokenResponse>> OnSubmit(AuthenticateUserRequest model)
     {
         var serviceResult = await userAccountService.Login(model);
 

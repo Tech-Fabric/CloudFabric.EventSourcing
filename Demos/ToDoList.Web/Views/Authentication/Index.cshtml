@@ -1,0 +1,10 @@
+@{
+    Layout = "_LayoutClean";
+    ViewData["Title"] = "Login page";
+}
+
+<div class="authentication-form-container p-4">
+    <h1 class="mb-4">Welcome back!</h1>
+
+    @await Html.PartialAsync("Forms/_AuthenticationForm")
+</div>

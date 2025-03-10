@@ -1,0 +1,4 @@
+@using ToDoList.Models.RequestModels.TaskLists
+@model ToDoList.Models.ServiceResult<List<ToDoList.Models.ViewModels.TaskLists.TaskListWithTasksViewModel>>
+
+@Html.Partial("TaskLists", Model)

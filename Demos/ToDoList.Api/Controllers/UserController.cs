@@ -22,7 +22,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("user_account/token")]
-    public async Task<IActionResult> Token([FromBody] GenerateNewAccessTokenRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Token([FromBody] AuthenticateUserRequest request, CancellationToken cancellationToken)
     {
         return this.ServiceResult(await _userAccountsService.GenerateAccessTokenForUser(request, cancellationToken));
     }

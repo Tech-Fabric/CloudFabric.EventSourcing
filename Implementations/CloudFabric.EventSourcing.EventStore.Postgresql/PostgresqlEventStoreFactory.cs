@@ -13,7 +13,7 @@ public class PostgresqlEventStoreFactory : IEventStoreFactory
         return new PostgresqlEventStore(
             connectionInformation.ConnectionString, 
             connectionInformation.TableName,
-            connectionInformation.ItemsTableName
+            connectionInformation.MetadataTableName
         );
     }
 }

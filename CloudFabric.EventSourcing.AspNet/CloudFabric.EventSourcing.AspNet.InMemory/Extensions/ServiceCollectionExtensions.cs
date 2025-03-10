@@ -7,6 +7,7 @@ using CloudFabric.Projections.InMemory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using IMetadataRepository = CloudFabric.EventSourcing.EventStore.IMetadataRepository;
 
 namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
 {
@@ -64,7 +65,7 @@ namespace CloudFabric.EventSourcing.AspNet.InMemory.Extensions
                 }
             );
 
-            services.AddScoped<IStoreRepository>(sp => new StoreRepository(new InMemoryStore(itemsContainer)));
+            services.AddScoped<IMetadataRepository>(sp => new InMemoryMetadataRepository(itemsContainer));
 
             return builder;
         }

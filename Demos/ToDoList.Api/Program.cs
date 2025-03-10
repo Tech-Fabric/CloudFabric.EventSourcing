@@ -40,7 +40,7 @@ builder.Services.AddControllers(options => {
     options.Filters.Add<GlobalExceptionProblemDetailsFilter>();
 });
 
-builder.Services.AddAutoMapper(typeof(UserAccountsService));
+//builder.Services.AddAutoMapper(typeof(UserAccountsService));
 
 builder.Services.AddScoped<IUserAccountsService, UserAccountsService>();
 builder.Services.AddScoped<IUserAccessTokensService, UserAccessTokensService>();
@@ -51,7 +51,7 @@ builder.Services.Configure<UserAccessTokensServiceOptions>(builder.Configuration
 
 #region User Accounts Projections
 
-builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "user-events")
+builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionString("Default"), "todolist-events", "todolist-metadata")
     .AddRepository<AggregateRepository<UserAccount>>()
     .AddRepository<AggregateRepository<UserAccountEmailAddress>>()
 
@@ -60,6 +60,7 @@ builder.Services.AddPostgresqlEventStore(builder.Configuration.GetConnectionStri
 
     .AddPostgresqlProjections(
         builder.Configuration.GetConnectionString("Default"),
+        true,
         typeof(UserAccountsProjectionBuilder),
         typeof(TasksProjectionBuilder),
         typeof(TaskListsProjectionBuilder)

@@ -9,5 +9,5 @@ public class PostgresqlEventStoreConnectionInformation: EventStoreConnectionInfo
     /// </summary>
     public string TableName { get; set; }
 
-    public string ItemsTableName { get; set; }
+    public string MetadataTableName { get; set; }
 }

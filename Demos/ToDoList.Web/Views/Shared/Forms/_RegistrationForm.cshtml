@@ -1,0 +1,64 @@
+@using Microsoft.AspNetCore.Mvc.ModelBinding
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+
+@model ToDoList.Models.RequestModels.UserAccounts.RegisterNewUserAccountRequest
+
+
+<form hx-post="@Url.Action("index", "registration")"
+      hx-swap="outerHTML"
+      class="form-horizontal needs-validation"
+      _="on htmx:beforeSend set #registrationSubmitButton.disabled to 'disabled'
+         on htmx:responseError set #registrationSubmitButton.disabled to ''">
+
+    <div class="mb-3">
+        <label class="form-label" asp-for="@Model.Email"></label>
+        <input type="text" class="form-control" asp-for="@Model.Email">
+        <div class="invalid-feedback">
+            <span asp-validation-for="@Model.Email"></span>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" asp-for="@Model.FirstName"></label>
+        <input type="text" class="form-control" asp-for="@Model.FirstName">
+        <div class="invalid-feedback">
+            <span asp-validation-for="@Model.FirstName"></span>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" asp-for="@Model.Password"></label>
+        <input type="password" class="form-control" asp-for="@Model.Password">
+        <div class="invalid-feedback">
+            <span asp-validation-for="@Model.Password"></span>
+        </div>
+
+    </div>
+
+    @if (ViewContext.ViewData.ModelState.ValidationState == ModelValidationState.Invalid)
+    {
+        <div>EFDSFDSrrors!11</div>
+    }
+
+    <div class="flex-column flex-sm-row d-flex align-items-end">
+        <div class="control flex-fill d-flex me-5 align-self-start">
+            <span class="small">Already have an account?<br/>
+            <a href="@Url.Action("Index", "Authentication")" class="align-self-center">
+                Sign In
+            </a>
+            </span>
+        </div>
+
+        <div class="control flex-fill">
+            <button id="registrationSubmitButton" type="submit" class="btn btn-primary">
+                <span class="htmx-indicator">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span class="visually-hidden">Processing...</span>
+                </span>
+                Register
+            </button>
+        </div>
+    </div>
+
+    @Html.AntiForgeryToken()
+</form>

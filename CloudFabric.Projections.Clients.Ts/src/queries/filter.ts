@@ -9,7 +9,12 @@ export class Filter {
     public visible: boolean;
     public tag: string;
 
-    public constructor(propertyName: string, operator: string, value: Object, tag: string = "") {
+    public constructor(
+        propertyName: string = "*", 
+        operator: string | null = null, 
+        value: Object | null = null, 
+        tag: string = ""
+    ) {
         this.propertyName = propertyName;
         this.operator = operator;
         this.value = value;
@@ -32,20 +37,20 @@ export class Filter {
 
     public static desanitizeValue(value: string): string {
         return decodeURIComponent(value)
-            .replace(";dot;", ".")
-            .replace(";amp;", "&")
-            .replace(";excl;", "!")
-            .replace(";dollar;", "$")
-            .replace(";aps;", "'");
+            .replace(/;dot;/g, ".")
+            .replace(/;amp;/g, "&")
+            .replace(/;excl;/g, "!")
+            .replace(/;dollar;/g, "$")
+            .replace(/;aps;/g, "'");
     }
 
     public static sanitizeValue(value: string): string {
         return value
-            .replace(".", ";dot;")
-            .replace("&", ";amp;")
-            .replace("!", ";excl;")
-            .replace("$", ";dollar;")
-            .replace("'", ";aps;");
+            .replace(/\./g, ";dot;")
+            .replace(/&/g, ";amp;")
+            .replace(/!/g, ";excl;")
+            .replace(/\$/g, ";dollar;")
+            .replace(/'/g, ";aps;");
     }
 
     public serialize(): string {
@@ -54,7 +59,7 @@ export class Filter {
             valueSerialized = this.value.toString();
             
             valueSerialized = Filter.sanitizeValue(valueSerialized);
-            if ((this.value instanceof String)) {
+            if (typeof this.value === 'string' || this.value instanceof String) {
                 valueSerialized = `'${valueSerialized}'`;
             }
         }
@@ -98,8 +103,8 @@ export class Filter {
         filter.visible = visible;
         filter.filters = filters;
 
-        if ((value.indexOf("'") == 0)) {
-            filter.value = value.replace("'", "");
+        if (value.indexOf("'") == 0 && value.length > 1) {
+            filter.value = `${value.substring(1, value.length - 1)}`;
         } else if (value.indexOf('.') > -1) {
             filter.value = parseFloat(value);
         } else {
@@ -109,4 +114,3 @@ export class Filter {
         return filter;
     }
 }
-    

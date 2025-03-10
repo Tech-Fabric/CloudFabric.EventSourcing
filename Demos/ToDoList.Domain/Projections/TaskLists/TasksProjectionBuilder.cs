@@ -7,7 +7,8 @@ namespace ToDoList.Domain.Projections.TaskLists;
 public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
     IHandleEvent<TaskCreated>,
     IHandleEvent<TaskTitleUpdated>,
-    IHandleEvent<TaskCompletedStatusUpdpated>
+    IHandleEvent<TaskCompletedStatusUpdpated>,
+    IHandleEvent<TaskPositionUpdated>
 {
     public TasksProjectionBuilder(
         ProjectionRepositoryFactory projectionRepositoryFactory, 
@@ -16,45 +17,59 @@ public class TasksProjectionBuilder : ProjectionBuilder<TaskProjectionItem>,
     {
     }
 
-    public async System.Threading.Tasks.Task On(TaskCreated @event)
+    public async System.Threading.Tasks.Task On(TaskCreated evt)
     {
         await UpsertDocument(
             new TaskProjectionItem() 
             {
-                Id = @event.AggregateId,
-                Title = @event.Title,
-                Description = @event.Description,
-                UserAccountId = @event.UserAccountId,
-                TaskListId = @event.TaskListId,
+                Id = evt.AggregateId,
+                Title = evt.Title,
+                Description = evt.Description,
+                UserAccountId = evt.UserAccountId,
+                TaskListId = evt.TaskListId,
                 IsCompleted = false
             },
-            @event.PartitionKey,
-            @event.Timestamp
+            evt.PartitionKey,
+            evt.Timestamp
         );
     }
 
-    public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated @event)
+    public async System.Threading.Tasks.Task On(TaskCompletedStatusUpdpated evt)
     {
         await UpdateDocument(
-            @event.AggregateId,
-            @event.PartitionKey,
-            @event.Timestamp,
+            evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
             (projectionDocument) =>
             {
-                projectionDocument.IsCompleted = @event.IsCompleted;
+                projectionDocument.IsCompleted = evt.IsCompleted;
             }
         );
     }
 
-    public async System.Threading.Tasks.Task On(TaskTitleUpdated @event)
+    public async System.Threading.Tasks.Task On(TaskTitleUpdated evt)
     {
         await UpdateDocument(
-            @event.AggregateId,
-            @event.PartitionKey,
-            @event.Timestamp,
+            evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
             (projectionDocument) => 
             {
-                projectionDocument.Title = @event.NewTitle;
+                projectionDocument.Title = evt.NewTitle;
+            }
+        );
+    }
+    
+    public async System.Threading.Tasks.Task On(TaskPositionUpdated evt)
+    {
+        await UpdateDocument(
+            evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
+            (projectionDocument) =>
+            {
+                projectionDocument.TaskListId = evt.TaskListId;
+                projectionDocument.Position = evt.NewPosition;
             }
         );
     }

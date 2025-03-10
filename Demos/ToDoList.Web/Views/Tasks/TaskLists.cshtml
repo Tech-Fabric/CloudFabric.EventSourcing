@@ -1,0 +1,95 @@
+@using ToDoList.Models.RequestModels.TaskLists
+@model ToDoList.Models.ServiceResult<List<ToDoList.Models.ViewModels.TaskLists.TaskListWithTasksViewModel>>
+
+<div class="task-lists-container">
+    @if (!Model.Succeed)
+    {
+        <div class="alert alert-info" role="alert">
+            Something went wrong: @Model.ProblemDetails.Title
+        </div>
+    }
+    else if (Model.Result!.Count <= 0)
+    {
+        <div class="alert alert-info" role="alert">
+            There are no task lists yet.
+        </div>
+    }
+    else
+    {
+        @foreach (var taskList in Model.Result)
+        {
+            @Html.Partial("TaskList", taskList)
+        }
+    }
+    
+    <div class="task-list-container">
+        @Html.Partial("CreateNewTaskListForm", new CreateTaskListRequest())
+    </div>
+
+    <script>
+        htmx.onLoad(function(content) {
+            var sortables = content.querySelectorAll(".task-list-tasks");
+            for (var i = 0; i < sortables.length; i++) {
+                var sortable = sortables[i];
+                new Sortable(sortable, {
+                    animation: 150,
+                    group: { 
+                        name: sortable.getAttribute('data-list-id'), 
+                        pull: true, 
+                        put: true
+                    },
+                    ghostClass: 'sortable-ghost',
+                    dragClass: "sortable-drag",
+                    filter: ".htmx-indicator, .no-tasks-indicator",
+                    forceFallback: true,  // ignore the HTML5 DnD behaviour and force the fallback to kick in
+                    fallbackClass: "sortable-fallback",  // Class name for the cloned DOM Element when using forceFallback
+                    fallbackOnBody: false,  // Appends the cloned DOM Element into the Document's Body
+                    fallbackTolerance: 0,
+                    
+                    onMove: function (evt) {
+                        return evt.related.className.indexOf('htmx-indicator') === -1;
+                    },
+        
+                    onEnd: function (evt) {
+                        
+                        evt.to.querySelector('.no-tasks-indicator').classList.add('invisible');
+                        if (evt.from.querySelectorAll('.task-container').length <= 0) {
+                            evt.from.querySelector('.no-tasks-indicator').classList.remove('invisible');
+                        }
+                        
+                        var newPosition = 0;
+                        
+                        var taskAbove = evt.newIndex > 0 ? evt.to.children[evt.newIndex] : null;
+                        var taskBelow = evt.newIndex < evt.to.children.length - 1 ? evt.to.children[evt.newIndex] : null;
+                        
+                        if (taskAbove != null && taskBelow != null) {
+                            newPosition = taskBelow.dataset.position  - taskAbove.dataset.position;
+                        } else if (taskAbove != null) {
+                            newPosition = taskAbove.dataset.position + 1;
+                        } else if (taskBelow != null){
+                            newPosition = taskBelow.dataset.position - 1;
+                        }
+                        
+                        newPosition = newPosition === 0 ? -1 : newPosition;
+                        
+                        evt.item.dataset.position = newPosition;
+                        
+                        var event = new CustomEvent("taskpositionchanged", { detail: { 
+                            taskId: evt.item.dataset.taskId, 
+                            newPosition: newPosition,
+                            newTaskListId: evt.to.dataset.listId
+                        }});
+                        
+                        evt.to.dispatchEvent(event);
+                    }
+                });
+            }
+        });
+    
+        // document.addEventListener('readystatechange', () => {
+        //     document.querySelectorAll('.task-list-tasks').forEach(l => 
+        //         Sortable.create(l,  { animation: 150, group: { name: l.getAttribute('data-list-id'), pull: true, put: true }})
+        //     )
+        // });
+    </script>
+</div>

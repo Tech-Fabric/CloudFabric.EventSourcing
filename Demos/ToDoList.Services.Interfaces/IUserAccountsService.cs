@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using ToDoList.Models;
 using ToDoList.Models.RequestModels.UserAccounts;
 using ToDoList.Models.ViewModels.UserAccounts;
@@ -12,8 +13,12 @@ public interface IUserAccountsService {
     Task<ServiceResult> UpdateUserAccountPassword(
         UpdateUserAccountPasswordRequest request, CancellationToken cancellationToken
     );
-
+    
+    Task<ServiceResult<UserAccountPersonalViewModel>> AuthenticateUser(
+        AuthenticateUserRequest request, CancellationToken cancellationToken
+    );
+    
     Task<ServiceResult<UserAccessTokenViewModel>> GenerateAccessTokenForUser(
-        GenerateNewAccessTokenRequest request, CancellationToken cancellationToken
+        AuthenticateUserRequest request, CancellationToken cancellationToken
     );
 }

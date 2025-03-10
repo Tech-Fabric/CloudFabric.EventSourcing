@@ -32,7 +32,7 @@ public class UserAccountService
         );
     }
 
-    public async Task<ServiceResult<TokenResponse>> Login(GenerateNewAccessTokenRequest request)
+    public async Task<ServiceResult<TokenResponse>> Login(AuthenticateUserRequest request)
     {
         var serviceResult = await _serviceCommunicationProvider.SendCommand<TokenResponse>(
             "user_account/token",

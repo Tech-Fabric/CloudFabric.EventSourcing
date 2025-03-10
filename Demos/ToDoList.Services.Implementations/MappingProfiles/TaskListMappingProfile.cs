@@ -10,6 +10,10 @@ public class TaskListMappingProfile : Profile
     public TaskListMappingProfile()
     {
         CreateMap<TaskListProjectionItem, TaskListViewModel>();
+        CreateMap<TaskListProjectionItem, TaskListWithTasksViewModel>();
         CreateMap<TaskList, TaskListViewModel>();
+        CreateMap<TaskList, TaskListWithTasksViewModel>();
+        
+        CreateMap<TaskListViewModel, TaskListWithTasksViewModel>();
     }
 }

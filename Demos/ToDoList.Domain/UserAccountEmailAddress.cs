@@ -8,6 +8,7 @@ namespace ToDoList.Domain;
 public class UserAccountEmailAddress : AggregateBase
 {
     public Guid UserAccountId { get; protected set; }
+    
     public string EmailAddress { get; protected set; }
 
     public DateTime? ConfirmedAt { get; protected set; }
@@ -53,7 +54,7 @@ public class UserAccountEmailAddress : AggregateBase
 
     public void On(UserAccountEmailAssigned @event)
     {
-        UserAccountId = @event.AggregateId;
+        UserAccountId = @event.UserAccountId;
     }
 
     public void On(UserAccountEmailAddressChanged @event)

@@ -1,0 +1,54 @@
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+
+@model ToDoList.Models.RequestModels.UserAccounts.AuthenticateUserRequest
+
+
+<form hx-post="@Url.Action("Index", "Authentication")"
+      hx-swap="outerHTML"
+      class="form-horizontal needs-validation form-authentication"
+      _="on htmx:beforeSend set #registrationSubmitButton.disabled to 'disabled'
+         on htmx:responseError set #registrationSubmitButton.disabled to ''">
+
+    <div class="mb-4">
+        <label class="form-label" asp-for="@Model.Email"></label>
+        <input type="text" class="form-control" asp-for="@Model.Email">
+        <div class="invalid-feedback">
+            <span asp-validation-for="@Model.Email"></span>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <div class="d-flex flex-row justify-content-between">
+            <label class="form-label" asp-for="@Model.Password"></label>
+            <a class="small" href="/authentication/password-reset">Forgot?</a>
+        </div>
+        <input type="password" class="form-control" asp-for="@Model.Password">
+        <div class="invalid-feedback">
+            <span asp-validation-for="@Model.Password"></span>
+        </div>
+
+    </div>
+
+    @await Html.PartialAsync("Forms/__FormProblemDetailsSummary")
+
+    <div class="flex-column flex-sm-row d-flex align-items-end">
+        <div class="control flex-fill d-flex me-3 align-self-start">
+            <span class="small">Don't have an account?<br/>
+            <a href="@Url.Action("Index", "Registration")" class="align-self-center">
+                Register
+            </a>
+            </span>
+        </div>
+        
+        <div class="control flex-fill mt-4 mt-sm-0 text-end">
+            <button id="registrationSubmitButton" type="submit" class="btn btn-primary">
+                <span class="htmx-indicator">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span class="visually-hidden">Processing...</span>
+                </span>
+                Sign In
+            </button>
+        </div>
+    </div>
+    @Html.AntiForgeryToken()
+</form>

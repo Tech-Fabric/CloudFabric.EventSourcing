@@ -1,6 +1,6 @@
 namespace CloudFabric.Projections;
 
-public interface IHandleEvent<TEvent>
+public interface IHandleEvent<in TEvent>
 {
-    Task On(TEvent @event);
+    Task On(TEvent evt);
 }

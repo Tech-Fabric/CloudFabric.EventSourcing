@@ -2,11 +2,11 @@ using System.Text.Json;
 
 namespace CloudFabric.EventSourcing.EventStore.InMemory;
 
-public class InMemoryStore : IStore
+public class InMemoryMetadataRepository : IMetadataRepository
 {
     private readonly Dictionary<(string Id, string PartitionKey), string> _itemsContainer;
 
-    public InMemoryStore(Dictionary<(string Id, string PartitionKey), string> itemsContainer)
+    public InMemoryMetadataRepository(Dictionary<(string Id, string PartitionKey), string> itemsContainer)
     {
         _itemsContainer = itemsContainer;
     }

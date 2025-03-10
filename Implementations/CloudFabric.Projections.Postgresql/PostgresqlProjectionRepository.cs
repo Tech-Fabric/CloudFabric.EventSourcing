@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using CloudFabric.Projections.Exceptions;
 using CloudFabric.Projections.Queries;
 using CloudFabric.Projections.Utils;
@@ -565,9 +566,16 @@ public class PostgresqlProjectionRepository : ProjectionRepository
             totalCountCmd.Parameters.Clear();
             totalCountCmd.Dispose();
 
+            var commandText = sb.ToString();
+            
+            Logger.LogTrace("Executing command: {CommandText} with parameters: {Parameters}", 
+                commandText, 
+                string.Join(", ", queryChunk.Parameters.Select(p => $"{p.ParameterName} = {p.Value}"))
+            );
+            
             var cmd = new NpgsqlCommand(sb.ToString(), conn);
             cmd.Parameters.AddRange(queryChunk.Parameters.ToArray());
-
+            
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
             var records = new List<Dictionary<string, object?>>();
@@ -618,11 +626,12 @@ public class PostgresqlProjectionRepository : ProjectionRepository
 
                     switch (param.NpgsqlDbType)
                     {
+                        case NpgsqlDbType.Uuid:
                         case NpgsqlDbType.Text:
                             paramValue = $"'{param.NpgsqlValue}'";
                             break;
                         default: 
-                            paramValue = param.NpgsqlValue.ToString();
+                            paramValue = param.NpgsqlValue?.ToString();
                             break;
                     }
 
@@ -839,6 +848,32 @@ public class PostgresqlProjectionRepository : ProjectionRepository
             }
 
             var innerFilterQueryChunk = ConstructConditionFilter(f.Filter, schema);
+            
+            // need to go through all innerFilter parameters to see if we don't already have ones with same names
+            // and replace them with additional suffix if needed
+            foreach (var innerFilterParameter in innerFilterQueryChunk.Parameters)
+            {
+                while (queryChunk.Parameters.Any(p => p.ParameterName == innerFilterParameter.ParameterName))
+                {
+                    var newParameterName = innerFilterParameter.ParameterName;
+                    
+                    var parameterNumberMatch = new Regex(".*(_\\d+)$").Match(innerFilterParameter.ParameterName);
+
+                    if (parameterNumberMatch.Success)
+                    {
+                        var number = int.Parse(parameterNumberMatch.Groups[1].Value.Replace("_", ""));
+                        newParameterName = newParameterName.Replace(parameterNumberMatch.Groups[1].Value, $"_{number + 1}");
+                    }
+                    else
+                    {
+                        newParameterName = newParameterName + "_1";
+                    }
+                    
+                    innerFilterQueryChunk.WhereChunk = innerFilterQueryChunk.WhereChunk.Replace($"@{innerFilterParameter.ParameterName}", $"@{newParameterName}");
+                    innerFilterParameter.ParameterName = newParameterName;
+                }
+            }
+            
             queryChunk.WhereChunk += innerFilterQueryChunk.WhereChunk;
             queryChunk.Parameters.AddRange(innerFilterQueryChunk.Parameters);
 
@@ -860,7 +895,7 @@ public class PostgresqlProjectionRepository : ProjectionRepository
         foreach (var f in filters)
         {
             var filterQueryChunk = ConstructConditionFilter(f, schema);
-            whereClauses.Add(filterQueryChunk.WhereChunk);
+            whereClauses.Add($"({filterQueryChunk.WhereChunk})");
             queryChunk.Parameters.AddRange(filterQueryChunk.Parameters);
             //Don't add duplicates
             queryChunk.AdditionalFromSelects.AddRange(filterQueryChunk.AdditionalFromSelects

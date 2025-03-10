@@ -1,0 +1,38 @@
+@using ToDoList.Models.RequestModels.TaskLists
+
+@model ToDoList.Models.ViewModels.TaskLists.TaskListWithTasksViewModel
+
+<div class="task-list-container">
+    <div class="task-list task-list-@Model.Id card text-left" data-hover="@Model.Id">
+        <div class="card-header">
+            <h2 class="task-list-title">
+                @Model.Name <span class="counter">@Model.TasksCount</span>
+            </h2>
+        </div>
+
+        <form class="card-body task-list-tasks" data-list-id="@Model.Id"
+              hx-post="@Url.Action("UpdateTaskPosition", "Tasks")"
+              hx-swap="none"
+              hx-on:htmx:config-request="event.detail.parameters.TaskId = event.detail.triggeringEvent.detail.taskId; 
+                                         event.detail.parameters.NewPosition = event.detail.triggeringEvent.detail.newPosition;
+                                         event.detail.parameters.NewTaskListId = event.detail.triggeringEvent.detail.newTaskListId;"
+              hx-trigger="taskpositionchanged">
+            
+            <input type="hidden" name="TaskListId" value="@Model.Id"/>
+
+
+            <div class="alert alert-light no-tasks-indicator @(Model.Tasks.Count > 0 ? "invisible" : "")" role="alert">
+                No tasks here...
+            </div>
+
+            @foreach (var task in Model.Tasks)
+            {
+                @Html.Partial("Task", task)
+            }
+        </form>
+
+        <div class="card-footer text-muted text-left">
+            @Html.Partial("CreateNewTaskForm", new CreateTaskRequest() { TaskListId = Model.Id })
+        </div>
+    </div>
+</div>

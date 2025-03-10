@@ -101,7 +101,7 @@ public class CosmosDbEventStoreChangeFeedObserver : EventsObserver
         CancellationToken cancellationToken = default
     )
     {
-        _logger.LogInformation("Replaying events {InstanceName} from {DateFrom}",
+        _logger.LogInformation("Replaying events on {InstanceName} starting from timestamp: {DateFrom}",
             instanceName,
             dateFrom
         );

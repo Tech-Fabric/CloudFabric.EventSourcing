@@ -33,7 +33,7 @@ public class PostgresqlEventStoreStaticConnectionInformationProvider : IPostgres
             ConnectionId = $"{_connectionStringBuilderWithoutPasswords}-{_eventsTableName}",
             ConnectionString = _connectionStringBuilder.ToString(),
             TableName = _eventsTableName,
-            ItemsTableName = _itemsTableName
+            MetadataTableName = _itemsTableName
         };
     }
 

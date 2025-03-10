@@ -5,17 +5,17 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace CloudFabric.EventSourcing.Tests.Postgresql;
 
 [TestClass]
-public class ItemTestsPostgresql : ItemTests
+public class MetadataRepositoryTestsPostgresql : MetadataRepositoryTests
 {
-    private PostgresqlStore? _store;
+    private PostgresqlMetadataRepository? _store;
 
-    protected override async Task<IStore> GetStore()
+    protected override async Task<IMetadataRepository> GetStore()
     {
         if (_store == null)
         {
-            _store = new PostgresqlStore(
+            _store = new PostgresqlMetadataRepository(
                 TestsConnectionStrings.CONNECTION_STRING,
-                "stored_items"
+                "metadata"
             );
             await _store.Initialize();
         }

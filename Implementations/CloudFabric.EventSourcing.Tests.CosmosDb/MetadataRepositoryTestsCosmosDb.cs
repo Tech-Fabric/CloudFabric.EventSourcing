@@ -9,7 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace CloudFabric.EventSourcing.Tests.CosmosDb;
 
 [TestClass]
-public class ItemTestsCosmosDb : ItemTests
+public class MetadataRepositoryTestsCosmosDb : MetadataRepositoryTests
 {
     private const string DatabaseName = "TestDatabase";
     private const string ItemContainerName = "TestItemContainer";
@@ -20,13 +20,13 @@ public class ItemTestsCosmosDb : ItemTests
     CosmosClient _cosmosClient = null;
     CosmosClientOptions _cosmosClientOptions;
 
-    private IStore? _store = null;
+    private IMetadataRepository? _metadataRepository = null;
     private ILogger _logger;
 
     public async Task SetUp()
     {
         var loggerFactory = new LoggerFactory();
-        _logger = loggerFactory.CreateLogger<ItemTestsCosmosDb>();
+        _logger = loggerFactory.CreateLogger<MetadataRepositoryTestsCosmosDb>();
 
         JsonSerializerOptions jsonSerializerOptions = new JsonSerializerOptions()
         {
@@ -81,21 +81,21 @@ public class ItemTestsCosmosDb : ItemTests
         return cosmosClient.GetDatabase(databaseName);
     }
 
-    protected override async Task<IStore> GetStore()
+    protected override async Task<IMetadataRepository> GetStore()
     {
-        if (_store == null)
+        if (_metadataRepository == null)
         {
             await SetUp();
 
-            _store = new CosmosDbStore(
+            _metadataRepository = new CosmosDbMetadataRepository(
                 CosmosDbConnectionString,
                 _cosmosClientOptions,
                 DatabaseName,
                 ItemContainerName
             );
-            await _store.Initialize();
+            await _metadataRepository.Initialize();
         }
 
-        return _store;
+        return _metadataRepository;
     }
 }

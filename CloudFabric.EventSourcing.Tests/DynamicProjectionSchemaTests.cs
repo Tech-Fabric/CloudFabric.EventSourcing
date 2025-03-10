@@ -30,40 +30,40 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
         _projectionDocumentSchema = projectionDocumentSchema;
     }
 
-    public async Task On(OrderPlaced @event)
+    public async Task On(OrderPlaced evt)
     {
         var document = new Dictionary<string, object?>()
         {
-            { "Id", @event.AggregateId },
-            { "Name", @event.OrderName },
-            { "ItemsCount", @event.Items.Count }
+            { "Id", evt.AggregateId },
+            { "Name", evt.OrderName },
+            { "ItemsCount", evt.Items.Count }
         };
         
         if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "TotalPrice"))
         {
-            document["TotalPrice"] = (decimal)@event.Items.Sum(i => i.Amount);
+            document["TotalPrice"] = (decimal)evt.Items.Sum(i => i.Amount);
         }
         
         if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "Tags"))
         {
-            document["Tags"] = @event.Items.Select(i => i.Name);
+            document["Tags"] = evt.Items.Select(i => i.Name);
         }
         
         await UpsertDocument(
             _projectionDocumentSchema,
             document,
-            @event.PartitionKey,
-            @event.Timestamp
+            evt.PartitionKey,
+            evt.Timestamp
         );
     }
 
-    public async Task On(OrderItemAdded @event)
+    public async Task On(OrderItemAdded evt)
     {
         await UpdateDocument(
             _projectionDocumentSchema,
-            @event.AggregateId,
-            @event.PartitionKey,
-            @event.Timestamp,
+            evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
             (orderProjection) =>
             {
                 orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) + 1;
@@ -76,7 +76,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
                     {
                         orderProjection.Add("TotalPrice", 0m);
                     }
-                    orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0m) + @event.Item.Amount;
+                    orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0m) + evt.Item.Amount;
                 }
                 
                 if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "Tags"))
@@ -85,19 +85,19 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
                     {
                         orderProjection.Add("Tags", new List<string>());
                     }
-                    (orderProjection["Tags"] as List<object>)?.Add(@event.Item.Name);
+                    (orderProjection["Tags"] as List<object>)?.Add(evt.Item.Name);
                 }
             }
         );
     }
 
-    public async Task On(OrderItemRemoved @event)
+    public async Task On(OrderItemRemoved evt)
     {
         await UpdateDocument(
             _projectionDocumentSchema,
-            @event.AggregateId, 
-            @event.PartitionKey,
-            @event.Timestamp,
+            evt.AggregateId, 
+            evt.PartitionKey,
+            evt.Timestamp,
             (orderProjection) =>
             {
                 orderProjection["ItemsCount"] = (int)(orderProjection["ItemsCount"] ?? 0) - 1;
@@ -106,7 +106,7 @@ public class OrderListsDynamicProjectionBuilder : ProjectionBuilder,
                 // so we only modify the dictionary when property exists in schema. That property will be added/removed to the schema by tests.
                 if (_projectionDocumentSchema.Properties.Any(p => p.PropertyName == "TotalPrice"))
                 {
-                    orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0m) - @event.Item.Amount;
+                    orderProjection["TotalPrice"] = (decimal)(orderProjection["TotalPrice"] ?? 0m) - evt.Item.Amount;
                 }
             }
         );

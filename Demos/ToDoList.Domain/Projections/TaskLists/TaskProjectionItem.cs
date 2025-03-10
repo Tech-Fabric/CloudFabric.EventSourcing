@@ -19,6 +19,9 @@ public class TaskProjectionItem : ProjectionDocument
     [ProjectionDocumentProperty(IsSearchable = true)]
     public string? Description { get; set; }
 
+    [ProjectionDocumentProperty(IsSortable = true)]
+    public double Position { get; set; }
+
     [ProjectionDocumentProperty(IsSearchable = true, IsFilterable = true)]
     public bool IsCompleted { get; set; }
 }

@@ -35,7 +35,7 @@ public class PostgresqlEventStore : IEventStore
         {
             ConnectionString = connectionString,
             TableName = eventsTableName,
-            ItemsTableName = itemsTableName
+            MetadataTableName = itemsTableName
         };
     }
 
@@ -62,15 +62,15 @@ public class PostgresqlEventStore : IEventStore
             $"SELECT COUNT(*) FROM \"{connectionInformation.TableName}\"", conn
         );
         await using var firstEventTimestampCmd = new NpgsqlCommand(
-            $"SELECT to_timestamp_utc(event_data->>'timestamp') " +
+            $"SELECT created_at " +
             $"FROM \"{connectionInformation.TableName}\" " +
-            $"ORDER BY to_timestamp_utc(event_data->>'timestamp') ASC " +
+            $"ORDER BY created_at ASC " +
             $"LIMIT 1", conn
         );
         await using var lastEventTimestampCmd = new NpgsqlCommand(
-            $"SELECT to_timestamp_utc(event_data->>'timestamp') " +
+            $"SELECT created_at " +
             $"FROM \"{connectionInformation.TableName}\" " +
-            $"ORDER BY to_timestamp_utc(event_data->>'timestamp') DESC " +
+            $"ORDER BY created_at DESC " +
             $"LIMIT 1", conn
         );
     
@@ -119,7 +119,7 @@ public class PostgresqlEventStore : IEventStore
             }
         }
 
-        await using var itemsTableCmd = new NpgsqlCommand($"DELETE FROM \"{connectionInformation.ItemsTableName}\"", conn);
+        await using var itemsTableCmd = new NpgsqlCommand($"DELETE FROM \"{connectionInformation.MetadataTableName}\"", conn);
 
         try
         {
@@ -145,7 +145,7 @@ public class PostgresqlEventStore : IEventStore
 
         await using var cmd = new NpgsqlCommand(
             $"DELETE FROM \"{connectionInformation.TableName}\"" +
-            $"WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey",
+            $"WHERE stream_id = @streamId AND partition_key = @partitionKey",
             conn,
             transaction)
         {
@@ -199,7 +199,7 @@ public class PostgresqlEventStore : IEventStore
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, stream_id, stream_version, event_type, event_data, user_info " +
             $"FROM \"{connectionInformation.TableName}\" " +
-            $"WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey ORDER BY stream_version ASC", conn)
+            $"WHERE stream_id = @streamId AND partition_key = @partitionKey ORDER BY stream_version ASC", conn)
         {
             Parameters =
             {
@@ -260,7 +260,7 @@ public class PostgresqlEventStore : IEventStore
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version " +
             $"FROM \"{connectionInformation.TableName}\" " +
-            $"WHERE stream_id = @streamId AND event_data->>'partitionKey' = @partitionKey AND stream_version >= @fromVersion", conn)
+            $"WHERE stream_id = @streamId AND partition_key = @partitionKey AND stream_version >= @fromVersion ORDER BY stream_version ASC", conn)
         {
             Parameters =
             {
@@ -308,25 +308,31 @@ public class PostgresqlEventStore : IEventStore
         await conn.OpenAsync(cancellationToken);
 
         List<string> wheres = new List<string>();
+        List<NpgsqlParameter> parameters = new List<NpgsqlParameter>();
 
         if (!string.IsNullOrEmpty(partitionKey))
         {
-            wheres.Add($"event_data->>'partitionKey' = '{partitionKey}'");
+            wheres.Add($"partition_key = @partitionKey");
+            parameters.Add(new("partitionKey", partitionKey));
         }
 
         if (dateFrom.HasValue)
         {
-            wheres.Add($"(event_data->>'timestamp')::timestamp without time zone > '{dateFrom.Value:yyyy-MM-ddTHH:mm:ss.fffffffZ}'::timestamp without time zone ");
+            wheres.Add($"created_at > @createdAt");
+            parameters.Add(new("createdAt", dateFrom));
         }
 
         await using var cmd = new NpgsqlCommand(
             $"SELECT id, event_type, event_data " +
             $"FROM \"{connectionInformation.TableName}\" " +
             (wheres.Count > 0
-                ? $"WHERE {string.Join(" AND ", wheres)} " 
+                ? $"WHERE {string.Join(" AND ", wheres)} "
                 : "") +
-            $"ORDER BY to_timestamp_utc(event_data->>'timestamp') ASC " +
-            $"LIMIT {limit}", conn);
+            $"ORDER BY created_at ASC " +
+            $"LIMIT {limit}", conn
+        );
+        
+        cmd.Parameters.AddRange(parameters.ToArray());
 
         try
         {
@@ -364,7 +370,7 @@ public class PostgresqlEventStore : IEventStore
     {
         if (streamId == Guid.Empty)
         {
-            throw new ArgumentNullException("StreamId cannot be an empty Guid");
+            throw new ArgumentNullException($"{nameof(streamId)} cannot be an empty Guid");
         }
 
         var connectionInformation = ConnectionInformation;
@@ -398,7 +404,8 @@ public class PostgresqlEventStore : IEventStore
                     throw new Exception("Expected event stream to be empty but it already exists.");
                 }
 
-                throw new Exception("Event stream has new event which were not expected. This usually means that another thread/process appended events to the stream between read and write operations.");
+                throw new Exception("Event stream has new event which were not expected. " +
+                                    "This usually means that another thread/process appended events to the stream between read and write operations.");
             }
         }
         catch (NpgsqlException ex)
@@ -419,13 +426,15 @@ public class PostgresqlEventStore : IEventStore
         {
             batchInsert.BatchCommands.Add(new NpgsqlBatchCommand($"" +
                 $"INSERT INTO \"{connectionInformation.TableName}\" " +
-                $"(id, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version) " +
+                $"(id, partition_key, created_at, stream_id, stream_version, event_type, event_data, user_info, eventstore_schema_version) " +
                 $"VALUES " +
-                $"(@id, @stream_id, @stream_version, @event_type, @event_data, @user_info, @eventstore_schema_version)")
+                $"(@id, @partition_key, @created_at, @stream_id, @stream_version, @event_type, @event_data, @user_info, @eventstore_schema_version)")
             {
                 Parameters =
                 {
                     new("id", Guid.NewGuid()),
+                    new("partition_key", evt.PartitionKey),
+                    new("created_at", evt.Timestamp),
                     new("stream_id", streamId),
                     new("stream_version", ++expectedVersion),
                     new("event_type", evt.GetType().AssemblyQualifiedName),
@@ -500,6 +509,8 @@ public class PostgresqlEventStore : IEventStore
                     "" +
                     $"CREATE TABLE \"{connectionInformation.TableName}\" (" +
                     $"  id uuid, " +
+                    $"  partition_key varchar(36), " +
+                    $"  created_at timestamp without time zone, " +
                     $"  stream_id uuid, " +
                     $"  stream_version integer, " +
                     $"  event_type varchar(500), " +
@@ -510,9 +521,9 @@ public class PostgresqlEventStore : IEventStore
                     $"CREATE INDEX \"{connectionInformation.TableName}_stream_id_idx\" " +
                     $"  ON \"{connectionInformation.TableName}\" (stream_id);" +
                     $"CREATE INDEX \"{connectionInformation.TableName}_stream_id_with_partition_key_idx\" " +
-                    $"  ON \"{connectionInformation.TableName}\" (stream_id, ((event_data ->> 'partitionKey')::varchar(256)));" +
-                    $"CREATE INDEX \"{connectionInformation.TableName}_timestamp_utc\" " +
-                    $"  ON \"{connectionInformation.TableName}\" (to_timestamp_utc(event_data->>'timestamp'));"
+                    $"  ON \"{connectionInformation.TableName}\" (stream_id, partition_key);" +
+                    $"CREATE INDEX \"{connectionInformation.TableName}_created_at\" " +
+                    $"  ON \"{connectionInformation.TableName}\" (created_at);"
                     
                 , conn);
 
@@ -521,7 +532,7 @@ public class PostgresqlEventStore : IEventStore
         }
 
         await using var cmdItemTable = new NpgsqlCommand(
-            $"SELECT 1 FROM \"{connectionInformation.ItemsTableName}\"", conn)
+            $"SELECT 1 FROM \"{connectionInformation.MetadataTableName}\"", conn)
         {
         };
 
@@ -534,13 +545,13 @@ public class PostgresqlEventStore : IEventStore
             if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
             {                
                 await using var createTableCommand = new NpgsqlCommand(
-                    $"CREATE TABLE \"{connectionInformation.ItemsTableName}\" (" +
+                    $"CREATE TABLE \"{connectionInformation.MetadataTableName}\" (" +
                     $"id varchar(100) UNIQUE NOT NULL, " +
                     $"partition_key varchar(100) NOT NULL, " +
                     $"data jsonb" +
                     $");" +
-                    $"CREATE INDEX \"{connectionInformation.ItemsTableName}_id_idx\" ON \"{connectionInformation.ItemsTableName}\" (id);" +
-                    $"CREATE INDEX \"{connectionInformation.ItemsTableName}_id_with_partition_key_idx\" ON \"{connectionInformation.ItemsTableName}\" (id, partition_key);"
+                    $"CREATE INDEX \"{connectionInformation.MetadataTableName}_id_idx\" ON \"{connectionInformation.MetadataTableName}\" (id);" +
+                    $"CREATE INDEX \"{connectionInformation.MetadataTableName}_id_with_partition_key_idx\" ON \"{connectionInformation.MetadataTableName}\" (id, partition_key);"
                     , conn);
 
                 await createTableCommand.ExecuteNonQueryAsync(cancellationToken);

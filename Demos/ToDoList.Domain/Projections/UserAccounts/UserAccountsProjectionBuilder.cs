@@ -16,38 +16,38 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
     {
     }
 
-    public async System.Threading.Tasks.Task On(UserAccountRegistered @event)
+    public async System.Threading.Tasks.Task On(UserAccountRegistered evt)
     {
         await UpsertDocument(
             new UserAccountsProjectionItem()
             {
-                Id = @event.AggregateId,
-                FirstName = @event.FirstName,
+                Id = evt.AggregateId,
+                FirstName = evt.FirstName,
             },
-            @event.PartitionKey,
-            @event.Timestamp
+            evt.PartitionKey,
+            evt.Timestamp
         );
     }
 
-    public async System.Threading.Tasks.Task On(UserAccountEmailAddressChanged @event)
+    public async System.Threading.Tasks.Task On(UserAccountEmailAddressChanged evt)
     {
         await UpdateDocument(
-            @event.AggregateId,
-            @event.PartitionKey,
-            @event.Timestamp,
+            evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
             (projectionDocument) =>
             {
-                projectionDocument.EmailAddress = @event.NewEmail;
+                projectionDocument.EmailAddress = evt.NewEmail;
             }
         );
     }
 
-    public async System.Threading.Tasks.Task On(UserAccountEmailAddressConfirmed @event)
+    public async System.Threading.Tasks.Task On(UserAccountEmailAddressConfirmed evt)
     {
         await UpdateDocument(
-            @event.AggregateId,
-            @event.PartitionKey,
-            @event.Timestamp,
+            evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
             (projectionDocument) =>
             {
                 projectionDocument.EmailConfirmedAt = DateTime.UtcNow;
@@ -55,15 +55,15 @@ public class UserAccountsProjectionBuilder : ProjectionBuilder<UserAccountsProje
         );
     }
 
-    public async System.Threading.Tasks.Task On(UserAccountEmailAssigned @event)
+    public async System.Threading.Tasks.Task On(UserAccountEmailAssigned evt)
     {
         await UpdateDocument(
-            @event.AggregateId,
-            @event.PartitionKey,
-            @event.Timestamp,
+            evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
             (projectionDocument) =>
             {
-                projectionDocument.EmailAddress = @event.EmailAddress;
+                projectionDocument.EmailAddress = evt.EmailAddress;
             }
         );
     }

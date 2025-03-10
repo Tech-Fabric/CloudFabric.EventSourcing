@@ -19,7 +19,7 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
             throw new ArgumentNullException(nameof(id));
         }
 
-        var eventStream = await _eventStore.LoadStreamAsync(id, partitionKey);
+        var eventStream = await _eventStore.LoadStreamAsync(id, partitionKey, cancellationToken);
 
         if (!eventStream.Events.Any()) return null;
 
@@ -33,7 +33,7 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
             throw new ArgumentNullException(nameof(id));
         }
 
-        var eventStream = await _eventStore.LoadStreamAsyncOrThrowNotFound(id, partitionKey);
+        var eventStream = await _eventStore.LoadStreamAsyncOrThrowNotFound(id, partitionKey, cancellationToken);
 
         return ConstructAggregateInstanceFromEventStream(eventStream);
     }
@@ -88,7 +88,8 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
                 eventUserInfo,
                 streamId,
                 aggregate.Version,
-                aggregate.UncommittedEvents
+                aggregate.UncommittedEvents,
+                cancellationToken
             );
 
             aggregate.OnChangesSaved();
@@ -101,7 +102,7 @@ public class AggregateRepository<T> : IAggregateRepository<T> where T : Aggregat
 
     /// <summary>
     /// We should not be able to hard delete events within implementation, but for some development issues we do need to be able to do so.
-    /// Use this method carefuly and at your own risk. When something went terribly wrong, there is no way to recover deleted data.
+    /// Use this method carefully and at your own risk. When something went terribly wrong, there is no way to recover deleted data.
     /// </summary>
     public async Task<bool> HardDeleteAsync(Guid id, string partitionKey, CancellationToken cancellationToken = default)
     {

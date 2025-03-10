@@ -100,7 +100,11 @@ public abstract class AggregateBase
     protected void Apply(IEvent @event)
     {
         RaiseEvent(@event);
+     
+        // aggregates should not bother assigning those to events
+        @event.AggregateId = Id;
         @event.PartitionKey = PartitionKey;
+        
         UncommittedEvents.Add(@event);
     }
 

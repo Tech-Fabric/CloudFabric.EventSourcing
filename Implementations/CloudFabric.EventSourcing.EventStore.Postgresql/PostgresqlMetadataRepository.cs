@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace CloudFabric.EventSourcing.EventStore.Postgresql;
 
-public class PostgresqlStore: IStore
+public class PostgresqlMetadataRepository: IMetadataRepository
 {
     private readonly PostgresqlEventStoreConnectionInformation _connectionInformation;
     private readonly IPostgresqlEventStoreConnectionInformationProvider? _connectionInformationProvider = null;
@@ -24,16 +24,16 @@ public class PostgresqlStore: IStore
         }
     }
 
-    public PostgresqlStore(string connectionString, string itemsTableName)
+    public PostgresqlMetadataRepository(string connectionString, string tableName)
     {
         _connectionInformation = new PostgresqlEventStoreConnectionInformation()
         {
             ConnectionString = connectionString,
-            ItemsTableName = itemsTableName
+            MetadataTableName = tableName
         };
     }
 
-    public PostgresqlStore(IPostgresqlEventStoreConnectionInformationProvider connectionInformationProvider)
+    public PostgresqlMetadataRepository(IPostgresqlEventStoreConnectionInformationProvider connectionInformationProvider)
     {
         _connectionInformationProvider = connectionInformationProvider;
     }
@@ -50,7 +50,7 @@ public class PostgresqlStore: IStore
         await using var conn = new NpgsqlConnection(connectionInformation.ConnectionString);
         await conn.OpenAsync();
 
-        await using var itemsTableCmd = new NpgsqlCommand($"DELETE FROM \"{connectionInformation.ItemsTableName}\"", conn);
+        await using var itemsTableCmd = new NpgsqlCommand($"DELETE FROM \"{connectionInformation.MetadataTableName}\"", conn);
 
         try
         {
@@ -73,7 +73,7 @@ public class PostgresqlStore: IStore
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
-            $"SELECT 1 FROM \"{connectionInformation.ItemsTableName}\"", conn)
+            $"SELECT 1 FROM \"{connectionInformation.MetadataTableName}\"", conn)
         {
         };
 
@@ -86,13 +86,13 @@ public class PostgresqlStore: IStore
             if (ex.SqlState == PostgresErrorCodes.UndefinedTable)
             {
                 await using var createTableCommand = new NpgsqlCommand(
-                    $"CREATE TABLE \"{connectionInformation.ItemsTableName}\" (" +
+                    $"CREATE TABLE \"{connectionInformation.MetadataTableName}\" (" +
                     $"id varchar(100) UNIQUE NOT NULL, " +
                     $"partition_key varchar(100) NOT NULL, " +
                     $"data jsonb" +
                     $");" +
-                    $"CREATE INDEX \"{connectionInformation.ItemsTableName}_id_idx\" ON \"{connectionInformation.ItemsTableName}\" (id);" +
-                    $"CREATE INDEX \"{connectionInformation.ItemsTableName}_id_with_partition_key_idx\" ON \"{connectionInformation.ItemsTableName}\" (id, partition_key);"
+                    $"CREATE INDEX \"{connectionInformation.MetadataTableName}_id_idx\" ON \"{connectionInformation.MetadataTableName}\" (id);" +
+                    $"CREATE INDEX \"{connectionInformation.MetadataTableName}_id_with_partition_key_idx\" ON \"{connectionInformation.MetadataTableName}\" (id, partition_key);"
                     , conn);
 
                 await createTableCommand.ExecuteNonQueryAsync(cancellationToken);
@@ -108,7 +108,7 @@ public class PostgresqlStore: IStore
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
-            $"INSERT INTO \"{connectionInformation.ItemsTableName}\" " +
+            $"INSERT INTO \"{connectionInformation.MetadataTableName}\" " +
             $"(id, partition_key, data) " +
             $"VALUES" +
             $"(@id, @partition_key, @data)" +
@@ -161,7 +161,7 @@ public class PostgresqlStore: IStore
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
-            $"SELECT * FROM \"{connectionInformation.ItemsTableName}\" " +
+            $"SELECT * FROM \"{connectionInformation.MetadataTableName}\" " +
             $"WHERE id = @id AND partition_key = @partition_key LIMIT 1; "
             , conn)
         {

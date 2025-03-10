@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AutoMapper;
 using CloudFabric.EventSourcing.Domain;
 using CloudFabric.EventSourcing.EventStore.Persistence;
@@ -23,12 +24,15 @@ public class TaskListsService : ITaskListsService
     private readonly IProjectionRepository<TaskListProjectionItem> _taskListsProjectionRepository;
     private readonly IProjectionRepository<TaskProjectionItem> _tasksProjectionRepository;
 
+    private readonly ActivitySource _activitySource;
+    
     public TaskListsService(
         IMapper mapper,
         EventUserInfo userInfo,
         AggregateRepository<TaskList> taskListsRepository,
         AggregateRepository<Domain.Task> tasksRepository,
-        ProjectionRepositoryFactory projectionRepositoryFactory
+        ProjectionRepositoryFactory projectionRepositoryFactory,
+        ActivitySource activitySource
     )
     {
         _mapper = mapper;
@@ -37,27 +41,45 @@ public class TaskListsService : ITaskListsService
         _tasksRepository = tasksRepository;
         _taskListsProjectionRepository = projectionRepositoryFactory.GetProjectionRepository<TaskListProjectionItem>();
         _tasksProjectionRepository = projectionRepositoryFactory.GetProjectionRepository<TaskProjectionItem>();
+
+        _activitySource = activitySource;
     }
 
-    public async Task<ServiceResult<TaskListViewModel>> CreateTaskList(CreateTaskListRequest request, CancellationToken cancellationToken)
+    public async Task<ServiceResult<TaskViewModel>> UpdateTaskPosition(UpdateTaskPositionRequest request, CancellationToken cancellationToken)
+    {
+        var task = await _tasksRepository.LoadAsync(request.TaskId, _userInfo.UserId.ToString(), cancellationToken);
+
+        if (task == null)
+        {
+            return ServiceResult<TaskViewModel>.Failed("task_list_not_found", "Task list does not exist");
+        }
+
+        task.UpdatePosition(request.NewTaskListId, request.NewPosition);
+        
+        await _tasksRepository.SaveAsync(_userInfo, task, cancellationToken);
+
+        return ServiceResult<TaskViewModel>.Success(_mapper.Map<TaskViewModel>(task));
+    }
+
+    public async Task<ServiceResult<TaskListWithTasksViewModel>> CreateTaskList(CreateTaskListRequest request, CancellationToken cancellationToken)
     {
         var validationProblemDetails = ValidationHelper.Validate(request);
 
         if (validationProblemDetails != null)
         {
-            return ServiceResult<TaskListViewModel>.Failed(validationProblemDetails);
+            return ServiceResult<TaskListWithTasksViewModel>.Failed(validationProblemDetails);
         }
 
         var taskList = new TaskList(_userInfo.UserId, Guid.NewGuid(), request.Name);
 
         await _taskListsRepository.SaveAsync(_userInfo, taskList, cancellationToken);
 
-        return ServiceResult<TaskListViewModel>.Success(_mapper.Map<TaskListViewModel>(taskList));
+        return ServiceResult<TaskListWithTasksViewModel>.Success(_mapper.Map<TaskListWithTasksViewModel>(taskList));
     }
 
     public async Task<ServiceResult<TaskListViewModel>> GetTaskListById(Guid taskListId, CancellationToken cancellationToken)
     {
-        var taskList = await _taskListsRepository.LoadAsync(taskListId, PartitionKeys.GetTaskListPartitionKey(), cancellationToken);
+        var taskList = await _taskListsRepository.LoadAsync(taskListId, _userInfo.UserId.ToString(), cancellationToken);
 
         if (taskList == null)
         {
@@ -68,20 +90,34 @@ public class TaskListsService : ITaskListsService
     }
 
     public async Task<ServiceResult<List<TaskListViewModel>>> GetTaskLists(
-        string search,
-        int limit,
-        int offset,
-        CancellationToken cancellationToken
+        string? search = null,
+        int limit = 100,
+        int offset = 0,
+        CancellationToken cancellationToken = default
     )
     {
         var projectionQuery = ProjectionQueryExpressionExtensions.Where<TaskListProjectionItem>(t => t.UserAccountId == _userInfo.UserId);
-        projectionQuery.SearchText = search;
+        
+        if (search != null)
+        {
+            projectionQuery.SearchText = search;
+        }
+
         projectionQuery.Limit = limit;
         projectionQuery.Offset = offset;
 
+        projectionQuery.OrderBy = new List<SortInfo>()
+        {
+            new SortInfo()
+            {
+                KeyPath = nameof(TaskListProjectionItem.Position),
+                Order = "asc"
+            }
+        };
+
         var taskLists = await _taskListsProjectionRepository.Query(
             projectionQuery,
-            PartitionKeys.GetTaskListPartitionKey(),
+            _userInfo.UserId.ToString(),
             cancellationToken
         );
 
@@ -89,7 +125,46 @@ public class TaskListsService : ITaskListsService
             _mapper.Map<List<TaskListViewModel>>(taskLists.Records.Select(r => r.Document))
         );
     }
-    
+
+    public async Task<ServiceResult<List<TaskListWithTasksViewModel>>> GetTaskListsWithTasks(
+        string? search = null,
+        int limit = 100,
+        int offset = 0,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var a = _activitySource.StartActivity("GetTaskListsWithTasks");
+
+        a?.AddEvent(new ActivityEvent("Getting task lists"));
+        var taskListsResult = await GetTaskLists(search, limit, offset, cancellationToken);
+        a?.AddEvent(new ActivityEvent("Received task lists"));
+
+        if (!taskListsResult.Succeed)
+        {
+            a?.AddEvent(new ActivityEvent("Failed"));
+            return ServiceResult<List<TaskListWithTasksViewModel>>.Failed(taskListsResult.ProblemDetails!);
+        }
+
+        a?.AddEvent(new ActivityEvent("Getting tasks"));
+        var tasksResult = await GetTasks(string.Join( ",", taskListsResult.Result!.Select(tl => tl.Id.ToString())), cancellationToken);
+        a?.AddEvent(new ActivityEvent("Received tasks"));
+        
+        if (!tasksResult.Succeed)
+        {
+            return ServiceResult<List<TaskListWithTasksViewModel>>.Failed(tasksResult.ProblemDetails!);
+        }
+
+        var taskListsWithTasks = _mapper.Map<List<TaskListWithTasksViewModel>>(taskListsResult.Result);
+        
+        foreach (var taskList in tasksResult.Result!)
+        {
+            var list = taskListsWithTasks.First(tl => tl.Id == taskList.Key);
+            list.Tasks.AddRange(taskList.Value);
+        }
+
+        return ServiceResult<List<TaskListWithTasksViewModel>>.Success(taskListsWithTasks);
+    }
+
     public async Task<ServiceResult<TaskListViewModel>> UpdateTaskListName(
         Guid taskListId, UpdateTaskListNameRequest request, CancellationToken cancellationToken
     )
@@ -101,7 +176,7 @@ public class TaskListsService : ITaskListsService
             return ServiceResult<TaskListViewModel>.Failed(validationProblemDetails);
         }
 
-        var taskList = await _taskListsRepository.LoadAsync(taskListId, PartitionKeys.GetTaskListPartitionKey(), cancellationToken);
+        var taskList = await _taskListsRepository.LoadAsync(taskListId, _userInfo.UserId.ToString(), cancellationToken);
 
         if (taskList == null)
         {
@@ -124,7 +199,7 @@ public class TaskListsService : ITaskListsService
             return ServiceResult<TaskViewModel>.Failed(validationProblemDetails);
         }
 
-        var taskList = await _taskListsRepository.LoadAsync(request.TaskListId.GetValueOrDefault(), PartitionKeys.GetTaskListPartitionKey(), cancellationToken);
+        var taskList = await _taskListsRepository.LoadAsync(request.TaskListId.GetValueOrDefault(), _userInfo.UserId.ToString(), cancellationToken);
 
         if (taskList == null)
         {
@@ -154,7 +229,7 @@ public class TaskListsService : ITaskListsService
 
         var tasks = await _tasksProjectionRepository.Query(
             projectionQuery,
-            PartitionKeys.GetTaskPartitionKey(),
+            _userInfo.UserId.ToString(),
             cancellationToken
         );
 
@@ -195,7 +270,7 @@ public class TaskListsService : ITaskListsService
         
         var tasks = await _tasksProjectionRepository.Query(
             projectionQuery,
-            PartitionKeys.GetTaskPartitionKey(),
+            _userInfo.UserId.ToString(),
             cancellationToken
         );
 

@@ -8,6 +8,8 @@ namespace CloudFabric.EventSourcing.AspNet;
 
 public class EventSourcingBuilder : IEventSourcingBuilder
 {
+    public string EventStoreKey { get; set; }
+    
     public IEventStore EventStore { get; set; }
 
     public IServiceCollection Services { get; set; }
@@ -17,6 +19,7 @@ public class EventSourcingBuilder : IEventSourcingBuilder
     public Type[]? ProjectionBuilderTypes { get; set; }
 
     public EventsObserver ProjectionEventsObserver { get; set; }
+    
 
     public dynamic ConstructProjectionBuilder(
         Type projectionBuilderType,
@@ -76,5 +79,20 @@ public class EventSourcingBuilder : IEventSourcingBuilder
         }
 
         return projectionBuilder;
+    }
+
+    public async Task InitializeEventStore(IServiceProvider serviceProvider)
+    {
+        using var initScope = serviceProvider.CreateScope();
+        var eventStore = initScope.ServiceProvider.GetRequiredKeyedService<IEventStore>(EventStoreKey);
+        await eventStore.Initialize();
+    }
+
+    public async Task EnsureProjectionIndexFor<T>(IServiceProvider serviceProvider) where T : ProjectionDocument
+    {
+        using var initScope = serviceProvider.CreateScope();
+        var projectionsRepositoryFactory = initScope.ServiceProvider.GetRequiredKeyedService<ProjectionRepositoryFactory>(EventStoreKey);
+        var userAccountsProjectionRepository = projectionsRepositoryFactory.GetProjectionRepository<T>();
+        await userAccountsProjectionRepository.EnsureIndex();
     }
 }

@@ -16,32 +16,32 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
     {
     }
 
-    public async Task On(OrderItemAdded @event)
+    public async Task On(OrderItemAdded evt)
     {
-        await UpdateDocument(@event.AggregateId,
-            @event.PartitionKey,
-            @event.Timestamp,
+        await UpdateDocument(evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
             (orderProjection) => 
             {
                 orderProjection.Items.Add(new OrderListProjectionOrderItem
                 {
-                    Name = @event.Item.Name,
-                    Amount = @event.Item.Amount,
-                    AddedAt = @event.Item.AddedAt
+                    Name = evt.Item.Name,
+                    Amount = evt.Item.Amount,
+                    AddedAt = evt.Item.AddedAt
                 });
 
                 orderProjection.ItemsCount++;
             });
     }
 
-    public async Task On(OrderItemRemoved @event)
+    public async Task On(OrderItemRemoved evt)
     {
-        await UpdateDocument(@event.AggregateId,
-            @event.PartitionKey,
-            @event.Timestamp,
+        await UpdateDocument(evt.AggregateId,
+            evt.PartitionKey,
+            evt.Timestamp,
             (orderProjection) =>
             {
-                var item = orderProjection.Items.FirstOrDefault(x => x.Name == @event.Item.Name);
+                var item = orderProjection.Items.FirstOrDefault(x => x.Name == evt.Item.Name);
 
                 if (item != null)
                 {
@@ -52,16 +52,16 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
             });
     }
 
-    public async Task On(OrderPlaced @event)
+    public async Task On(OrderPlaced evt)
     {
         var projectionItem = new OrderListProjectionItem()
         {
-            Id = @event.AggregateId,
-            Name = @event.OrderName,
-            ItemsCount = @event.Items.Count
+            Id = evt.AggregateId,
+            Name = evt.OrderName,
+            ItemsCount = evt.Items.Count
         };
 
-        projectionItem.Items = @event.Items.Select(
+        projectionItem.Items = evt.Items.Select(
             x =>
             new OrderListProjectionOrderItem
             {
@@ -73,15 +73,15 @@ public class OrdersListProjectionBuilder : ProjectionBuilder<OrderListProjection
 
         projectionItem.CreatedBy = new OrderListProjectionUserInfo
         {
-            UserId = @event.CreatedById,
-            Email = @event.CreatedByEmail
+            UserId = evt.CreatedById,
+            Email = evt.CreatedByEmail
         };
 
-        await UpsertDocument(projectionItem, @event.PartitionKey, @event.Timestamp);
+        await UpsertDocument(projectionItem, evt.PartitionKey, evt.Timestamp);
     }
 
-    public async Task On(AggregateUpdatedEvent<Order> @event)
+    public async Task On(AggregateUpdatedEvent<Order> evt)
     {
-        await SetDocumentUpdatedAt(@event.AggregateId, @event.PartitionKey, @event.UpdatedAt);
+        await SetDocumentUpdatedAt(evt.AggregateId, evt.PartitionKey, evt.UpdatedAt);
     }
 }

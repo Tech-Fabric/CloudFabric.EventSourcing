@@ -7,6 +7,8 @@ namespace CloudFabric.EventSourcing.AspNet;
 
 public interface IEventSourcingBuilder
 {
+    string EventStoreKey { get; set; }
+    
     IEventStore EventStore { get; set; }
 
     IServiceCollection Services { get; set; }
@@ -24,4 +26,7 @@ public interface IEventSourcingBuilder
         IServiceProvider serviceProvider,
         ProjectionOperationIndexSelector indexSelector
     );
+
+    Task InitializeEventStore(IServiceProvider serviceProvider);
+    Task EnsureProjectionIndexFor<T>(IServiceProvider serviceProvider) where T : ProjectionDocument;
 }

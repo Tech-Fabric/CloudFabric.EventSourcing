@@ -58,42 +58,59 @@ public abstract class EventsObserver
         Func<int, IEvent, Task>? chunkProcessedCallback = null,
         CancellationToken cancellationToken = default
     ) {
-        _logger.LogInformation("Replaying events {InstanceName} from {DateFrom}",
+        _logger.LogInformation("Replaying events on {InstanceName} starting from timestamp: {DateFrom}",
             instanceName,
             dateFrom
         );
         
         var lastEventDateTime = dateFrom;
         var totalEventsProcessed = 0;
+        var totalTime = TimeSpan.Zero;
         
         while (true)
         {
+            var loadEventsWatch = System.Diagnostics.Stopwatch.StartNew();
+            
             var chunk = await _eventStore.LoadEventsAsync(
                 partitionKey, 
                 lastEventDateTime, 
                 chunkSize, 
                 cancellationToken
             );
+            
+            loadEventsWatch.Stop();
 
             if (chunk.Count <= 0)
             {
+                _logger.LogInformation(
+                    "Finished replaying events on {InstanceName} starting from timestamp: {DateFrom}, total events processed: {TotalEventsProcessed}, " +
+                    "time took: {TotalTimeTook}",
+                    instanceName, dateFrom, totalEventsProcessed, totalTime
+                );
+                
                 break;
             }
+            
+            var applyEventsWatch = System.Diagnostics.Stopwatch.StartNew();
 
             foreach (var @event in chunk)
             {
                 await EventStoreOnEventAdded(@event);
             }
+            
+            applyEventsWatch.Stop();
 
             var lastEvent = chunk.Last();
             lastEventDateTime = lastEvent.Timestamp;
             totalEventsProcessed += chunk.Count;
+            totalTime = totalTime.Add(loadEventsWatch.Elapsed).Add(applyEventsWatch.Elapsed);
                 
             _logger.LogInformation(
-                "Replayed {ReplayedEventsCount} {InstanceName}, " +
+                "Replayed chunk of {ReplayedEventsCount} on {InstanceName}, " +
+                "reading chunk took {ReadingEventsMs}ms, applying events took {ApplyEventsMs}ms, " +
                 "last event timestamp: {LastEventDateTime}", 
-                chunk.Count, 
-                instanceName,
+                chunk.Count, instanceName,
+                loadEventsWatch.ElapsedMilliseconds, applyEventsWatch.ElapsedMilliseconds,
                 lastEvent.Timestamp
             );
 

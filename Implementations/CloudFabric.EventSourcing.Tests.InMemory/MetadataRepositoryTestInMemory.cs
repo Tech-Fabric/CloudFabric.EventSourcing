@@ -5,15 +5,15 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace CloudFabric.EventSourcing.Tests.InMemory;
 
 [TestClass]
-public class ItemTestInMemory : ItemTests
+public class MetadataRepositoryTestInMemory : MetadataRepositoryTests
 {
-    private InMemoryStore? _store = null;
+    private InMemoryMetadataRepository? _store = null;
 
-    protected override async Task<IStore> GetStore()
+    protected override async Task<IMetadataRepository> GetStore()
     {
         if (_store == null)
         {
-            _store = new InMemoryStore(                
+            _store = new InMemoryMetadataRepository(                
                 new Dictionary<(string, string), string>()
             );
             await _store.Initialize();

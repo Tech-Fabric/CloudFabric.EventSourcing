@@ -1,0 +1,28 @@
+<div class="dropdown text-end" hx-get="/authentication/header" hx-trigger="authenticationStateChanged from:body">
+    @if(User.Identity.IsAuthenticated)
+    {
+    <a href="#" class="d-block link-dark text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+        Account
+    </a>
+    <ul class="dropdown-menu text-small" style="">
+        <li>
+            <a class="dropdown-item" href="#" hx-post="@Url.Action("SignOut", "Authentication")">Sign out</a>
+        </li>
+    </ul>
+    }
+    else
+    {
+    <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
+        <li>
+            <a href="/authentication" class="nav-link text-dark px-2 link-body-emphasis">
+                Login
+            </a>
+        </li>
+        <li>
+            <a href="/registration" class="nav-link text-dark px-2 link-body-emphasis">
+                Register
+            </a>
+        </li>
+    </ul>
+    }
+</div>

@@ -1,6 +1,5 @@
-using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.Domain;
-using CloudFabric.EventSourcing.EventStore.Enums;
+using CloudFabric.EventSourcing.EventStore;
 using CloudFabric.EventSourcing.EventStore.Postgresql;
 using CloudFabric.Projections;
 using CloudFabric.Projections.Postgresql;
@@ -15,7 +14,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
         public IEventStore EventStore { get; set; }
         public EventsObserver EventsObserver { get; set; }
         public ProjectionsEngine? ProjectionsEngine { get; set; }
-        public IStoreRepository StoreRepository { get; set; }
+        public IMetadataRepository MetadataRepository { get; set; }
     }
 
     public static class ServiceCollectionExtensions
@@ -24,33 +23,40 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
             this IServiceCollection services,
             string eventsConnectionString,
             string eventsTableName,
-            string itemsTableName
+            string metadataTableName
         )
         {
             return services.AddPostgresqlEventStore(
-                (sp) =>
-                    new PostgresqlEventStoreStaticConnectionInformationProvider(eventsConnectionString, eventsTableName, itemsTableName)
+                eventsTableName,
+                (sp) => new PostgresqlEventStoreStaticConnectionInformationProvider(
+                    eventsConnectionString, eventsTableName, metadataTableName
+                )
             );
         }
 
         public static IEventSourcingBuilder AddPostgresqlEventStore(
             this IServiceCollection services,
+            string eventStoreKey,
             Func<IServiceProvider, IPostgresqlEventStoreConnectionInformationProvider> connectionInformationProviderFactory
         )
         {
             var builder = new EventSourcingBuilder
             {
+                EventStoreKey = eventStoreKey,
                 Services = services
             };
 
-            services.AddScoped<IPostgresqlEventStoreConnectionInformationProvider>(connectionInformationProviderFactory);
+            services.AddKeyedScoped<IPostgresqlEventStoreConnectionInformationProvider>(
+                eventStoreKey, (provider, o) => connectionInformationProviderFactory(provider)
+            );
 
-            services.AddScoped<PostgresqlEventSourcingScope>(
-                (sp) =>
+            services.AddKeyedScoped<PostgresqlEventSourcingScope>(
+                eventStoreKey,
+                (sp, key) =>
                 {
                     var scope = new PostgresqlEventSourcingScope();
 
-                    var connectionInformationProvider = sp.GetRequiredService<IPostgresqlEventStoreConnectionInformationProvider>();
+                    var connectionInformationProvider = sp.GetRequiredKeyedService<IPostgresqlEventStoreConnectionInformationProvider>(eventStoreKey);
 
                     scope.EventStore = new PostgresqlEventStore(connectionInformationProvider);
 
@@ -59,10 +65,10 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                         sp.GetRequiredService<ILogger<PostgresqlEventStoreEventObserver>>()
                     );
 
-                    var projectionsRepositoryFactory = sp.GetService<ProjectionRepositoryFactory>();
+                    var projectionsRepositoryFactory = sp.GetKeyedService<ProjectionRepositoryFactory>(eventStoreKey);
 
                     // Postgresql's event observer is synchronous - it just handles all calls to npgsql commands, there is no delay
-                    // or log processing. That means that all events are happening in request context and we cannot have one global projections builder.
+                    // or log processing. That means that all events are happening in request context, and we cannot have one global projections builder.
                     // There was an option to have one global projections builder with thread safe queues, but for now, creating a builder for every request 
                     // should just work.
                     if (projectionsRepositoryFactory != null)
@@ -89,74 +95,62 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                         scope.ProjectionsEngine.StartAsync(connectionInformationProvider.GetConnectionInformation().ConnectionId).GetAwaiter().GetResult();
                     }
 
-                    scope.StoreRepository = new StoreRepository(new PostgresqlStore(connectionInformationProvider));
+                    scope.MetadataRepository = new PostgresqlMetadataRepository(connectionInformationProvider);
 
                     return scope;
                 }
             );
 
-            services.AddScoped<IEventStore>(
-                (sp) =>
+            services.AddKeyedScoped<IEventStore>(
+                eventStoreKey,
+                (sp, key) =>
                 {
-                    var eventSourcingScope = sp.GetRequiredService<PostgresqlEventSourcingScope>();
+                    var eventSourcingScope = sp.GetRequiredKeyedService<PostgresqlEventSourcingScope>(key);
 
                     return eventSourcingScope.EventStore;
                 }
             );
             
-            services.AddScoped<EventsObserver>(
-                (sp) =>
+            services.AddKeyedScoped<EventsObserver>(
+                eventStoreKey,
+                (sp, key) =>
                 {
-                    var eventSourcingScope = sp.GetRequiredService<PostgresqlEventSourcingScope>();
+                    var eventSourcingScope = sp.GetRequiredKeyedService<PostgresqlEventSourcingScope>(key);
 
                     return eventSourcingScope.EventsObserver;
                 }
             );
 
-            services.AddScoped<AggregateRepositoryFactory>(
-                (sp) =>
+            services.AddKeyedScoped<AggregateRepositoryFactory>(
+                eventStoreKey,
+                (sp, key) =>
                 {
-                    var eventSourcingScope = sp.GetRequiredService<PostgresqlEventSourcingScope>();
+                    var eventSourcingScope = sp.GetRequiredKeyedService<PostgresqlEventSourcingScope>(key);
 
                     return new AggregateRepositoryFactory(eventSourcingScope.EventStore);
                 }
             );
 
-            services.AddScoped<IStoreRepository>(
-                (sp) =>
+            services.AddKeyedScoped<IMetadataRepository>(
+                eventStoreKey,
+                (sp, key) =>
                 {
-                    var eventSourcingScope = sp.GetRequiredService<PostgresqlEventSourcingScope>();
+                    var eventSourcingScope = sp.GetRequiredKeyedService<PostgresqlEventSourcingScope>(key);
 
-                    return eventSourcingScope.StoreRepository;
+                    return eventSourcingScope.MetadataRepository;
                 }
             );
 
             return builder;
         }
 
-        /// <summary>
-        /// This extension overload initialize event store with default item event store table name.
-        /// </summary>
-        public static IEventSourcingBuilder AddPostgresqlEventStore(
-            this IServiceCollection services,
-            string eventsConnectionString,
-            string eventsTableName
-        )
-        {
-            return services.AddPostgresqlEventStore(
-                eventsConnectionString,
-                eventsTableName,
-                ItemsStoreNameDefaults.AddDefaultTableNameSuffix(eventsTableName)
-            );
-        }
-
         public static IEventSourcingBuilder AddRepository<TRepo>(this IEventSourcingBuilder builder)
             where TRepo : class
         {
             builder.Services.AddScoped(
-                sp =>
+                (sp) =>
                 {
-                    var eventStore = sp.GetRequiredService<IEventStore>();
+                    var eventStore = sp.GetRequiredKeyedService<IEventStore>(builder.EventStoreKey);
                     return ActivatorUtilities.CreateInstance<TRepo>(sp, new object[] { eventStore });
                 }
             );
@@ -167,22 +161,25 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
         public static IEventSourcingBuilder AddPostgresqlProjections(
             this IEventSourcingBuilder builder,
             string projectionsConnectionString,
+            bool includeDebugInformation = false,
             params Type[] projectionBuildersTypes
         )
         {
             builder.ProjectionsConnectionString = projectionsConnectionString;
             builder.ProjectionBuilderTypes = projectionBuildersTypes;
 
-            builder.Services.AddScoped<ProjectionRepositoryFactory>(
-                (sp) =>
+            builder.Services.AddKeyedScoped<ProjectionRepositoryFactory>(
+                builder.EventStoreKey,
+                (sp, key) =>
                 {
                     var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-                    var connectionInformationProvider = sp.GetRequiredService<IPostgresqlEventStoreConnectionInformationProvider>();
+                    var connectionInformationProvider = sp.GetRequiredKeyedService<IPostgresqlEventStoreConnectionInformationProvider>(key);
 
                     return new PostgresqlProjectionRepositoryFactory(
                         loggerFactory,
                         connectionInformationProvider.GetConnectionInformation().ConnectionString,
-                        connectionInformationProvider.GetConnectionInformation().ConnectionId
+                        connectionInformationProvider.GetConnectionInformation().ConnectionId,
+                        includeDebugInformation
                     );
                 }
             );
@@ -198,14 +195,16 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                     var rebuildProcessorScope = sp.CreateScope();
 
                     return new ProjectionsRebuildProcessor(
-                        rebuildProcessorScope.ServiceProvider.GetRequiredService<ProjectionRepositoryFactory>().GetProjectionsIndexStateRepository(),
+                        rebuildProcessorScope.ServiceProvider.GetRequiredKeyedService<ProjectionRepositoryFactory>(builder.EventStoreKey)
+                            .GetProjectionsIndexStateRepository(),
                         async (string connectionId) =>
                         {
-                            var connectionInformationProvider =
-                                rebuildProcessorScope.ServiceProvider.GetRequiredService<IPostgresqlEventStoreConnectionInformationProvider>();
+                            var connectionInformationProvider = rebuildProcessorScope.ServiceProvider
+                                .GetRequiredKeyedService<IPostgresqlEventStoreConnectionInformationProvider>(builder.EventStoreKey);
+                            
                             var connectionInformation = connectionInformationProvider.GetConnectionInformation(connectionId);
                             var eventStore = new PostgresqlEventStore(
-                                connectionInformation.ConnectionString, connectionInformation.TableName, connectionInformation.ItemsTableName
+                                connectionInformation.ConnectionString, connectionInformation.TableName, connectionInformation.MetadataTableName
                             );
 
                             var eventObserver = new PostgresqlEventStoreEventObserver(
@@ -219,7 +218,7 @@ namespace CloudFabric.EventSourcing.AspNet.Postgresql.Extensions
                             {
                                 var projectionBuilder = builder.ConstructProjectionBuilder(
                                     projectionBuilderType,
-                                    rebuildProcessorScope.ServiceProvider.GetRequiredService<ProjectionRepositoryFactory>(),
+                                    rebuildProcessorScope.ServiceProvider.GetRequiredKeyedService<ProjectionRepositoryFactory>(builder.EventStoreKey),
                                     new AggregateRepositoryFactory(eventStore),
                                     rebuildProcessorScope.ServiceProvider,
                                     ProjectionOperationIndexSelector.ProjectionRebuild
