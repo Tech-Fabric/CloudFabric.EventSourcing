@@ -16,7 +16,7 @@ ARG SONAR_HOST_URL=https://sonarcloud.io
 ARG SONAR_TOKEN
 ARG GITHUB_TOKEN
 RUN dotnet tool install --global dotnet-sonarscanner
-RUN apt-get update && apt-get install -y openjdk-11-jdk
+RUN apt-get update && apt-get install -y default-jdk
 #sonarcloud
 
 ENV PATH="/root/.dotnet/tools:${PATH}"
