@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0.202-bullseye-slim AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-bullseye-slim AS build
 
 RUN apt-get update
 

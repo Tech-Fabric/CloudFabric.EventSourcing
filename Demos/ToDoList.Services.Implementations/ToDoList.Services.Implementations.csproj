@@ -7,12 +7,12 @@
       <ProjectReference Include="..\..\CloudFabric.Projections\CloudFabric.Projections.csproj" />
     </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="automapper" Version="13.0.1" />
-      <PackageReference Include="microsoft.aspnetcore.identity" Version="2.2.0" />
-      <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+      <PackageReference Include="automapper" Version="14.0.0" />
+      <PackageReference Include="microsoft.aspnetcore.identity" Version="2.3.1" />
+      <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.6.1" />
     </ItemGroup>
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>

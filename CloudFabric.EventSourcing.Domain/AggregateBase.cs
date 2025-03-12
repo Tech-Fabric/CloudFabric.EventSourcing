@@ -45,13 +45,13 @@ public abstract class AggregateBase
     /// <summary>
     /// Aggregate's id is always a Guid.
     /// 
-    /// That is not always handy when we need an aggregate with unique identifier as it's id.
+    /// That is not always handy when we need an aggregate with unique identifier as its id.
     /// Good example is UserEmailAddress domain aggregate. We need to be able to query database by email address string,
     /// but the only way to query an aggregate is by Guid.
     ///
     /// For such situations we would override UserEmailAddress.Id and make it return the value of HashStringToGuid(emailAddress).
     ///
-    /// When querying we can simply create a new instance of an aggregate and use it's id.
+    /// When querying we can simply create a new instance of an aggregate and use its id.
     ///
     /// </summary>
     /// <example>
