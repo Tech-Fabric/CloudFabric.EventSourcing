@@ -34,10 +34,10 @@ RUN apt-get install -y postgresql postgresql-client postgresql-contrib
 
 USER postgres
 
-RUN echo "local   all   all               md5" >> /etc/postgresql/13/main/pg_hba.conf &&\
-    echo "host    all   all   0.0.0.0/0   md5" >> /etc/postgresql/13/main/pg_hba.conf
+RUN echo "local   all   all               md5" >> /etc/postgresql/15/main/pg_hba.conf &&\
+    echo "host    all   all   0.0.0.0/0   md5" >> /etc/postgresql/15/main/pg_hba.conf
 
-RUN echo "listen_addresses='*'" >> /etc/postgresql/13/main/postgresql.conf
+RUN echo "listen_addresses='*'" >> /etc/postgresql/15/main/postgresql.conf
 RUN service postgresql start \
     && psql --command "CREATE ROLE cloudfabric_eventsourcing_test WITH CREATEDB NOSUPERUSER NOCREATEROLE INHERIT NOREPLICATION CONNECTION LIMIT -1 LOGIN PASSWORD 'cloudfabric_eventsourcing_test';" \
     && psql --command "DROP DATABASE IF EXISTS cloudfabric_eventsourcing_test;" \
