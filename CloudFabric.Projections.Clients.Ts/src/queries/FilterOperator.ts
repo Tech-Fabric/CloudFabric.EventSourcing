@@ -1,5 +1,6 @@
 export enum FilterOperator {
     Equal = "eq",
+    EqualIgnoreCase = "eq-ignor-case",
     NotEqual = "ne",
     Greater = "gt",
     GreaterOrEqual = "ge",
@@ -11,5 +12,6 @@ export enum FilterOperator {
     StartsWithIgnoreCase = "string-starts-with-ignore-case",
     EndsWithIgnoreCase = "string-ends-with-ignore-case",
     ContainsIgnoreCase = "string-contains-ignore-case",
-    ArrayContains = "array-contains"
+    ArrayContains = "array-contains",
+    ArrayContainsIgnoreCase = "array-contains-ignor-case"
 }
